@@ -1,4 +1,4 @@
-//! Work Quarterdeck starts on a PR, or on an item linking a GitHub issue, runs in that repo's project,
+//! Work Meatpuppet starts on a PR, or on an item linking a GitHub issue, runs in that repo's project,
 //! in a git worktree of its own per item. The user's checkout is never touched, and the project's
 //! own Claude settings apply. A worktree lives while its item is open.
 
@@ -51,7 +51,7 @@ impl Workspace {
         session.cwd.as_deref().map(PathBuf::from) == Some(self.dir.clone())
     }
 
-    /// The branch Quarterdeck makes to fix an issue.
+    /// The branch Meatpuppet makes to fix an issue.
     pub fn issue_branch(&self) -> String {
         format!("issue-{}", self.number)
     }

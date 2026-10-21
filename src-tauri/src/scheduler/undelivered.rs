@@ -14,7 +14,7 @@ use crate::store::{events, items, urgent};
 use crate::work;
 
 const WHY: &str = "no Claude session holds it, and there's no checkout of its repo on this machine \
-                   (tell Quarterdeck where it is with set_project)";
+                   (tell Meatpuppet where it is with set_project)";
 
 pub fn report(conn: &Connection, answered: &Answered, now: DateTime<Utc>) -> AppResult<()> {
     let item = items::get(conn, &answered.ask.item_id)?;

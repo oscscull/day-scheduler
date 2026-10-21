@@ -20,7 +20,7 @@ pub fn build(handle: &AppHandle) -> AppResult<TrayIcon> {
     let menu = Menu::with_items(
         handle,
         &[
-            &MenuItem::with_id(handle, OPEN, "Open Quarterdeck", true, None::<&str>)?,
+            &MenuItem::with_id(handle, OPEN, "Open Meatpuppet", true, None::<&str>)?,
             &PredefinedMenuItem::separator(handle)?,
             &MenuItem::with_id(
                 handle,
@@ -31,12 +31,12 @@ pub fn build(handle: &AppHandle) -> AppResult<TrayIcon> {
             )?,
             &MenuItem::with_id(handle, RESUME, "Resume all", true, None::<&str>)?,
             &PredefinedMenuItem::separator(handle)?,
-            &MenuItem::with_id(handle, QUIT, "Quit Quarterdeck", true, None::<&str>)?,
+            &MenuItem::with_id(handle, QUIT, "Quit Meatpuppet", true, None::<&str>)?,
         ],
     )?;
     let mut builder = TrayIconBuilder::with_id(ID)
         .menu(&menu)
-        .tooltip("Quarterdeck")
+        .tooltip("Meatpuppet")
         .on_menu_event(|h, e| on_menu(h, &e));
     if let Some(icon) = handle.default_window_icon() {
         builder = builder.icon(icon.clone());

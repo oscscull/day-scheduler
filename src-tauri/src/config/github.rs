@@ -20,7 +20,7 @@ pub struct GithubSettings {
     pub self_review: Vec<String>,
     /// When CI fails on a PR nobody is on, and no `ci_failed` schedule covers it, hand it to Claude.
     pub fix_ci: bool,
-    /// Claude Code tools that run may use, besides the Quarterdeck tools.
+    /// Claude Code tools that run may use, besides the Meatpuppet tools.
     pub fix_ci_tools: Vec<String>,
     /// Owner or repo to the names of checks that only inform (e.g. a visual-diff report). Their
     /// failures don't count as CI failing; they're noted on the item instead.

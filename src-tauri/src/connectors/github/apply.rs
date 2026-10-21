@@ -1,4 +1,4 @@
-//! Writes PRs into Quarterdeck as items, respecting edits made since the last sync.
+//! Writes PRs into Meatpuppet as items, respecting edits made since the last sync.
 
 use std::collections::HashSet;
 

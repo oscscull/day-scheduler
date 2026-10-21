@@ -19,7 +19,7 @@ const QUERY: &str = "query($q: String!) { search(query: $q, type: ISSUE, first: 
       __typename ... on CheckRun { name status conclusion } \
       ... on StatusContext { context state description } } } } } } } } } } }";
 
-/// One open PR, flattened to what Quarterdeck needs.
+/// One open PR, flattened to what Meatpuppet needs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pr {
     pub repo: String,

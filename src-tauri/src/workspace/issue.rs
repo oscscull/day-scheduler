@@ -1,4 +1,4 @@
-//! An issue's text, fetched by Quarterdeck for the run that fixes it: a project's sandbox may keep
+//! An issue's text, fetched by Meatpuppet for the run that fixes it: a project's sandbox may keep
 //! Claude off GitHub.
 
 use serde::Deserialize;

@@ -1,4 +1,4 @@
-//! Where Quarterdeck keeps things. Shared by the app and the MCP server so both see the same data.
+//! Where Meatpuppet keeps things. Shared by the app and the MCP server so both see the same data.
 
 use std::path::PathBuf;
 

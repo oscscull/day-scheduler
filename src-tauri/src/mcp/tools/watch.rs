@@ -12,11 +12,11 @@ use crate::store::{items, watch};
 use crate::work;
 
 const CLAIM: &str = "Say you're working on an item. Call this when you start. Pass your Claude Code session id and \
-working directory, so Quarterdeck can resume your session with CI results, answers and check-ins. Then post progress as it happens: add_note for steps, update_item for the \
-state label, add_ask when you need the user. Don't poll CI: when it finishes on this item, Quarterdeck \
+working directory, so Meatpuppet can resume your session with CI results, answers and check-ins. Then post progress as it happens: add_note for steps, update_item for the \
+state label, add_ask when you need the user. Don't poll CI: when it finishes on this item, Meatpuppet \
 resumes your session with the result. Long silences get a check-in; repeated silence is flagged \
 to the user.";
-const SETTINGS: &str = "Tunes the watchdog: how long an item Claude holds may go without an update before Quarterdeck \
+const SETTINGS: &str = "Tunes the watchdog: how long an item Claude holds may go without an update before Meatpuppet \
 checks in (quiet_minutes), how many check-ins before it tells the user instead (max_nudges), or \
 turns it off. Only the fields you pass change.";
 
@@ -30,7 +30,7 @@ pub fn tools() -> Vec<Tool> {
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ClaimArgs {
     id: String,
-    /// Your Claude Code session (id and working directory), so Quarterdeck can resume you with CI
+    /// Your Claude Code session (id and working directory), so Meatpuppet can resume you with CI
     /// results, answers and check-ins.
     session: Option<SessionRef>,
 }

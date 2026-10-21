@@ -9,10 +9,10 @@ use tokio::process::Command;
 use crate::cli;
 use crate::error::{AppError, AppResult};
 
-/// Lets a headless run use every Quarterdeck tool without asking.
+/// Lets a headless run use every Meatpuppet tool without asking.
 const QUARTERDECK_TOOLS: &str = "mcp__quarterdeck";
 
-/// The Quarterdeck MCP server for a headless run: this same binary, started with `mcp`.
+/// The Meatpuppet MCP server for a headless run: this same binary, started with `mcp`.
 fn quarterdeck_server() -> AppResult<String> {
     let exe = std::env::current_exe()?;
     let config = serde_json::json!({
@@ -24,7 +24,7 @@ fn quarterdeck_server() -> AppResult<String> {
 /// How to run one headless Claude call.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Ask<'a> {
-    /// Claude Code tools it may use without asking, besides the Quarterdeck tools.
+    /// Claude Code tools it may use without asking, besides the Meatpuppet tools.
     pub tools: &'a [String],
     pub session: Session<'a>,
     /// The folder to run in. A resumed session must run where it started.
@@ -40,13 +40,13 @@ pub enum Session<'a> {
     /// A throwaway session.
     #[default]
     Fresh,
-    /// A new session with this id, so Quarterdeck can come back to it later.
+    /// A new session with this id, so Meatpuppet can come back to it later.
     Start(&'a str),
     /// Continue an existing session with its own context.
     Resume(&'a str),
 }
 
-/// Sends one prompt and returns Claude's reply text. The Quarterdeck tools are always available.
+/// Sends one prompt and returns Claude's reply text. The Meatpuppet tools are always available.
 pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<String> {
     let mut allowed = vec![QUARTERDECK_TOOLS.to_owned()];
     allowed.extend_from_slice(opts.tools);
@@ -78,7 +78,7 @@ pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<
     }
 }
 
-/// Sends one prompt with only the Quarterdeck tools.
+/// Sends one prompt with only the Meatpuppet tools.
 pub async fn ask(command: &str, prompt: &str) -> AppResult<String> {
     ask_with(command, prompt, &Ask::default()).await
 }

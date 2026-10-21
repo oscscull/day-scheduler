@@ -1,4 +1,4 @@
-//! An item whose PR Quarterdeck opened (an issue it fixed) becomes that PR's item, so syncs update
+//! An item whose PR Meatpuppet opened (an issue it fixed) becomes that PR's item, so syncs update
 //! it rather than adding a second one.
 
 use chrono::{DateTime, Utc};
@@ -52,7 +52,7 @@ pub fn adopt(
         ..items::get(conn, item_id)?
     };
     items::save(conn, &synced)?;
-    let text = format!("Quarterdeck opened {}", pr.url);
+    let text = format!("Meatpuppet opened {}", pr.url);
     events::record(conn, item_id, now, &Change::Note { text })?;
     let update = Activity {
         id: 0,

@@ -1,4 +1,4 @@
-//! A Model Context Protocol server over stdio, so any Claude session can read and change Quarterdeck.
+//! A Model Context Protocol server over stdio, so any Claude session can read and change Meatpuppet.
 //! Started as `<app binary> mcp`. It works on the same database and config folder as the app.
 
 mod ctx;
@@ -13,7 +13,7 @@ use serde_json::Value;
 
 use crate::error::{AppError, AppResult};
 
-/// Every Quarterdeck tool, for the MCP server and the peer server.
+/// Every Meatpuppet tool, for the MCP server and the peer server.
 pub fn registry() -> Vec<Tool> {
     tools::all()
 }

@@ -1,7 +1,7 @@
 use crate::claude::connect::{self, Connection};
 use crate::error::AppResult;
 
-/// Whether the user's own Claude Code sessions are connected to Quarterdeck, and how to connect them.
+/// Whether the user's own Claude Code sessions are connected to Meatpuppet, and how to connect them.
 #[tauri::command]
 pub fn claude_connection() -> AppResult<Connection> {
     connect::status()

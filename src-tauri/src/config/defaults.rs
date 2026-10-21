@@ -1,4 +1,4 @@
-//! Default config files, embedded in the binary and written on first run. A file Quarterdeck wrote and
+//! Default config files, embedded in the binary and written on first run. A file Meatpuppet wrote and
 //! nobody has edited since follows newer defaults; once edited, it is never overwritten.
 
 use std::collections::BTreeMap;
@@ -36,7 +36,7 @@ const FILES: [(&str, &str); 15] = [
 /// Folders that must exist even when empty.
 const DIRS: [&str; 2] = ["schedules", "inbox"];
 
-/// Quarterdeck's record of what it last wrote to each default file, as content fingerprints.
+/// Meatpuppet's record of what it last wrote to each default file, as content fingerprints.
 const LEDGER: &str = ".quarterdeck-defaults";
 
 /// Rewritten freely by people and agents, so never replaced once it exists.
@@ -59,14 +59,14 @@ fn read_ledger(root: &Path) -> BTreeMap<String, String> {
 }
 
 fn write_ledger(root: &Path, ledger: &BTreeMap<String, String>) -> AppResult<()> {
-    let header = "# Written by Quarterdeck: which default files it wrote, so it can update the unedited ones.\n";
+    let header = "# Written by Meatpuppet: which default files it wrote, so it can update the unedited ones.\n";
     let text = ledger.iter().fold(header.to_owned(), |acc, (path, hash)| {
         acc + path + " " + hash + "\n"
     });
     Ok(std::fs::write(root.join(LEDGER), text)?)
 }
 
-/// Whether to (re)write a default: missing, or unedited since Quarterdeck wrote an older version.
+/// Whether to (re)write a default: missing, or unedited since Meatpuppet wrote an older version.
 fn should_write(current: Option<&str>, recorded: Option<&String>, relative: &str) -> bool {
     match current {
         None => true,

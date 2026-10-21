@@ -1,13 +1,13 @@
-# Quarterdeck spec
+# Meatpuppet spec
 
-Reader: anyone (human or agent) changing Quarterdeck. Rewrite this when the design changes. Setup lives
+Reader: anyone (human or agent) changing Meatpuppet. Rewrite this when the design changes. Setup lives
 in [setup.md](setup.md).
 
 ## What it is
 
 A calm desktop app that holds the state and the clock for work and life done with Claude. Claude
-does the judgement work; Quarterdeck shows what's in flight, runs recurring jobs, and interrupts only
-when needed. Natural language is the main way in: the MCP server and Quarterdeck's own chat change
+does the judgement work; Meatpuppet shows what's in flight, runs recurring jobs, and interrupts only
+when needed. Natural language is the main way in: the MCP server and Meatpuppet's own chat change
 anything the UI shows.
 
 ## Hierarchy of attention
@@ -35,12 +35,12 @@ Connectors and schedules only act for areas this machine runs.
 - **Board**: items by stage. **In flight**: open items by who they wait on.
 - **Agent**: what's running, every schedule (toggle, edit, delete, run now, create by describing
   it), missed or failed runs, Pause all, connector and peer status, and the MCP connect command.
-- **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools.
+- **Ask Claude** bubble on every view, given that view's data and the Meatpuppet tools.
 
 ## Where things live
 
 - **Config folder** `~/.config/quarterdeck/`, editable by people and agents, re-read on each refresh:
-  `quarterdeck.toml` (settings, areas, connectors, sync), `prompts/*.md` (Quarterdeck's own Claude jobs),
+  `quarterdeck.toml` (settings, areas, connectors, sync), `prompts/*.md` (Meatpuppet's own Claude jobs),
   `schedules/<id>.md` (TOML front matter + instructions), `inbox/` (agent-raised urgent items,
   ingested and deleted), `pause.toml` (only while paused). Tools edit `quarterdeck.toml` in place,
   keeping comments, and roll back edits that would break it.
@@ -61,13 +61,13 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
 
 ## Running Claude
 
-`claude -p` on the user's subscription, with the Quarterdeck MCP tools always allowed. Schedules can use
+`claude -p` on the user's subscription, with the Meatpuppet MCP tools always allowed. Schedules can use
 other tools only when their file lists them in `allowed_tools`. The scheduler ticks every 30s:
 cron runs fire on time, runs missed while asleep are recorded and raised as urgent, and Pause all
 stops everything. Event triggers cost nothing until they fire.
 
-CI is Quarterdeck's to watch, never an agent's. When CI finishes on an item a Claude session claimed
-(`claim_item`), Quarterdeck resumes that session with the result (`prompts/ci-done.md`). A failure
+CI is Meatpuppet's to watch, never an agent's. When CI finishes on an item a Claude session claimed
+(`claim_item`), Meatpuppet resumes that session with the result (`prompts/ci-done.md`). A failure
 nobody is on, and no `ci_failed` schedule covers, goes to a new claimed session
 (`prompts/fix-ci.md`, `[github] fix_ci`).
 
@@ -83,14 +83,14 @@ get the answer, otherwise the answer stands as its state. Delivery itself follow
 that asked (or the one holding the item) with it (`prompts/answer.md`). Sessions are stored with
 their working directory, since Claude only resumes a session from the folder it ran in.
 
-Work Quarterdeck starts on a PR (fixing CI, acting on an answer) or on an item whose link is a
+Work Meatpuppet starts on a PR (fixing CI, acting on an answer) or on an item whose link is a
 GitHub issue runs in that repo's project when `[[projects]]` maps it to a checkout
 (`set_project`): in a git worktree per item under the data folder, in the permission mode
 `project_permission_mode` sets (default `auto`, as in the user's own sessions), with the
 project's `.claude/settings.local.json` copied in. A PR's worktree is detached at its head; an
 issue's is a new branch `issue-<n>` off the latest default branch, and the first run there also
 gets the issue's text (`prompts/issue-workspace.md`). The user's checkout is untouched. Since a
-project's sandbox may keep Claude off GitHub, Quarterdeck does that side when a run finishes and no
+project's sandbox may keep Claude off GitHub, Meatpuppet does that side when a run finishes and no
 question on the item is open: it pushes commits the branch doesn't have and, for an issue, opens a
 PR closing it (titled from the first commit) and makes the item that PR's, in review, so syncs and
 CI results follow it. A push that fails is noted on the item and raised as urgent. Worktrees are
@@ -99,11 +99,11 @@ code. An answer or message that no session and no worktree can take is never dro
 stops showing Claude as holding it, its history says why, and it's raised as urgent.
 
 `[queue]` lists items Claude works on one at a time (`set_queue`, `get_queue`). The first not yet
-in review or done is current: when it's up next, Quarterdeck marks it in progress and delivers
+in review or done is current: when it's up next, Meatpuppet marks it in progress and delivers
 `prompts/queue.md` to it like a message; the next waits until it reaches review or done. The
 watchdog leaves an item alone while a run is still working on it.
 
-Default prompt files Quarterdeck wrote and nobody has edited follow newer defaults
+Default prompt files Meatpuppet wrote and nobody has edited follow newer defaults
 (`.quarterdeck-defaults` records what it wrote); edited ones, and `quarterdeck.toml`, are left alone.
 
 ## Not built yet

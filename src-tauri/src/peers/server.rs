@@ -1,5 +1,5 @@
-//! Serves this machine's Quarterdeck to peers: `GET /v1/health` and `POST /v1/tools/<name>`, which runs
-//! a Quarterdeck tool exactly as the MCP server would. This machine only, or also the local network
+//! Serves this machine's Meatpuppet to peers: `GET /v1/health` and `POST /v1/tools/<name>`, which runs
+//! a Meatpuppet tool exactly as the MCP server would. This machine only, or also the local network
 //! (`[sync] lan`); never anywhere else. Every request needs the token.
 
 use std::io::Cursor;

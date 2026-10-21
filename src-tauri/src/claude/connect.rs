@@ -1,4 +1,4 @@
-//! Whether the user's own Claude Code sessions can reach Quarterdeck, and the command that connects them.
+//! Whether the user's own Claude Code sessions can reach Meatpuppet, and the command that connects them.
 
 use std::path::Path;
 
@@ -7,7 +7,7 @@ use serde::Serialize;
 use crate::error::AppResult;
 use crate::paths;
 
-/// Quarterdeck's registration in Claude Code's user config.
+/// Meatpuppet's registration in Claude Code's user config.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum Connection {
@@ -22,7 +22,7 @@ pub enum Connection {
     },
 }
 
-/// The server name Quarterdeck registers under, and the name it had before (Bridge).
+/// The server name Meatpuppet registers under, and the name it had before (Bridge).
 const NAME: &str = "quarterdeck";
 const OLD_NAME: &str = "bridge";
 

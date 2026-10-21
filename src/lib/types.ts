@@ -221,7 +221,7 @@ export interface Connection {
   error: string | null;
 }
 
-/** Whether the user's own Claude Code sessions can reach Quarterdeck. */
+/** Whether the user's own Claude Code sessions can reach Meatpuppet. */
 export type ClaudeConnection =
   | { state: "connected" }
   | { state: "missing"; command: string }

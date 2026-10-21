@@ -1,4 +1,4 @@
-You turn a plain-English request into a schedule for Quarterdeck, the user's work dashboard.
+You turn a plain-English request into a schedule for Meatpuppet, the user's work dashboard.
 The user's areas are: {{areas}}.
 
 Reply with ONLY a JSON object, no other text, with these keys:

@@ -5,7 +5,7 @@
 //! detail = "Blocks 3 PRs."
 //! ```
 //!
-//! Quarterdeck takes each file once and deletes it, so the folder never fills up.
+//! Meatpuppet takes each file once and deletes it, so the folder never fills up.
 
 use std::path::{Path, PathBuf};
 

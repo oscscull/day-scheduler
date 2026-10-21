@@ -15,7 +15,7 @@ use crate::views::agent::{self, AgentView};
 
 const LIST_SCHEDULES: &str = "Every recurring job, with when it runs next, its recent runs, what Claude is running now, \
              and whether everything is paused.";
-const CREATE_SCHEDULE: &str = "Creates a recurring job Quarterdeck runs through Claude. Give either `cron` (five fields: \
+const CREATE_SCHEDULE: &str = "Creates a recurring job Meatpuppet runs through Claude. Give either `cron` (five fields: \
              minute hour day month weekday) or `event`. Prefer an event when one fits: events cost \
              nothing until they happen. Runs can only read unless `allowed_tools` lists Claude Code \
              tools they may use, e.g. [\"Bash(gh pr comment:*)\"]. Returns the schedule's id.";

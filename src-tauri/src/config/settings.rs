@@ -10,7 +10,7 @@ use super::sync::SyncSettings;
 use super::watchdog::WatchdogSettings;
 use crate::error::AppResult;
 
-/// A part of life Quarterdeck keeps separate, e.g. Work, Personal projects, Life.
+/// A part of life Meatpuppet keeps separate, e.g. Work, Personal projects, Life.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Area {
     pub id: String,
@@ -39,7 +39,7 @@ pub struct Settings {
     pub github: GithubSettings,
     pub calendar: CalendarSettings,
     pub alerts: AlertSettings,
-    /// Start Quarterdeck when you log in, so schedules and alerts keep working.
+    /// Start Meatpuppet when you log in, so schedules and alerts keep working.
     pub launch_at_login: bool,
     pub sync: SyncSettings,
     pub watchdog: WatchdogSettings,

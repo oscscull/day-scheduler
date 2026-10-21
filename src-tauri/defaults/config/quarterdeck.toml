@@ -3,7 +3,7 @@
 # This machine's name. Each area below says which machine runs its schedules.
 node = "work-mac"
 
-# Start Quarterdeck when you log in, so schedules and alerts keep working. Closing the window keeps
+# Start Meatpuppet when you log in, so schedules and alerts keep working. Closing the window keeps
 # it running in the menu bar; quit from there.
 launch_at_login = true
 
@@ -27,7 +27,7 @@ done_todo_ttl_days = 1
 # Done work items, with their history, are deleted this long after they finish.
 done_item_ttl_days = 30
 
-# Areas of your life Quarterdeck keeps apart. Everything belongs to one. Rename, recolour or add more.
+# Areas of your life Meatpuppet keeps apart. Everything belongs to one. Rename, recolour or add more.
 # `node` is the machine that runs that area's schedules.
 [[areas]]
 id = "work"
@@ -47,7 +47,7 @@ name = "Life"
 color = "#2e8a47"
 node = "home-mac"
 
-# Your open PRs become items, through the `gh` command's existing login. Quarterdeck only rewrites a
+# Your open PRs become items, through the `gh` command's existing login. Meatpuppet only rewrites a
 # PR's title, stage and status when they change on GitHub, so your edits stick in between.
 [github]
 enabled = true
@@ -57,13 +57,13 @@ default_area = "work"
 ignore = []
 # Owners or repos where you review your own PRs. PRs with no requested reviewers already count.
 self_review = []
-# Quarterdeck reads CI state from GitHub itself (no tokens). When CI finishes on an item Claude has
-# claimed, Quarterdeck tells that Claude session, so agents never poll CI. When CI fails on a PR nobody
-# is on, and no ci_failed schedule covers it, Quarterdeck hands it to Claude (prompts/fix-ci.md).
+# Meatpuppet reads CI state from GitHub itself (no tokens). When CI finishes on an item Claude has
+# claimed, Meatpuppet tells that Claude session, so agents never poll CI. When CI fails on a PR nobody
+# is on, and no ci_failed schedule covers it, Meatpuppet hands it to Claude (prompts/fix-ci.md).
 fix_ci = true
 fix_ci_tools = ["Bash(gh pr checks:*)", "Bash(gh pr view:*)", "Bash(gh run view:*)", "Bash(gh run rerun:*)"]
 
-# Where repos are checked out on this machine. Work Quarterdeck starts on their PRs (fixing CI, acting
+# Where repos are checked out on this machine. Work Meatpuppet starts on their PRs (fixing CI, acting
 # on your answers), or on items linking their issues, runs there, in a worktree per item, with the
 # project's own Claude settings.
 # [[projects]]
@@ -73,7 +73,7 @@ fix_ci_tools = ["Bash(gh pr checks:*)", "Bash(gh pr view:*)", "Bash(gh run view:
 # Items Claude works on one at a time, in this order (set_queue). The first not yet in review or done
 # starts when it's up next (prompts/queue.md, delivered like "Tell Claude"); the next waits until it's
 # in review or done. An item linking a GitHub issue in a repo above gets a branch of its own, and
-# Quarterdeck pushes it and opens the PR when Claude finishes.
+# Meatpuppet pushes it and opens the PR when Claude finishes.
 [queue]
 items = []
 
@@ -89,7 +89,7 @@ items = []
 
 # Calendars become meetings on Today, alerted before they start. Use each calendar's private iCal
 # link (Google: Settings > your calendar > "Secret address in iCal format"). Hide or re-file any
-# event in Quarterdeck and the next sync keeps it that way.
+# event in Meatpuppet and the next sync keeps it that way.
 [calendar]
 poll_minutes = 15
 days_ahead = 14
@@ -109,7 +109,7 @@ enabled = true
 lead_minutes = 5
 linger_minutes = 3
 
-# Other machines running Quarterdeck. Each serves its own data on `port` (localhost only); expose it
+# Other machines running Meatpuppet. Each serves its own data on `port` (localhost only); expose it
 # with a tunnel you run (Tailscale, ngrok, ssh -L) and add it as a peer on the other machine.
 # Areas whose `node` is a peer show that machine's data here, and edits go back to it.
 [sync]
@@ -128,7 +128,7 @@ token = ""
 
 # Keeps Claude moving on items it holds. Agents post updates as they go; only an item that goes
 # quiet for quiet_minutes gets a check-in (resuming Claude's own session when it registered one),
-# at most max_nudges times before Quarterdeck flags it to you instead.
+# at most max_nudges times before Meatpuppet flags it to you instead.
 [watchdog]
 enabled = true
 quiet_minutes = 45

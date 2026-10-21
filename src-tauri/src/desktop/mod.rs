@@ -1,4 +1,4 @@
-//! Keeping Quarterdeck running quietly: a menu-bar icon, closing to it, and launching at login.
+//! Keeping Meatpuppet running quietly: a menu-bar icon, closing to it, and launching at login.
 //! The scheduler and meeting alerts only work while the app is open.
 
 pub mod login;

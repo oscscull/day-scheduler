@@ -12,7 +12,7 @@ use crate::error::AppResult;
 use crate::store::runs;
 use crate::workspace::{self, Kind, Workspace};
 
-/// Whether a run continues a session or starts one Quarterdeck can come back to.
+/// Whether a run continues a session or starts one Meatpuppet can come back to.
 #[derive(Debug, Clone)]
 pub enum Thread {
     Start(SessionRef),
@@ -34,7 +34,7 @@ pub struct Job {
     pub item_id: String,
     pub prompt: String,
     pub thread: Thread,
-    /// Claude Code tools it may use besides the Quarterdeck tools.
+    /// Claude Code tools it may use besides the Meatpuppet tools.
     pub tools: Vec<String>,
     /// The worktree to make first, for work in a project. Edits are allowed there.
     pub workspace: Option<Workspace>,

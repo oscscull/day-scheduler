@@ -1,4 +1,4 @@
-//! Writes calendar occurrences into Quarterdeck as meetings, respecting hides and re-filing.
+//! Writes calendar occurrences into Meatpuppet as meetings, respecting hides and re-filing.
 
 use std::collections::HashSet;
 

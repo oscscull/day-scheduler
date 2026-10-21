@@ -12,18 +12,18 @@ const UPSERT_AREA: &str = "Adds an area of life, or changes one by id: its name,
 machine (`node`) that runs its schedules. Use list_areas to see machine names.";
 const ADD_FEED: &str = "Adds a calendar from its private iCal link (Google: Settings > the calendar > \
 \"Secret address in iCal format\"), or replaces one with the same name. Its events become meetings in `area`.";
-const CALENDAR_RULES: &str = "Sets which calendar events Quarterdeck skips for every calendar: titles containing \
+const CALENDAR_RULES: &str = "Sets which calendar events Meatpuppet skips for every calendar: titles containing \
 any of `ignore_titles` (case-insensitive), and optionally all-day events. To hide a single event, use \
 update_meeting with hidden instead.";
 const MAP_GITHUB: &str = "Files PRs from a GitHub owner (e.g. \"my-org\") or repo (\"me/app\") under an area. \
 A repo entry beats its owner's.";
-const IGNORE_GITHUB: &str = "Sets the GitHub owners or repos whose PRs Quarterdeck skips entirely.";
+const IGNORE_GITHUB: &str = "Sets the GitHub owners or repos whose PRs Meatpuppet skips entirely.";
 const SELF_REVIEW: &str = "Sets the GitHub owners or repos where the user reviews their own PRs, so an unreviewed PR \
 shows as waiting on their decision rather than on reviewers. PRs nobody has been asked to review, or has reviewed, are \
 treated that way already.";
 
 const INFORMATIONAL: &str = "Sets which checks on an owner's or repo's PRs only inform, e.g. a visual-diff \
-report like \"reg\". Their failures don't count as CI failing (so Quarterdeck won't start a fix), and \
+report like \"reg\". Their failures don't count as CI failing (so Meatpuppet won't start a fix), and \
 their results are noted on the item instead. An empty list clears it.";
 
 pub fn tools() -> Vec<Tool> {

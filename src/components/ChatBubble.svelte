@@ -32,7 +32,7 @@
     error = "";
     try {
       messages.push({ from: "claude", text: await api.askClaude(page, chatContext.text, text) });
-      // Claude may have changed things through the Quarterdeck tools.
+      // Claude may have changed things through the Meatpuppet tools.
       changed();
     } catch (e) {
       error = t("chat.failed", { error: errorText(e) });

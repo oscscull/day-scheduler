@@ -1,4 +1,4 @@
-//! After Claude finishes in a worktree, Quarterdeck does the GitHub side: it pushes the commits and,
+//! After Claude finishes in a worktree, Meatpuppet does the GitHub side: it pushes the commits and,
 //! for an issue, opens the PR and makes the item that PR's. Nothing is published while a question
 //! on the item is open, since the work is waiting on the user.
 
@@ -46,7 +46,7 @@ fn record(
     match published {
         Ok(Published::Nothing) => Ok(()),
         Ok(Published::Pushed) => {
-            let text = "Quarterdeck pushed Claude's commits".to_owned();
+            let text = "Meatpuppet pushed Claude's commits".to_owned();
             events::record(conn, item_id, now, &Change::Note { text })
         }
         Ok(Published::Pr { number, url }) => {
@@ -58,7 +58,7 @@ fn record(
             github::adopt(conn, item_id, pr, now)
         }
         Err(e) => {
-            let text = format!("Quarterdeck couldn't push Claude's work or open its PR: {e}");
+            let text = format!("Meatpuppet couldn't push Claude's work or open its PR: {e}");
             events::record(conn, item_id, now, &Change::Note { text })?;
             let raised = Urgent {
                 id: 0,

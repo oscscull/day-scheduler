@@ -1,4 +1,4 @@
-//! `[[projects]]` in `quarterdeck.toml`: where a GitHub repo is checked out on this machine. Work Quarterdeck
+//! `[[projects]]` in `quarterdeck.toml`: where a GitHub repo is checked out on this machine. Work Meatpuppet
 //! starts on that repo's PRs runs there, in a worktree of its own.
 
 use std::path::PathBuf;

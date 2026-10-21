@@ -56,7 +56,7 @@
       <button type="button" class="button-primary small" disabled={busy} onclick={() => runNow(id)}>{t("urgent.runNow")}</button>
     {/if}
     {#if !item.node}
-      <!-- Quarterdeck's Claude acts on this machine, so it can only resolve local items. -->
+      <!-- Meatpuppet's Claude acts on this machine, so it can only resolve local items. -->
       <button type="button" class="button-secondary small" disabled={busy} onclick={() => (replying = !replying)}>{t("urgent.tell")}</button>
     {/if}
     <button type="button" class="quiet" disabled={busy} onclick={dismiss}>{t("urgent.dismiss")}</button>

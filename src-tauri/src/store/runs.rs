@@ -38,7 +38,7 @@ pub fn live(conn: &Connection) -> AppResult<Vec<Run>> {
 /// Runs still marked as going when the app starts can't be: their process ended with the app.
 pub fn close_interrupted(conn: &Connection, at: DateTime<Utc>) -> AppResult<()> {
     conn.execute(
-        "UPDATE runs SET finished_at = ?1, outcome = 'failed', summary = 'stopped when Quarterdeck quit'
+        "UPDATE runs SET finished_at = ?1, outcome = 'failed', summary = 'stopped when Meatpuppet quit'
          WHERE finished_at IS NULL",
         params![at],
     )?;

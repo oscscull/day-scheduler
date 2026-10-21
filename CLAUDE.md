@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Quarterdeck is a Tauri 2 desktop app that tracks work in flight and runs recurring
+Meatpuppet is a Tauri 2 desktop app that tracks work in flight and runs recurring
 Claude jobs. [docs/SPEC.md](docs/SPEC.md) describes the current design; [docs/setup.md](docs/setup.md)
 how to install it and connect machines.
 
@@ -12,7 +12,7 @@ how to install it and connect machines.
 - **No `unwrap`, `expect` or `panic!`** outside tests. Return `AppError`.
 - **Single responsibility, aggressively.** One concern per file. Short functions (clippy enforces it).
   If you want a section comment, split the file.
-- **Behaviour lives in files, not code.** What Quarterdeck does (schedules, agent prompts, limits, TTLs) lives
+- **Behaviour lives in files, not code.** What Meatpuppet does (schedules, agent prompts, limits, TTLs) lives
   in the config folder (`~/.config/quarterdeck`, defaults in `src-tauri/defaults/config/`). Code implements
   *how*. To change behaviour, edit those files first.
 - **All UI text lives in `src/copy/en.json`**, read through `t()`. Never hard-code copy in components.

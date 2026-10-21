@@ -1,6 +1,6 @@
-# Setting up Quarterdeck
+# Setting up Meatpuppet
 
-Reader: a person or agent installing Quarterdeck on a machine, or connecting two machines. Rewrite this
+Reader: a person or agent installing Meatpuppet on a machine, or connecting two machines. Rewrite this
 when setup changes.
 
 ## One machine
@@ -24,7 +24,7 @@ connectors and schedules only run for areas whose `node` is this machine.
 
 1. Give each machine a different `node`, and the same `[[areas]]` list on both.
 2. On each machine, turn sharing on: `[sync] enabled = true` (or Claude: `set_sync`), then restart
-   Quarterdeck. A token is written to `[sync] token`; `get_sync_info` shows it.
+   Meatpuppet. A token is written to `[sync] token`; `get_sync_info` shows it.
 3. Make each machine reachable. On the same network (simplest): `[sync] lan = true` (or Claude:
    `set_sync` with `lan`), and use `http://<LocalHostName>.local:4791`, where `<LocalHostName>` is
    `scutil --get LocalHostName` on that Mac. Only private addresses may connect, and macOS may ask
@@ -40,7 +40,7 @@ connectors and schedules only run for areas whose `node` is this machine.
    or a `[[sync.peers]]` entry in `quarterdeck.toml`.
 5. The Agent tab's Connections list shows whether each peer answers.
 
-A machine without a screen can serve its Quarterdeck with `<binary> serve`.
+A machine without a screen can serve its Meatpuppet with `<binary> serve`.
 
 ## Checking it
 

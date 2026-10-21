@@ -7,8 +7,8 @@ use crate::config::edit;
 use crate::config::projects::Project;
 use crate::error::{AppError, AppResult};
 
-const SET: &str = "Tells Quarterdeck where a GitHub repo is checked out on this machine, e.g. repo \
-\"me/webapp\", path \"~/code/webapp\". Work Quarterdeck starts on that repo's PRs (fixing CI, acting \
+const SET: &str = "Tells Meatpuppet where a GitHub repo is checked out on this machine, e.g. repo \
+\"me/webapp\", path \"~/code/webapp\". Work Meatpuppet starts on that repo's PRs (fixing CI, acting \
 on the user's answers), and on items linking one of its issues, then runs in that project, in a git \
 worktree of its own per item, with the project's own Claude settings and permissions. Changes the \
 path if the repo is already set.";
@@ -17,7 +17,7 @@ pub fn tools() -> Vec<Tool> {
     vec![
         tool(
             "list_projects",
-            "Repos Quarterdeck knows a checkout of, and where.",
+            "Repos Meatpuppet knows a checkout of, and where.",
             list,
         ),
         tool("set_project", SET, set),

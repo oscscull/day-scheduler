@@ -51,7 +51,7 @@ pub fn react(
     )
 }
 
-/// A new session in Quarterdeck's own folder, for repos with no project here.
+/// A new session in Meatpuppet's own folder, for repos with no project here.
 fn fresh() -> SessionRef {
     SessionRef {
         id: uuid::Uuid::new_v4().to_string(),

@@ -1,4 +1,4 @@
-//! Quarterdeck: tracks work in flight and runs recurring Claude jobs.
+//! Meatpuppet: tracks work in flight and runs recurring Claude jobs.
 
 mod alerts;
 mod answer;
@@ -76,13 +76,13 @@ pub fn prepare() -> bool {
 }
 
 /// Serves the Model Context Protocol over stdio instead of opening the app. Started as
-/// `<binary> mcp`, so any Claude session can read and change Quarterdeck.
+/// `<binary> mcp`, so any Claude session can read and change Meatpuppet.
 #[must_use]
 pub fn serve_mcp() -> std::process::ExitCode {
     mcp::serve()
 }
 
-/// Serves this machine's Quarterdeck to peers in the foreground, without the app window. Started as
+/// Serves this machine's Meatpuppet to peers in the foreground, without the app window. Started as
 /// `<binary> serve`, e.g. on a machine without a screen.
 #[must_use]
 pub fn serve_peers() -> std::process::ExitCode {

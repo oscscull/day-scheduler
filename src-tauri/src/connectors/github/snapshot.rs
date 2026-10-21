@@ -1,4 +1,4 @@
-//! What Quarterdeck derives from a PR: the item fields it owns, and the signals that fire events.
+//! What Meatpuppet derives from a PR: the item fields it owns, and the signals that fire events.
 
 use serde::{Deserialize, Serialize};
 

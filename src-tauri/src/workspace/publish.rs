@@ -1,4 +1,4 @@
-//! After Claude finishes in a worktree, Quarterdeck does the GitHub side, since a project's sandbox
+//! After Claude finishes in a worktree, Meatpuppet does the GitHub side, since a project's sandbox
 //! may keep Claude off the network: it pushes new commits and, for an issue, opens the PR.
 
 use super::git::{default_branch, pr_branch, run};

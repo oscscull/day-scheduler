@@ -1,4 +1,4 @@
-//! Calls a tool on a peer's Quarterdeck. Blocking: run it off the UI thread.
+//! Calls a tool on a peer's Meatpuppet. Blocking: run it off the UI thread.
 
 use std::io::Write as _;
 use std::process::{Command, Stdio};
@@ -54,7 +54,7 @@ fn request(peer: &Peer, path: &str, body: Option<&Value>) -> AppResult<Value> {
     Ok(reply.get("ok").cloned().unwrap_or(Value::Null))
 }
 
-/// Runs one Quarterdeck tool on the peer and returns its result.
+/// Runs one Meatpuppet tool on the peer and returns its result.
 pub fn call(peer: &Peer, tool: &str, args: &Value) -> AppResult<Value> {
     request(peer, &format!("tools/{tool}"), Some(args))
 }

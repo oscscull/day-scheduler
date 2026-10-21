@@ -1,10 +1,10 @@
-//! The `[sync]` section of `quarterdeck.toml`: other machines running Quarterdeck.
+//! The `[sync]` section of `quarterdeck.toml`: other machines running Meatpuppet.
 
 use serde::{Deserialize, Serialize};
 
 use crate::peers::reach::Listen;
 
-/// Another machine's Quarterdeck, on the local network or through a tunnel the user runs.
+/// Another machine's Meatpuppet, on the local network or through a tunnel the user runs.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Peer {
     /// Its machine name, as used by areas' `node`.
@@ -18,7 +18,7 @@ pub struct Peer {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct SyncSettings {
-    /// Serve this machine's Quarterdeck to peers on `port`.
+    /// Serve this machine's Meatpuppet to peers on `port`.
     pub enabled: bool,
     pub port: u16,
     /// Also accept machines on the local network (private addresses only). Off means this machine

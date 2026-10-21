@@ -19,7 +19,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         tool(
             "add_meeting",
-            "Adds a meeting or appointment the user must attend at a fixed time. Quarterdeck alerts them \
+            "Adds a meeting or appointment the user must attend at a fixed time. Meatpuppet alerts them \
              before it starts. Times are RFC 3339 with an offset.",
             add,
         ),

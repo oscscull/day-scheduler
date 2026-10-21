@@ -1,4 +1,4 @@
-//! JSON-RPC 2.0 handling for the few MCP methods Quarterdeck needs.
+//! JSON-RPC 2.0 handling for the few MCP methods Meatpuppet needs.
 
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -8,7 +8,7 @@ use super::tool::Tool;
 
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_PROTOCOL: &str = "2025-06-18";
-const INSTRUCTIONS: &str = "Quarterdeck is the user's calm work-and-life dashboard. Use these tools to \
+const INSTRUCTIONS: &str = "Meatpuppet is the user's calm work-and-life dashboard. Use these tools to \
 read what is going on (start with get_overview) and to keep it current: create and update work \
 items, raise asks when a decision needs the user, add to-dos for things only they can do, post \
 short updates about what you did, and manage recurring schedules. Keep state labels under six \
