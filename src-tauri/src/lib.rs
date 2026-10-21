@@ -1,7 +1,24 @@
-/// Demo command: greets `name`. Placeholder until phase 1 replaces it.
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {name}! You've been greeted from Rust!")
+//! Bridge: tracks work in flight and runs recurring Claude jobs.
+
+mod app;
+mod claude;
+mod commands;
+mod config;
+mod cron;
+mod domain;
+mod error;
+mod store;
+mod today;
+mod views;
+
+use tauri::Manager as _;
+
+/// Opens the database and config folder, then hands both to every command.
+fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let db = store::Db::open(&app.path().app_data_dir()?)?;
+    let config = config::Config::open(app.path().home_dir()?.join(".config").join("bridge"))?;
+    app.manage(app::App { db, config });
+    Ok(())
 }
 
 /// Builds and runs the Tauri application.
@@ -16,6 +33,18 @@ fn greet(name: &str) -> String {
 pub fn run() -> tauri::Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .setup(setup)
+        .invoke_handler(tauri::generate_handler![
+            commands::screens::today,
+            commands::screens::work_items,
+            commands::screens::agent,
+            commands::items::reorder_items,
+            commands::schedules::set_schedule_enabled,
+            commands::schedules::save_schedule,
+            commands::schedules::delete_schedule,
+            commands::schedules::explain_cron,
+            commands::chat::ask_claude,
+            commands::chat::draft_schedule,
+        ])
         .run(tauri::generate_context!())
 }

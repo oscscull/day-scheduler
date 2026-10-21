@@ -1,0 +1,42 @@
+{
+  "items": [
+    { "id": "JD-104", "title": "Remove legacy CSV export", "stateLabel": "keep or drop the export?", "stage": "in_progress", "status": "decision", "holder": "you", "node": "work-mac", "openedMinsAgo": 42 },
+    { "id": "BR-1", "title": "Phase 1 skeleton", "stateLabel": "plan ready for approval", "stage": "in_progress", "status": "decision", "holder": "you", "node": "home-mac", "openedMinsAgo": 70 },
+    { "id": "JD-99", "title": "Parity checks", "stateLabel": "fixing 3 failing cases", "stage": "in_progress", "status": "proceeding", "holder": "Claude", "node": "work-mac", "openedMinsAgo": 134 },
+    { "id": "AUTH-77", "title": "Token refresh rework", "stateLabel": "Priya asks: opt-in for existing tenants?", "stage": "in_review", "status": "decision", "holder": "you", "node": "work-mac", "openedMinsAgo": 3120 },
+    { "id": "JD-95", "title": "Accounts migration", "stateLabel": "needs staging DB access from Ops", "stage": "in_progress", "status": "dependency", "holder": "Ops", "node": "work-mac", "openedMinsAgo": 12960 },
+    { "id": "JD-97", "title": "Recruit list v2", "stateLabel": "waiting on Sam", "stage": "in_review", "status": "review", "holder": "Sam", "node": "work-mac", "openedMinsAgo": 4680 },
+    { "id": "REN-14", "title": "Sample slicer tool", "stateLabel": "flaky on the macOS runner", "stage": "in_review", "status": "ci", "holder": "CI", "node": "home-mac", "openedMinsAgo": 1560 },
+    { "id": "JD-106", "title": "Export audit log", "stateLabel": "starts after JD-99", "stage": "up_next", "status": "queued", "holder": "Claude", "node": "work-mac", "openedMinsAgo": 1440 },
+    { "id": "BR-2", "title": "Phase 2: routines", "stateLabel": "after phase 1 lands", "stage": "up_next", "status": "queued", "holder": "Claude", "node": "home-mac", "openedMinsAgo": 60 },
+    { "id": "JD-11", "title": "Seat limit banner", "stateLabel": "merged #821", "stage": "done", "status": null, "holder": "Claude", "node": "work-mac", "openedMinsAgo": 180 },
+    { "id": "JD-93", "title": "Tenant switcher", "stateLabel": "merged #799", "stage": "done", "status": null, "holder": "Claude", "node": "work-mac", "openedMinsAgo": 2880 }
+  ],
+  "asks": [
+    { "itemId": "JD-104", "question": "Drop the CSV export, or keep it behind a flag?", "context": "Design fork on PR #812" },
+    { "itemId": "BR-1", "question": "Approve the phase 1 plan for Bridge", "context": "home-mac · Claude is waiting to start" },
+    { "itemId": "AUTH-77", "question": "Should token refresh be opt-in for existing tenants?", "context": "Slack · Priya in #auth" },
+    { "itemId": "JD-97", "question": "Sam asks whether to split the PR in two", "context": "Review comment on PR #790" }
+  ],
+  "commitments": [
+    { "title": "Design review", "startsInMins": -210, "durationMins": 60, "location": null },
+    { "title": "Sprint planning", "startsInMins": 28, "durationMins": 60, "location": "Zoom" },
+    { "title": "Standup", "startsInMins": 1138, "durationMins": 15, "location": "Zoom" }
+  ],
+  "activity": [
+    { "text": "Replied to 2 review comments on #77 and pushed a fix", "minsAgo": 1, "unread": true },
+    { "text": "Submitted the weekly expense report", "minsAgo": 22, "unread": true },
+    { "text": "Finished JD-11 and opened PR #821", "minsAgo": 50, "unread": false },
+    { "text": "Morning brief ready", "minsAgo": 332, "unread": false }
+  ],
+  "runs": [
+    { "scheduleId": null, "what": "Fixing 3 failing parity cases", "target": "JD-99", "node": "work-mac", "startedMinsAgo": 21, "finishedMinsAgo": null, "summary": null },
+    { "scheduleId": "review-replies", "what": "Review replies", "target": "6 open PRs", "node": "work-mac", "startedMinsAgo": 1, "finishedMinsAgo": null, "summary": null },
+    { "scheduleId": "ci-watch", "what": "Re-running flaky CI", "target": "REN-14", "node": "home-mac", "startedMinsAgo": 2, "finishedMinsAgo": null, "summary": null },
+    { "scheduleId": "review-replies", "what": "Review replies", "target": "6 open PRs", "node": "work-mac", "startedMinsAgo": 32, "finishedMinsAgo": 30, "summary": "Picked up 4 comments on AUTH-77" },
+    { "scheduleId": "review-replies", "what": "Review replies", "target": "6 open PRs", "node": "work-mac", "startedMinsAgo": 92, "finishedMinsAgo": 91, "summary": "Checked 6 PRs, nothing new" },
+    { "scheduleId": "morning-brief", "what": "Morning brief", "target": "today", "node": "work-mac", "startedMinsAgo": 333, "finishedMinsAgo": 332, "summary": "7 items, 2 meetings, nothing urgent" },
+    { "scheduleId": "expense-report", "what": "Expense report", "target": "this week", "node": "work-mac", "startedMinsAgo": 25, "finishedMinsAgo": 22, "summary": "Submitted 4 receipts" },
+    { "scheduleId": "stale-check", "what": "Stale check", "target": "items in flight", "node": "work-mac", "startedMinsAgo": 272, "finishedMinsAgo": 271, "summary": "Flagged JD-95 (9 days waiting on Ops)" }
+  ]
+}

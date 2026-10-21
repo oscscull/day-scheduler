@@ -1,0 +1,17 @@
+import { t } from "../../lib/copy";
+import type { Schedule } from "../../lib/types";
+
+/** A new schedule for "Set it up yourself". An empty id tells the backend to create a file. */
+export function blankSchedule(): Schedule {
+  return {
+    id: "",
+    name: t("schedule.blankName"),
+    prompt: "",
+    trigger: { type: "cron", expr: "0 9 * * 1-5" },
+    node: "work-mac",
+    scope: "nothing",
+    autonomy: "ask",
+    enabled: true,
+    request: "",
+  };
+}

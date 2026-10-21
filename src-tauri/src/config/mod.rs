@@ -1,0 +1,31 @@
+//! The user's config folder: settings, prompts and schedules as plain files.
+//! Users and agents edit these directly; the app re-reads them on each request.
+
+mod defaults;
+mod frontmatter;
+
+pub mod prompts;
+pub mod schedules;
+pub mod settings;
+
+use std::path::{Path, PathBuf};
+
+use crate::error::AppResult;
+
+/// Location of the config folder, e.g. `~/.config/bridge`.
+#[derive(Debug, Clone)]
+pub struct Config {
+    root: PathBuf,
+}
+
+impl Config {
+    /// Opens the folder, writing any default file that is missing.
+    pub fn open(root: PathBuf) -> AppResult<Self> {
+        defaults::write_missing(&root)?;
+        Ok(Self { root })
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+}

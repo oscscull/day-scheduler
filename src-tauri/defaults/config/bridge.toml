@@ -1,0 +1,14 @@
+# Mechanical settings only. Behaviour lives in prompts/ and schedules/.
+
+# This machine's name, shown in the app and used by schedules' `node`.
+node = "work-mac"
+
+# How many asks Today's Priorities section shows, taken from the top of the ranking.
+priority_limit = 3
+
+# Command used to run Claude headlessly (`<command> -p "<prompt>"`).
+claude_command = "claude"
+
+# How long stored agent output lives before it is deleted.
+activity_ttl_days = 7
+run_ttl_days = 14

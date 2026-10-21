@@ -1,0 +1,35 @@
+:root {
+  --ground: #f5f4f0;
+  --surface: #ffffff;
+  --surface-soft: #f8f7f4;
+  --switch-track: #eae8e2;
+  --ink: #191917;
+  --muted: #6a6862;
+  --faint: #8a877f;
+  --line: #e3e0d9;
+  --line-soft: #eeece6;
+  --accent: #2b57c9;
+  --stale: #b8541a;
+  --live: #2e8a47;
+  --live-halo: #e1f0e3;
+  --toggle-off: #cfccc4;
+
+  --chip-decision-bg: #fbe6d7;
+  --chip-decision-fg: #8f3f10;
+  --chip-review-bg: #e3eaf8;
+  --chip-review-fg: #23479f;
+  --chip-ci-bg: #dceeef;
+  --chip-ci-fg: #14595e;
+  --chip-dependency-bg: #ece6f6;
+  --chip-dependency-fg: #5a3990;
+  --chip-proceeding-bg: #e1f0e3;
+  --chip-proceeding-fg: #1e6631;
+  --chip-queued-bg: #eceae4;
+  --chip-queued-fg: #4a4843;
+
+  --font: "Geist", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+  --radius: 10px;
+  --column: 680px;
+  --wide: 1200px;
+}

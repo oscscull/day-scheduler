@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "day-scheduler",
+  "productName": "Bridge",
   "version": "0.1.0",
   "identifier": "com.oscscull.dayscheduler",
   "build": {
@@ -13,9 +13,11 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "day-scheduler",
-        "width": 800,
-        "height": 600
+        "title": "Bridge",
+        "width": 1200,
+        "height": 860,
+        "minWidth": 420,
+        "minHeight": 560
       }
     ],
     "security": {

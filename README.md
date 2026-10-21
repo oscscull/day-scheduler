@@ -1,6 +1,6 @@
 # day-scheduler
 
-A day scheduler desktop app built with [Tauri 2](https://tauri.app) (Rust backend) and a Vite + TypeScript frontend.
+A calm desktop app for keeping on top of work done with Claude: what is in flight, what needs you, and recurring jobs Claude runs on a schedule. Built with [Tauri 2](https://tauri.app), Rust and Svelte.
 
 ## Development
 
