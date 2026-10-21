@@ -16,14 +16,20 @@ pub const SOURCE: &str = "calendar";
 /// reported together.
 pub async fn sync(handle: &AppHandle) -> AppResult<()> {
     let app = handle.state::<App>();
-    let settings = app.settings()?.calendar;
+    let all = app.settings()?;
+    let settings = all.calendar.clone();
     let now = Utc::now();
     let (from, to) = (
         now - Duration::days(1),
         now + Duration::days(settings.days_ahead),
     );
     let mut errors = Vec::new();
-    for feed in &settings.feeds {
+    // Another machine syncs the calendars of the areas it runs.
+    for feed in settings
+        .feeds
+        .iter()
+        .filter(|f| all.node_for(&f.area) == all.node)
+    {
         match fetch::ics(&feed.url).await {
             Ok(text) => {
                 let mut occurrences = parse::occurrences(&text, from, to);

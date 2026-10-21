@@ -77,3 +77,17 @@ ignore_titles = []
 enabled = true
 lead_minutes = 5
 linger_minutes = 3
+
+# Other machines running Bridge. Each serves its own data on `port` (localhost only); expose it
+# with a tunnel you run (Tailscale, ngrok, ssh -L) and add it as a peer on the other machine.
+# Areas whose `node` is a peer show that machine's data here, and edits go back to it.
+[sync]
+enabled = false
+port = 4791
+# Peers must send this. Made on first start when empty.
+token = ""
+
+# [[sync.peers]]
+# name = "home-mac"
+# url = "https://home-mac.your-tailnet.ts.net:4791"
+# token = "the token from home-mac's bridge.toml"

@@ -10,6 +10,7 @@ mod items;
 mod overview;
 mod schedules;
 mod settings;
+mod sync;
 mod todos;
 mod updates;
 mod urgent;
@@ -30,6 +31,7 @@ pub fn all() -> Vec<Tool> {
         updates::tools(),
         schedules::tools(),
         settings::tools(),
+        sync::tools(),
     ]
     .into_iter()
     .flatten()

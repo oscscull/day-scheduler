@@ -4,8 +4,10 @@
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
-    if std::env::args().nth(1).as_deref() == Some("mcp") {
-        return day_scheduler_lib::serve_mcp();
+    match std::env::args().nth(1).as_deref() {
+        Some("mcp") => return day_scheduler_lib::serve_mcp(),
+        Some("serve") => return day_scheduler_lib::serve_peers(),
+        _ => {}
     }
     match day_scheduler_lib::run() {
         Ok(()) => ExitCode::SUCCESS,

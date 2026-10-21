@@ -1,6 +1,6 @@
 use chrono::{Local, Utc};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::super::ctx::Ctx;
 use super::super::tool::{NoArgs, Tool, tool};
@@ -9,6 +9,7 @@ use crate::config::{pause, schedules};
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::schedule::{Autonomy, EventKind, Schedule, Scope, Trigger};
 use crate::error::{AppError, AppResult};
+use crate::peers;
 use crate::store::run_requests;
 use crate::views::agent::{self, AgentView};
 
@@ -59,7 +60,7 @@ fn trigger(cron: Option<String>, event: Option<EventKind>) -> AppResult<Option<T
     }
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 struct CreateArgs {
     name: String,
     /// Area id; the area decides which machine runs it.
@@ -81,6 +82,15 @@ struct CreateArgs {
 }
 
 fn create(ctx: &Ctx, args: CreateArgs) -> AppResult<String> {
+    // A schedule lives on the machine that runs its area, so hand it over when that's a peer.
+    let settings = ctx.settings()?;
+    let owner = settings.node_for(&ctx.area(&args.area)?).to_owned();
+    if owner != settings.node
+        && let Some(peer) = settings.sync.peer(&owner)
+    {
+        let id = peers::client::call(peer, "create_schedule", &serde_json::to_value(&args)?)?;
+        return Ok(id.as_str().unwrap_or_default().to_owned());
+    }
     let trigger = trigger(args.cron, args.event)?
         .ok_or_else(|| AppError::BadInput("give cron or event".to_owned()))?;
     let schedule = Schedule {

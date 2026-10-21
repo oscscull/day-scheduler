@@ -13,6 +13,7 @@ pub mod pause;
 pub mod prompts;
 pub mod schedules;
 pub mod settings;
+pub mod sync;
 
 use std::path::{Path, PathBuf};
 

@@ -1,0 +1,150 @@
+//! Serves this machine's Bridge to peers: `GET /v1/health` and `POST /v1/tools/<name>`, which runs
+//! a Bridge tool exactly as the MCP server would. Localhost only; every request needs the token.
+
+use std::io::Cursor;
+
+use serde_json::{Value, json};
+use tiny_http::{Header, Method, Request, Response, Server};
+
+use crate::error::{AppError, AppResult};
+use crate::mcp::{self, Ctx, Tool};
+
+type Reply = Response<Cursor<Vec<u8>>>;
+
+fn bind(port: u16) -> AppResult<Server> {
+    Server::http(("127.0.0.1", port)).map_err(|e| AppError::Desktop(format!("sync server: {e}")))
+}
+
+/// Starts the server on its own thread for as long as the app runs.
+pub fn spawn(port: u16, token: String) -> AppResult<()> {
+    let server = bind(port)?;
+    std::thread::spawn(move || {
+        if let Ok(ctx) = Ctx::open() {
+            serve(&server, &ctx, &token);
+        }
+    });
+    Ok(())
+}
+
+/// Serves in the foreground until the process ends, for `<binary> serve` on a headless machine.
+pub fn run(port: u16, token: &str) -> AppResult<()> {
+    let server = bind(port)?;
+    serve(&server, &Ctx::open()?, token);
+    Ok(())
+}
+
+fn serve(server: &Server, ctx: &Ctx, token: &str) {
+    let tools = mcp::registry();
+    for mut request in server.incoming_requests() {
+        let reply = respond(ctx, &tools, token, &mut request);
+        // A peer that hung up doesn't need its answer.
+        drop(request.respond(reply));
+    }
+}
+
+fn json_reply(status: u16, body: &Value) -> Reply {
+    let header = Header::from_bytes("Content-Type", "application/json").ok();
+    let reply = Response::from_data(body.to_string().into_bytes()).with_status_code(status);
+    match header {
+        Some(h) => reply.with_header(h),
+        None => reply,
+    }
+}
+
+/// Compares in time independent of where the strings differ.
+fn same(a: &str, b: &str) -> bool {
+    a.len() == b.len()
+        && a.bytes()
+            .zip(b.bytes())
+            .fold(0_u8, |acc, (x, y)| acc | (x ^ y))
+            == 0
+}
+
+fn authorised(request: &Request, token: &str) -> bool {
+    let expected = format!("Bearer {token}");
+    !token.is_empty()
+        && request
+            .headers()
+            .iter()
+            .any(|h| h.field.equiv("Authorization") && same(h.value.as_str(), &expected))
+}
+
+fn respond(ctx: &Ctx, tools: &[Tool], token: &str, request: &mut Request) -> Reply {
+    if !authorised(request, token) {
+        return json_reply(401, &json!({ "error": "wrong or missing token" }));
+    }
+    let path = request.url().to_owned();
+    match (request.method(), path.as_str()) {
+        (Method::Get, "/v1/health") => health(ctx),
+        (Method::Post, p) if p.starts_with("/v1/tools/") => {
+            let name = p.trim_start_matches("/v1/tools/").to_owned();
+            run_tool(ctx, tools, &name, request)
+        }
+        _ => json_reply(404, &json!({ "error": "unknown path" })),
+    }
+}
+
+fn health(ctx: &Ctx) -> Reply {
+    match ctx.settings() {
+        Ok(s) => json_reply(200, &json!({ "ok": { "node": s.node } })),
+        Err(e) => json_reply(500, &json!({ "error": e.to_string() })),
+    }
+}
+
+fn run_tool(ctx: &Ctx, tools: &[Tool], name: &str, request: &mut Request) -> Reply {
+    let mut body = String::new();
+    let parsed = request
+        .as_reader()
+        .read_to_string(&mut body)
+        .map_err(AppError::from)
+        .and_then(|_| {
+            Ok(if body.trim().is_empty() {
+                json!({})
+            } else {
+                serde_json::from_str(&body)?
+            })
+        })
+        .and_then(|args| mcp::call(ctx, tools, name, args));
+    match parsed {
+        Ok(value) => json_reply(200, &json!({ "ok": value })),
+        Err(e) => json_reply(400, &json!({ "error": e.to_string() })),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+    use crate::config::sync::Peer;
+    use crate::peers::client;
+
+    fn peer_on(port: u16, token: &str) -> Peer {
+        Peer {
+            name: "other".to_owned(),
+            url: format!("http://127.0.0.1:{port}"),
+            token: token.to_owned(),
+        }
+    }
+
+    #[test]
+    fn peers_round_trip_tools_and_need_the_token() {
+        let dir = std::env::temp_dir().join(format!("bridge-peer-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&dir));
+        let ctx = Ctx::at(&dir.join("data"), dir.join("config")).unwrap();
+        let server = Server::http("127.0.0.1:0").unwrap();
+        let port = server.server_addr().to_ip().unwrap().port();
+        std::thread::spawn(move || serve(&server, &ctx, "secret"));
+        let good = peer_on(port, "secret");
+        client::call(
+            &good,
+            "add_todo",
+            &json!({ "title": "Make dinner", "area": "life" }),
+        )
+        .unwrap();
+        let todos = client::call(&good, "list_todos", &json!({})).unwrap();
+        assert_eq!(todos[0]["title"], "Make dinner");
+        assert!(client::health(&peer_on(port, "wrong")).is_err());
+        assert!(client::call(&good, "no_such_tool", &json!({})).is_err());
+    }
+}

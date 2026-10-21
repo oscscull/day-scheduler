@@ -14,6 +14,7 @@ pub mod chat;
 pub mod commitments;
 pub mod connect;
 pub mod items;
+pub mod peers;
 pub mod schedules;
 pub mod screens;
 pub mod todos;
@@ -23,6 +24,9 @@ pub mod urgent;
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         areas::areas,
+        peers::machine,
+        peers::peers,
+        peers::peer_call,
         alerts::due_alert,
         alerts::alert_done,
         alerts::alert_snooze,

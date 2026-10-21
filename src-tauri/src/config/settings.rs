@@ -4,6 +4,7 @@ use super::Config;
 use super::alerts::AlertSettings;
 use super::calendar::CalendarSettings;
 use super::github::GithubSettings;
+use super::sync::SyncSettings;
 use crate::error::AppResult;
 
 /// A part of life Bridge keeps separate, e.g. Work, Personal projects, Life.
@@ -35,6 +36,7 @@ pub struct Settings {
     pub alerts: AlertSettings,
     /// Start Bridge when you log in, so schedules and alerts keep working.
     pub launch_at_login: bool,
+    pub sync: SyncSettings,
 }
 
 impl Default for Settings {
@@ -52,6 +54,7 @@ impl Default for Settings {
             calendar: CalendarSettings::default(),
             alerts: AlertSettings::default(),
             launch_at_login: true,
+            sync: SyncSettings::default(),
         }
     }
 }
@@ -108,6 +111,7 @@ mod tests {
             calendar: CalendarSettings::default(),
             alerts: AlertSettings::default(),
             launch_at_login: true,
+            sync: SyncSettings::default(),
         }
     }
 

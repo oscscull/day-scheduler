@@ -6,10 +6,29 @@ mod protocol;
 mod tool;
 mod tools;
 
+pub use ctx::Ctx;
+pub use tool::Tool;
+
+use serde_json::Value;
+
+use crate::error::{AppError, AppResult};
+
+/// Every Bridge tool, for the MCP server and the peer server.
+pub fn registry() -> Vec<Tool> {
+    tools::all()
+}
+
+/// Runs one tool by name.
+pub fn call(ctx: &Ctx, tools: &[Tool], name: &str, args: Value) -> AppResult<Value> {
+    let tool = tools
+        .iter()
+        .find(|t| t.name == name)
+        .ok_or_else(|| AppError::BadInput(format!("no tool called {name}")))?;
+    (tool.call)(ctx, args)
+}
+
 use std::io::{BufRead as _, Write as _};
 use std::process::ExitCode;
-
-use ctx::Ctx;
 
 /// Serves MCP requests from stdin until it closes.
 pub fn serve() -> ExitCode {

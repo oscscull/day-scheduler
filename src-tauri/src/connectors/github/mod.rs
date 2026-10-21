@@ -35,7 +35,8 @@ fn describe(kind: EventKind, ext: &str, url: &str) -> String {
 /// Pulls open PRs into items and returns the events they fired.
 pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
     let app = handle.state::<App>();
-    let settings = app.settings()?.github;
+    let all = app.settings()?;
+    let settings = all.github.clone();
     let prs = fetch::open_prs().await?;
     let now = Utc::now();
     app.db.with(|conn| {
@@ -47,6 +48,10 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
                 ..pr.clone()
             };
             let area = settings.area_for(&pr.repo);
+            // Another machine syncs the areas it runs, so two never duplicate a PR.
+            if all.node_for(area) != all.node {
+                continue;
+            }
             let ext = apply::external_id(pr);
             for kind in apply::apply(conn, pr, area, now)? {
                 fired.push(Fired {

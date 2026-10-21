@@ -14,6 +14,7 @@ mod error;
 mod mcp;
 mod notify;
 mod paths;
+mod peers;
 mod scheduler;
 mod store;
 mod today;
@@ -21,6 +22,27 @@ mod views;
 mod work;
 
 use tauri::Manager as _;
+
+/// Starts serving peers when `[sync]` is enabled, making a token the first time.
+fn start_sync(config: &config::Config) -> error::AppResult<()> {
+    let mut sync = config::settings::load(config)?.sync;
+    if !sync.enabled {
+        return Ok(());
+    }
+    sync.token = start_token(config)?;
+    peers::server::spawn(sync.port, sync.token)
+}
+
+/// The sync token, made and saved the first time it's needed.
+fn start_token(config: &config::Config) -> error::AppResult<String> {
+    let token = config::settings::load(config)?.sync.token;
+    if !token.is_empty() {
+        return Ok(token);
+    }
+    let fresh = peers::new_token()?;
+    config::edit::set_sync_token(config, &fresh)?;
+    Ok(fresh)
+}
 
 fn settings_for_login(config: &config::Config) -> bool {
     config::settings::load(config).map_or(true, |s| s.launch_at_login)
@@ -31,6 +53,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let db = store::Db::open(&paths::data_dir()?)?;
     let config = config::Config::open(paths::config_dir()?)?;
     let launch_at_login = settings_for_login(&config);
+    // Serving peers is optional; a busy port must not stop the app opening.
+    drop(start_sync(&config));
     app.manage(app::App { db, config });
     desktop::tray::build(app.handle())?;
     // Launch-at-login is a convenience; failing to set it must not stop the app opening.
@@ -44,6 +68,24 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 #[must_use]
 pub fn serve_mcp() -> std::process::ExitCode {
     mcp::serve()
+}
+
+/// Serves this machine's Bridge to peers in the foreground, without the app window. Started as
+/// `<binary> serve`, e.g. on a machine without a screen.
+#[must_use]
+pub fn serve_peers() -> std::process::ExitCode {
+    let started = paths::config_dir()
+        .and_then(config::Config::open)
+        .and_then(|config| {
+            let token = start_token(&config)?;
+            let port = config::settings::load(&config)?.sync.port;
+            peers::server::run(port, &token)
+        });
+    if started.is_ok() {
+        std::process::ExitCode::SUCCESS
+    } else {
+        std::process::ExitCode::FAILURE
+    }
 }
 
 /// Builds and runs the Tauri application.

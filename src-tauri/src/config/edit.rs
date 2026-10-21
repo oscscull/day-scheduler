@@ -6,6 +6,7 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 use super::Config;
 use super::calendar::Feed;
 use super::settings::{self, Area};
+use super::sync::Peer;
 use crate::error::{AppError, AppResult};
 
 fn path(config: &Config) -> std::path::PathBuf {
@@ -122,6 +123,45 @@ pub fn map_github(config: &Config, owner_or_repo: &str, area: &str) -> AppResult
             .entry("areas")
             .or_insert_with(|| Item::Table(Table::new()));
         areas[owner_or_repo] = value(area);
+        Ok(())
+    })
+}
+
+pub fn set_sync(config: &Config, enabled: bool, port: Option<u16>) -> AppResult<()> {
+    edit(config, |doc| {
+        let sync = table(doc, "sync")?;
+        sync.insert("enabled", value(enabled));
+        if let Some(port) = port {
+            sync.insert("port", value(i64::from(port)));
+        }
+        Ok(())
+    })
+}
+
+pub fn set_sync_token(config: &Config, token: &str) -> AppResult<()> {
+    edit(config, |doc| {
+        table(doc, "sync")?.insert("token", value(token));
+        Ok(())
+    })
+}
+
+/// Adds a peer, or replaces the one with the same name.
+pub fn upsert_peer(config: &Config, peer: &Peer) -> AppResult<()> {
+    edit(config, |doc| {
+        let list = tables(table(doc, "sync")?, "peers")?;
+        let mut t = Table::new();
+        t.insert("name", value(&peer.name));
+        t.insert("url", value(&peer.url));
+        t.insert("token", value(&peer.token));
+        replace_or_push(list, "name", &peer.name, t);
+        Ok(())
+    })
+}
+
+pub fn remove_peer(config: &Config, name: &str) -> AppResult<()> {
+    edit(config, |doc| {
+        tables(table(doc, "sync")?, "peers")?
+            .retain(|p| p.get("name").and_then(Item::as_str) != Some(name));
         Ok(())
     })
 }

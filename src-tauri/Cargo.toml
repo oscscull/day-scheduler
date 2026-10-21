@@ -39,6 +39,7 @@ ical = { version = "0.11", default-features = false, features = ["ical"] }
 rrule = "0.14.0"
 toml_edit = "0.25.17"
 tauri-plugin-autostart = "2.7.0"
+tiny_http = "0.12.0"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
