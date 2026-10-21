@@ -9,9 +9,13 @@ use crate::error::AppResult;
 
 const INFO: &str = "How this machine shares Quarterdeck with others: its name, whether it serves peers, the \
 local port and token another machine needs, and the peers it knows. Give another machine this \
-machine's tunnel URL and token so it can add it with add_peer.";
-const ENABLE: &str = "Turns serving this machine's Quarterdeck to peers on or off. It listens on localhost only; the \
-user exposes it with a tunnel (Tailscale, ngrok, ssh -L). Takes effect when Quarterdeck restarts.";
+machine's address (`http://<LocalHostName>.local:<port>` on the same network, or a tunnel URL) and \
+token so it can add it with add_peer.";
+const ENABLE: &str = "Turns serving this machine's Quarterdeck to peers on or off. With `lan` on it also accepts \
+machines on the local network (private addresses only), so two Macs on the same Wi-Fi can sync \
+with no tunnel: add each as the other's peer at `http://<LocalHostName>.local:<port>`. With `lan` off \
+it listens on this machine only, for use behind a tunnel. Every request needs the token. Takes \
+effect when Quarterdeck restarts.";
 const ADD: &str = "Adds another machine's Quarterdeck, by its machine name (as used by areas' `node`), the URL its \
 tunnel serves, and its sync token. Its data then shows here, and edits to it go back to it.";
 
@@ -52,10 +56,17 @@ fn info(ctx: &Ctx, _: NoArgs) -> AppResult<Info> {
 struct SetArgs {
     enabled: bool,
     port: Option<u16>,
+    /// Accept machines on the local network too.
+    lan: Option<bool>,
 }
 
 fn set_sync(ctx: &Ctx, args: SetArgs) -> AppResult<()> {
-    edit::set_sync(&ctx.config, args.enabled, args.port)
+    let change = edit::SyncChange {
+        enabled: args.enabled,
+        port: args.port,
+        lan: args.lan,
+    };
+    edit::set_sync(&ctx.config, change)
 }
 
 fn add_peer(ctx: &Ctx, peer: Peer) -> AppResult<()> {

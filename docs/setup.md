@@ -25,7 +25,11 @@ connectors and schedules only run for areas whose `node` is this machine.
 1. Give each machine a different `node`, and the same `[[areas]]` list on both.
 2. On each machine, turn sharing on: `[sync] enabled = true` (or Claude: `set_sync`), then restart
    Quarterdeck. A token is written to `[sync] token`; `get_sync_info` shows it.
-3. Expose each machine's port (default 4791, localhost only) with a tunnel. With Tailscale, enable
+3. Make each machine reachable. On the same network (simplest): `[sync] lan = true` (or Claude:
+   `set_sync` with `lan`), and use `http://<LocalHostName>.local:4791`, where `<LocalHostName>` is
+   `scutil --get LocalHostName` on that Mac. Only private addresses may connect, and macOS may ask
+   once to allow incoming connections. Company VPNs usually leave the local network alone, so
+   this works even with one running. Across networks, expose the port with a tunnel. With Tailscale, enable
    Serve for the tailnet once (the command prints the link), then on each machine run
    `tailscale serve --bg --tcp 4791 tcp://localhost:4791` and use
    `http://<machine>.<tailnet>.ts.net:4791`. (The HTTPS form, `tailscale serve --bg 4791`, also

@@ -35,7 +35,7 @@ fn start_sync(config: &config::Config) -> error::AppResult<()> {
         return Ok(());
     }
     sync.token = start_token(config)?;
-    peers::server::spawn(sync.port, sync.token)
+    peers::server::spawn(sync.listen(), sync.token)
 }
 
 /// The sync token, made and saved the first time it's needed.
@@ -92,8 +92,8 @@ pub fn serve_peers() -> std::process::ExitCode {
         .and_then(config::Config::open)
         .and_then(|config| {
             let token = start_token(&config)?;
-            let port = config::settings::load(&config)?.sync.port;
-            peers::server::run(port, &token)
+            let listen = config::settings::load(&config)?.sync.listen();
+            peers::server::run(listen, &token)
         });
     if started.is_ok() {
         std::process::ExitCode::SUCCESS

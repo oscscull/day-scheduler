@@ -1,23 +1,26 @@
 //! Serves this machine's Quarterdeck to peers: `GET /v1/health` and `POST /v1/tools/<name>`, which runs
-//! a Quarterdeck tool exactly as the MCP server would. Localhost only; every request needs the token.
+//! a Quarterdeck tool exactly as the MCP server would. This machine only, or also the local network
+//! (`[sync] lan`); never anywhere else. Every request needs the token.
 
 use std::io::Cursor;
 
 use serde_json::{Value, json};
 use tiny_http::{Header, Method, Request, Response, Server};
 
+use super::reach::{Listen, allowed};
 use crate::error::{AppError, AppResult};
 use crate::mcp::{self, Ctx, Tool};
 
 type Reply = Response<Cursor<Vec<u8>>>;
 
-fn bind(port: u16) -> AppResult<Server> {
-    Server::http(("127.0.0.1", port)).map_err(|e| AppError::Desktop(format!("sync server: {e}")))
+fn bind(listen: Listen) -> AppResult<Server> {
+    Server::http((listen.host(), listen.port))
+        .map_err(|e| AppError::Desktop(format!("sync server: {e}")))
 }
 
 /// Starts the server on its own thread for as long as the app runs.
-pub fn spawn(port: u16, token: String) -> AppResult<()> {
-    let server = bind(port)?;
+pub fn spawn(listen: Listen, token: String) -> AppResult<()> {
+    let server = bind(listen)?;
     std::thread::spawn(move || {
         if let Ok(ctx) = Ctx::open() {
             serve(&server, &ctx, &token);
@@ -27,8 +30,8 @@ pub fn spawn(port: u16, token: String) -> AppResult<()> {
 }
 
 /// Serves in the foreground until the process ends, for `<binary> serve` on a headless machine.
-pub fn run(port: u16, token: &str) -> AppResult<()> {
-    let server = bind(port)?;
+pub fn run(listen: Listen, token: &str) -> AppResult<()> {
+    let server = bind(listen)?;
     serve(&server, &Ctx::open()?, token);
     Ok(())
 }
@@ -70,6 +73,9 @@ fn authorised(request: &Request, token: &str) -> bool {
 }
 
 fn respond(ctx: &Ctx, tools: &[Tool], token: &str, request: &mut Request) -> Reply {
+    if !allowed(request.remote_addr()) {
+        return json_reply(403, &json!({ "error": "only this network may connect" }));
+    }
     if !authorised(request, token) {
         return json_reply(401, &json!({ "error": "wrong or missing token" }));
     }

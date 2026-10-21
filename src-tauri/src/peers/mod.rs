@@ -3,6 +3,7 @@
 
 pub mod client;
 pub mod handoff;
+pub mod reach;
 pub mod server;
 
 use std::io::Read as _;

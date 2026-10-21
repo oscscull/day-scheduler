@@ -171,12 +171,23 @@ pub fn set_watchdog(
     })
 }
 
-pub fn set_sync(config: &Config, enabled: bool, port: Option<u16>) -> AppResult<()> {
+/// What `set_sync` changes. Fields left `None` keep their current value.
+#[derive(Debug, Clone, Copy)]
+pub struct SyncChange {
+    pub enabled: bool,
+    pub port: Option<u16>,
+    pub lan: Option<bool>,
+}
+
+pub fn set_sync(config: &Config, change: SyncChange) -> AppResult<()> {
     edit(config, |doc| {
         let sync = table(doc, "sync")?;
-        sync.insert("enabled", value(enabled));
-        if let Some(port) = port {
+        sync.insert("enabled", value(change.enabled));
+        if let Some(port) = change.port {
             sync.insert("port", value(i64::from(port)));
+        }
+        if let Some(lan) = change.lan {
+            sync.insert("lan", value(lan));
         }
         Ok(())
     })

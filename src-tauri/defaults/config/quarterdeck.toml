@@ -107,12 +107,15 @@ linger_minutes = 3
 [sync]
 enabled = false
 port = 4791
+# Also accept machines on the local network (private addresses only), so two Macs on the same
+# Wi-Fi sync with no tunnel. Off: this machine only, for use behind a tunnel.
+lan = false
 # Peers must send this. Made on first start when empty.
 token = ""
 
 # [[sync.peers]]
 # name = "home-mac"
-# url = "https://home-mac.your-tailnet.ts.net:4791"
+# url = "http://Home-Mac.local:4791"     # `scutil --get LocalHostName` on that Mac, plus .local
 # token = "the token from home-mac's quarterdeck.toml"
 
 # Keeps Claude moving on items it holds. Agents post updates as they go; only an item that goes
