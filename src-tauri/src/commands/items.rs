@@ -2,6 +2,7 @@ use chrono::Utc;
 use serde::Serialize;
 use tauri::State;
 
+use crate::answer::Outcome;
 use crate::app::App;
 use crate::domain::ask::Ask;
 use crate::domain::event::ItemEvent;
@@ -52,12 +53,14 @@ pub enum Response {
 }
 
 #[tauri::command]
-pub fn respond(app: State<'_, App>, response: Response) -> AppResult<()> {
+pub fn respond(app: State<'_, App>, response: Response) -> AppResult<Outcome> {
     let settings = app.settings()?;
     app.db.with(|conn| match response {
         Response::Answer { ask_id, text } => crate::answer::give(conn, &settings, ask_id, &text),
-        Response::Dismiss { ask_id } => asks::remove(conn, ask_id),
-        Response::Tell { item_id, text } => crate::answer::tell(conn, &settings, &item_id, &text),
+        Response::Dismiss { ask_id } => asks::remove(conn, ask_id).map(|()| Outcome::Done),
+        Response::Tell { item_id, text } => {
+            crate::answer::tell(conn, &settings, &item_id, &text).map(|()| Outcome::Done)
+        }
     })
 }
 

@@ -15,6 +15,7 @@ import type {
   Schedule,
   TodayView,
   WorkItem,
+  ReplyOutcome,
 } from "./types";
 
 /** Typed wrappers around the backend's Tauri commands. */
@@ -42,7 +43,7 @@ export const api = {
   saveItem: (item: ItemInput) => invoke<string>("save_item", { item }),
   deleteItem: (id: string) => invoke<undefined>("delete_item", { id }),
   itemDetail: (id: string) => invoke<ItemDetail>("item_detail", { id }),
-  respond: (response: Response) => invoke<undefined>("respond", { response }),
+  respond: (response: Response) => invoke<ReplyOutcome>("respond", { response }),
   addCommitment: (commitment: CommitmentInput) => invoke<undefined>("add_commitment", { commitment }),
   hideCommitment: (id: number) => invoke<undefined>("hide_commitment", { id }),
   deleteCommitment: (id: number) => invoke<undefined>("delete_commitment", { id }),

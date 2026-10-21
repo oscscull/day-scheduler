@@ -4,6 +4,7 @@
 
 use chrono::Utc;
 use rusqlite::Connection;
+use serde::Serialize;
 
 use crate::config::settings::Settings;
 use crate::domain::ask::Ask;
@@ -21,13 +22,31 @@ fn nonempty(text: &str) -> AppResult<&str> {
     Ok(text)
 }
 
-pub fn give(conn: &Connection, settings: &Settings, ask_id: i64, answer: &str) -> AppResult<()> {
+/// What came of a reply. A screen can show a question after it was answered or dismissed
+/// elsewhere, so answering one that's gone is a normal outcome, not an error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Outcome {
+    Done,
+    /// The question was already answered or dismissed; nothing changed.
+    Gone,
+}
+
+pub fn give(
+    conn: &Connection,
+    settings: &Settings,
+    ask_id: i64,
+    answer: &str,
+) -> AppResult<Outcome> {
     let answer = nonempty(answer)?;
-    let ask = asks::get(conn, ask_id)?;
+    let Some(ask) = asks::find_open(conn, ask_id)? else {
+        return Ok(Outcome::Gone);
+    };
     let text = format!("You answered “{answer}” to: {}", ask.question);
     events::record(conn, &ask.item_id, Utc::now(), &Change::Note { text })?;
     asks::answer(conn, ask_id, answer)?;
-    hand_over(conn, settings, &ask, answer)
+    hand_over(conn, settings, &ask, answer)?;
+    Ok(Outcome::Done)
 }
 
 /// A message about an item with no question behind it. Stored as an already-answered ask with no
@@ -153,5 +172,30 @@ mod tests {
             (b.status, b.state_label.as_str()),
             (None, "you answered: No")
         );
+    }
+
+    #[test]
+    fn answering_a_question_that_is_gone_changes_nothing() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::migrate(&conn).unwrap();
+        let settings = Settings::default();
+        decision(&conn, "a");
+        let answered = ask(&conn, "a", None);
+        let dismissed = ask(&conn, "a", None);
+        assert_eq!(
+            give(&conn, &settings, answered, "Yes").unwrap(),
+            Outcome::Done
+        );
+        asks::remove(&conn, dismissed).unwrap();
+        let history = events::for_item(&conn, "a").unwrap().len();
+        assert_eq!(
+            give(&conn, &settings, answered, "No").unwrap(),
+            Outcome::Gone
+        );
+        assert_eq!(
+            give(&conn, &settings, dismissed, "No").unwrap(),
+            Outcome::Gone
+        );
+        assert_eq!(events::for_item(&conn, "a").unwrap().len(), history);
     }
 }

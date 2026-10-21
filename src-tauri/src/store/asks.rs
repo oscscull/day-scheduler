@@ -1,6 +1,6 @@
 //! Open questions for the user. Answering keeps the row only until the answer is delivered.
 
-use rusqlite::{Connection, Row, params};
+use rusqlite::{Connection, OptionalExtension as _, Row, params};
 
 use crate::domain::ask::{Answered, Ask};
 use crate::domain::session::SessionRef;
@@ -62,9 +62,15 @@ pub fn answered(conn: &Connection) -> AppResult<Vec<Answered>> {
         .collect())
 }
 
-pub fn get(conn: &Connection, id: i64) -> AppResult<Ask> {
-    let mut stmt = conn.prepare(&format!("SELECT {COLUMNS} FROM asks WHERE id = ?1"))?;
-    Ok(stmt.query_row([id], from_row)?.0)
+/// The ask, if it still waits for an answer: not dismissed, delivered or already answered.
+pub fn find_open(conn: &Connection, id: i64) -> AppResult<Option<Ask>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {COLUMNS} FROM asks WHERE id = ?1 AND answer IS NULL"
+    ))?;
+    Ok(stmt
+        .query_row([id], from_row)
+        .optional()?
+        .map(|(ask, _)| ask))
 }
 
 /// Returns the new ask's id.
