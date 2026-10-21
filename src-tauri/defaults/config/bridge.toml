@@ -65,6 +65,11 @@ fix_ci_tools = ["Bash(gh pr checks:*)", "Bash(gh pr view:*)", "Bash(gh run view:
 # repo = "me/webapp"
 # path = "~/code/webapp"
 
+# Checks that only inform (e.g. a visual-diff report). Their failures don't count as CI failing;
+# they're noted on the item instead.
+[github.informational_checks]
+# "me/webapp" = ["reg"]
+
 # Owner or owner/repo to area id. A repo entry beats its owner's.
 [github.areas]
 # "my-org" = "work"

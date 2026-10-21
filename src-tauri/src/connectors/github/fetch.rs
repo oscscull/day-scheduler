@@ -3,6 +3,7 @@
 use serde::Deserialize;
 use tokio::process::Command;
 
+use super::checks::{self, Check};
 use crate::cli;
 use crate::error::{AppError, AppResult};
 
@@ -14,7 +15,9 @@ const QUERY: &str = "query($q: String!) { search(query: $q, type: ISSUE, first: 
     latestReviews(first: 20) { nodes { author { __typename login } } } \
     comments { totalCount } reviews { totalCount } \
     reviewThreads(first: 100) { nodes { comments { totalCount } } } \
-    commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } } }";
+    commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes { \
+      __typename ... on CheckRun { name status conclusion } \
+      ... on StatusContext { context state description } } } } } } } } } } }";
 
 /// One open PR, flattened to what Bridge needs.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +31,10 @@ pub struct Pr {
     pub review: Option<String>,
     /// `SUCCESS`, `FAILURE`, `ERROR`, `PENDING`, or none.
     pub ci: Option<String>,
+    /// Each check on the head commit, for leaving out informational ones.
+    pub checks: Vec<Check>,
+    /// Results of informational checks, noted on the item rather than counted as CI.
+    pub notes: Vec<String>,
     /// Comments, reviews and review-thread replies together.
     pub comments: u64,
     pub reviewers: Reviewers,
@@ -186,6 +193,57 @@ struct Commit {
 #[serde(default)]
 struct Rollup {
     state: String,
+    contexts: Nodes<CheckNode>,
+}
+
+/// A check run (`name`, `status`, `conclusion`) or a commit status (`context`, `state`).
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct CheckNode {
+    #[serde(rename = "__typename")]
+    kind: String,
+    name: String,
+    status: String,
+    conclusion: Option<String>,
+    context: String,
+    state: String,
+    description: Option<String>,
+}
+
+impl CheckNode {
+    fn into_check(self) -> Check {
+        if self.kind == "StatusContext" {
+            Check {
+                outcome: checks::status_outcome(&self.state),
+                name: self.context,
+                detail: self.description.unwrap_or_default(),
+            }
+        } else {
+            Check {
+                outcome: checks::run_outcome(&self.status, self.conclusion.as_deref()),
+                name: self.name,
+                detail: String::new(),
+            }
+        }
+    }
+}
+
+/// The head commit's rollup state and its individual checks.
+fn ci_of(commits: Nodes<CommitNode>) -> (Option<String>, Vec<Check>) {
+    let rollup = commits
+        .nodes
+        .into_iter()
+        .next()
+        .and_then(|c| c.commit.status_check_rollup);
+    rollup.map_or((None, Vec::new()), |r| {
+        let checks = r
+            .contexts
+            .nodes
+            .into_iter()
+            .map(CheckNode::into_check)
+            .collect();
+        (Some(r.state), checks)
+    })
 }
 
 impl Node {
@@ -222,13 +280,7 @@ impl Node {
             .iter()
             .map(|t| t.comments.total_count)
             .sum();
-        let ci = self
-            .commits
-            .nodes
-            .into_iter()
-            .next()
-            .and_then(|c| c.commit.status_check_rollup)
-            .map(|r| r.state);
+        let (ci, checks) = ci_of(self.commits);
         Some(Pr {
             repo: self.repository?.name_with_owner,
             number: self.number?,
@@ -237,6 +289,8 @@ impl Node {
             draft: self.is_draft,
             review: self.review_decision,
             ci,
+            checks,
+            notes: Vec::new(),
             comments: self.comments.total_count + self.reviews.total_count + threads,
             reviewers: if reviewer_names.is_empty() {
                 Reviewers::NoneRequested

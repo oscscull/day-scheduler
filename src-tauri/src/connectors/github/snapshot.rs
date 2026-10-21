@@ -24,6 +24,9 @@ pub struct Snapshot {
     #[serde(default)]
     pub ci_passed: bool,
     pub comments: u64,
+    /// Informational check results, noted on the item when they change.
+    #[serde(default)]
+    pub notes: Vec<String>,
 }
 
 fn failing(pr: &Pr) -> bool {
@@ -88,6 +91,7 @@ pub fn of(pr: &Pr) -> Snapshot {
         ci_failing: failing(pr),
         ci_passed: pr.ci.as_deref() == Some("SUCCESS"),
         comments: pr.comments,
+        notes: pr.notes.clone(),
     }
 }
 
@@ -123,6 +127,8 @@ mod tests {
             comments,
             reviewers: Reviewers::Requested,
             reviewer_names: Vec::new(),
+            checks: Vec::new(),
+            notes: Vec::new(),
         }
     }
 

@@ -215,6 +215,30 @@ pub fn set_github_self_review(config: &Config, list: &[String]) -> AppResult<()>
     })
 }
 
+/// Sets the informational checks for an owner or repo; an empty list removes the entry.
+pub fn set_informational_checks(
+    config: &Config,
+    owner_or_repo: &str,
+    checks: &[String],
+) -> AppResult<()> {
+    edit(config, |doc| {
+        let github = table(doc, "github")?;
+        let map = github
+            .entry("informational_checks")
+            .or_insert_with(|| Item::Table(Table::new()))
+            .as_table_mut()
+            .ok_or_else(|| {
+                AppError::BadInput("[github.informational_checks] isn't a table".to_owned())
+            })?;
+        if checks.is_empty() {
+            map.remove(owner_or_repo);
+        } else {
+            map.insert(owner_or_repo, strings(checks));
+        }
+        Ok(())
+    })
+}
+
 pub fn set_github_ignores(config: &Config, ignore: &[String]) -> AppResult<()> {
     edit(config, |doc| {
         table(doc, "github")?.insert("ignore", strings(ignore));

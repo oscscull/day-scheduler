@@ -7,10 +7,11 @@ use rusqlite::Connection;
 
 use super::fetch::Pr;
 use super::snapshot::{self, Snapshot};
+use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, Stage, WorkItem};
 use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
-use crate::store::{items, sync_state};
+use crate::store::{events, items, sync_state};
 use crate::work;
 
 pub const SOURCE: &str = "github";
@@ -59,8 +60,26 @@ pub fn apply(
         }
         Some(_) => {}
     }
+    note_changes(conn, &ext, (old.as_ref(), &new), now)?;
     sync_state::set(conn, SOURCE, &ext, &serde_json::to_string(&new)?)?;
     Ok(snapshot::events(old.as_ref(), &new))
+}
+
+/// Adds informational check results to the item's history the first time each is seen.
+fn note_changes(
+    conn: &Connection,
+    ext: &str,
+    (old, new): (Option<&Snapshot>, &Snapshot),
+    now: DateTime<Utc>,
+) -> AppResult<()> {
+    let Some(item) = items::by_external(conn, SOURCE, ext)? else {
+        return Ok(());
+    };
+    let seen = old.map(|o| o.notes.as_slice()).unwrap_or_default();
+    for text in new.notes.iter().filter(|n| !seen.contains(n)) {
+        events::record(conn, &item.id, now, &Change::Note { text: text.clone() })?;
+    }
+    Ok(())
 }
 
 fn create(conn: &Connection, pr: &Pr, area: &str, now: DateTime<Utc>) -> AppResult<()> {
@@ -124,6 +143,8 @@ mod tests {
             comments,
             reviewers: super::super::fetch::Reviewers::Requested,
             reviewer_names: Vec::new(),
+            checks: Vec::new(),
+            notes: Vec::new(),
         }
     }
 

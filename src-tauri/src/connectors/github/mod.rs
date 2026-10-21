@@ -1,6 +1,7 @@
 //! GitHub: the user's open PRs become items, and changes on them fire event schedules.
 
 mod apply;
+mod checks;
 mod fetch;
 mod snapshot;
 
@@ -47,6 +48,18 @@ fn as_reviewed(pr: &fetch::Pr, solo: bool) -> fetch::Pr {
     }
 }
 
+/// The PR's CI state without its informational checks, whose failures become notes.
+fn with_checks(pr: &fetch::Pr, informational: &[String]) -> fetch::Pr {
+    if informational.is_empty() {
+        return pr.clone();
+    }
+    fetch::Pr {
+        ci: checks::rollup(&pr.checks, informational).or_else(|| pr.ci.clone()),
+        notes: checks::notes(&pr.checks, informational),
+        ..pr.clone()
+    }
+}
+
 /// Pulls open PRs into items and returns the events they fired.
 pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
     let app = handle.state::<App>();
@@ -59,6 +72,8 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
         let mut open = HashSet::new();
         for pr in prs.iter().filter(|p| !settings.ignores(&p.repo)) {
             let pr = &as_reviewed(pr, settings.self_reviews(&pr.repo));
+            let pr = &with_checks(pr, &settings.informational(&pr.repo));
+            let pr = &with_checks(pr, &settings.informational(&pr.repo));
             let area = settings.area_for(&pr.repo);
             // Another machine syncs the areas it runs, so two never duplicate a PR.
             if all.node_for(area) != all.node {

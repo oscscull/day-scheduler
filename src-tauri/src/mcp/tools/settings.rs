@@ -22,6 +22,10 @@ const SELF_REVIEW: &str = "Sets the GitHub owners or repos where the user review
 shows as waiting on their decision rather than on reviewers. PRs nobody has been asked to review, or has reviewed, are \
 treated that way already.";
 
+const INFORMATIONAL: &str = "Sets which checks on an owner's or repo's PRs only inform, e.g. a visual-diff \
+report like \"reg\". Their failures don't count as CI failing (so Bridge won't start a fix), and \
+their results are noted on the item instead. An empty list clears it.";
+
 pub fn tools() -> Vec<Tool> {
     vec![
         tool("upsert_area", UPSERT_AREA, upsert_area),
@@ -35,6 +39,7 @@ pub fn tools() -> Vec<Tool> {
         tool("map_github_area", MAP_GITHUB, map_github),
         tool("set_github_ignores", IGNORE_GITHUB, github_ignores),
         tool("set_github_self_review", SELF_REVIEW, self_review),
+        tool("set_informational_checks", INFORMATIONAL, informational),
     ]
 }
 
@@ -98,4 +103,16 @@ struct SelfReviewArgs {
 
 fn self_review(ctx: &Ctx, args: SelfReviewArgs) -> AppResult<()> {
     edit::set_github_self_review(&ctx.config, &args.owners_or_repos)
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct InformationalArgs {
+    /// e.g. "my-org" or "me/app"
+    owner_or_repo: String,
+    /// Check names as GitHub shows them, e.g. `reg`.
+    checks: Vec<String>,
+}
+
+fn informational(ctx: &Ctx, args: InformationalArgs) -> AppResult<()> {
+    edit::set_informational_checks(&ctx.config, &args.owner_or_repo, &args.checks)
 }

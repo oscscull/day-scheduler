@@ -22,6 +22,9 @@ pub struct GithubSettings {
     pub fix_ci: bool,
     /// Claude Code tools that run may use, besides the Bridge tools.
     pub fix_ci_tools: Vec<String>,
+    /// Owner or repo to the names of checks that only inform (e.g. a visual-diff report). Their
+    /// failures don't count as CI failing; they're noted on the item instead.
+    pub informational_checks: BTreeMap<String, Vec<String>>,
 }
 
 impl Default for GithubSettings {
@@ -35,6 +38,7 @@ impl Default for GithubSettings {
             self_review: Vec::new(),
             fix_ci: true,
             fix_ci_tools: Vec::new(),
+            informational_checks: BTreeMap::new(),
         }
     }
 }
@@ -53,6 +57,16 @@ impl GithubSettings {
             .get(repo)
             .or_else(|| self.areas.get(owner(repo)))
             .unwrap_or(&self.default_area)
+    }
+
+    /// Informational check names for a repo: its owner's and its own.
+    pub fn informational(&self, repo: &str) -> Vec<String> {
+        [owner(repo), repo]
+            .iter()
+            .filter_map(|key| self.informational_checks.get(*key))
+            .flatten()
+            .cloned()
+            .collect()
     }
 
     pub fn ignores(&self, repo: &str) -> bool {
