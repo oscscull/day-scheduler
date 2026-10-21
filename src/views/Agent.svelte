@@ -6,6 +6,7 @@
   import { t } from "../lib/copy";
   import { poll } from "../lib/poll";
   import type { AgentView, Schedule } from "../lib/types";
+  import ConnectClaude from "./agent/ConnectClaude.svelte";
   import DeleteScheduleModal from "./agent/DeleteScheduleModal.svelte";
   import LiveRuns from "./agent/LiveRuns.svelte";
   import NewScheduleModal from "./agent/NewScheduleModal.svelte";
@@ -89,6 +90,7 @@
       {#if data.schedules.filter(inArea).length === 0}<p class="hint">{t("empty.agent")}</p>{/if}
       <ScheduleList schedules={data.schedules.filter(inArea)} {now} paused={data.pause !== null} onOpen={(s) => (editing = s)} onToggle={setEnabled} onDelete={(s) => (deleting = s)} />
     </section>
+    <ConnectClaude />
   {/if}
 </div>
 

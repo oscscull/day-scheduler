@@ -7,7 +7,9 @@ mod config;
 mod cron;
 mod domain;
 mod error;
+mod mcp;
 mod notify;
+mod paths;
 mod scheduler;
 mod store;
 mod today;
@@ -18,11 +20,18 @@ use tauri::Manager as _;
 
 /// Opens the database and config folder, then hands both to every command.
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    let db = store::Db::open(&app.path().app_data_dir()?)?;
-    let config = config::Config::open(app.path().home_dir()?.join(".config").join("bridge"))?;
+    let db = store::Db::open(&paths::data_dir()?)?;
+    let config = config::Config::open(paths::config_dir()?)?;
     app.manage(app::App { db, config });
     scheduler::spawn(app.handle().clone());
     Ok(())
+}
+
+/// Serves the Model Context Protocol over stdio instead of opening the app. Started as
+/// `<binary> mcp`, so any Claude session can read and change Bridge.
+#[must_use]
+pub fn serve_mcp() -> std::process::ExitCode {
+    mcp::serve()
 }
 
 /// Builds and runs the Tauri application.
@@ -41,6 +50,7 @@ pub fn run() -> tauri::Result<()> {
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             commands::areas::areas,
+            commands::connect::mcp_connect_command,
             commands::screens::today,
             commands::commitments::add_commitment,
             commands::commitments::delete_commitment,

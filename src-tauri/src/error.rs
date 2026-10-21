@@ -21,6 +21,8 @@ pub enum AppError {
     Claude(String),
     #[error("couldn't notify: {0}")]
     Notify(String),
+    #[error("{0}")]
+    BadInput(String),
     #[error("not found: {0}")]
     NotFound(String),
     #[error("the database lock was poisoned")]

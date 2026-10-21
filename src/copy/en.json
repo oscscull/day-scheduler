@@ -114,7 +114,7 @@
   "chat.open": "Ask Claude about this page",
   "chat.title": "Ask Claude",
   "chat.close": "Close",
-  "chat.looking": "Looking at {page}.",
+  "chat.looking": "Looking at {page}. I can make changes too.",
   "chat.placeholder": "Ask about this page",
   "chat.send": "Send",
   "chat.thinking": "Thinking…",
@@ -231,5 +231,9 @@
   "commitment.cancel": "Cancel",
   "commitment.failed": "Couldn’t add: {error}",
   "commitment.calendarHint": "Calendar events appear here once a calendar link is set in bridge.toml.",
-  "today.answered": "Mark “{question}” answered"
+  "today.answered": "Mark “{question}” answered",
+  "connect.title": "Connect your Claude sessions",
+  "connect.hint": "Run this once in a terminal. Every Claude Code session can then read and update Bridge: “add dinner on Friday to my to-dos”, “move JD-104 to review”.",
+  "connect.copy": "Copy",
+  "connect.copied": "Copied"
 }

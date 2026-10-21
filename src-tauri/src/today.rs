@@ -107,6 +107,9 @@ mod tests {
             starts_at: now + Duration::minutes(start),
             ends_at: now + Duration::minutes(start + 30),
             location: None,
+            source: String::new(),
+            external_id: None,
+            hidden: false,
         };
         let ids: Vec<i64> = upcoming(vec![meeting(1, 60), meeting(2, -90), meeting(3, 10)], now)
             .iter()

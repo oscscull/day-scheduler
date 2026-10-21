@@ -15,6 +15,9 @@ pub fn add_commitment(app: State<'_, App>, commitment: CommitmentInput) -> AppRe
         starts_at: commitment.starts_at,
         ends_at: commitment.ends_at,
         location: commitment.location,
+        source: "manual".to_owned(),
+        external_id: None,
+        hidden: false,
     };
     app.db.with(|conn| commitments::insert(conn, &c))
 }

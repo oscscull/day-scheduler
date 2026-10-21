@@ -28,7 +28,10 @@ CREATE TABLE IF NOT EXISTS commitments (
     area TEXT NOT NULL,
     starts_at TEXT NOT NULL,
     ends_at TEXT NOT NULL,
-    location TEXT
+    location TEXT,
+    source TEXT NOT NULL,
+    external_id TEXT,
+    hidden INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS activity (
     id INTEGER PRIMARY KEY,
@@ -61,6 +64,10 @@ CREATE TABLE IF NOT EXISTS item_events (
     item_id TEXT NOT NULL,
     at TEXT NOT NULL,
     change TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS run_requests (
+    schedule_id TEXT NOT NULL,
+    requested_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,

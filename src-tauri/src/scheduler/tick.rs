@@ -13,7 +13,7 @@ use crate::domain::schedule::{Schedule, Trigger};
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 use crate::notify;
-use crate::store::{meta, runs, urgent};
+use crate::store::{meta, run_requests, runs, urgent};
 
 const LAST_TICK: &str = "scheduler.last_tick";
 /// A run this late still goes ahead; anything older counts as missed.
@@ -38,6 +38,7 @@ pub fn tick(handle: &AppHandle) -> AppResult<()> {
             &format!("{raised} new urgent item(s)"),
         ));
     }
+    start_requested(handle)?;
     let now = Utc::now();
     let last = app.db.with(|c| meta::time(c, LAST_TICK))?;
     app.db.with(|c| meta::set_time(c, LAST_TICK, now))?;
@@ -72,6 +73,19 @@ fn consider(
     }
     if p.run && !is_running(handle, &schedule.id)? {
         start(handle, schedule.clone());
+    }
+    Ok(())
+}
+
+/// Starts schedules an agent asked to run now. These run even while paused: someone asked.
+fn start_requested(handle: &AppHandle) -> AppResult<()> {
+    let app = handle.state::<App>();
+    for id in app.db.with(run_requests::take_all)? {
+        if let Ok(schedule) = schedules::find(&app.config, &id)
+            && !is_running(handle, &id)?
+        {
+            start(handle, schedule);
+        }
     }
     Ok(())
 }

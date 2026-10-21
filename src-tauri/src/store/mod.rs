@@ -11,12 +11,14 @@ pub mod events;
 pub mod expire;
 pub mod items;
 pub mod meta;
+pub mod run_requests;
 pub mod runs;
 pub mod todos;
 pub mod urgent;
 
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use rusqlite::Connection;
 
@@ -33,6 +35,9 @@ impl Db {
     pub fn open(dir: &Path) -> AppResult<Self> {
         std::fs::create_dir_all(dir)?;
         let conn = Connection::open(dir.join("bridge.sqlite"))?;
+        // The app and the MCP server share this file, so wait for each other's writes.
+        conn.busy_timeout(Duration::from_secs(5))?;
+        conn.pragma_update(None, "journal_mode", "WAL")?;
         schema::migrate(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),

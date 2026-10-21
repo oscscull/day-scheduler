@@ -1,0 +1,53 @@
+//! Every tool the MCP server offers, grouped by what it acts on.
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "every handler has the same shape, fn(&Ctx, Args), so args arrive by value"
+)]
+
+mod asks;
+mod commitments;
+mod items;
+mod overview;
+mod schedules;
+mod todos;
+mod updates;
+mod urgent;
+
+use chrono::{DateTime, NaiveDate, Utc};
+
+use super::tool::Tool;
+use crate::error::{AppError, AppResult};
+
+pub fn all() -> Vec<Tool> {
+    [
+        overview::tools(),
+        items::tools(),
+        asks::tools(),
+        todos::tools(),
+        commitments::tools(),
+        urgent::tools(),
+        updates::tools(),
+        schedules::tools(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
+}
+
+/// Parses an RFC 3339 time such as `2026-10-23T18:00:00+01:00`.
+fn time(text: &str) -> AppResult<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(text)
+        .map(|t| t.with_timezone(&Utc))
+        .map_err(|e| AppError::BadInput(format!("'{text}' is not an RFC 3339 time: {e}")))
+}
+
+/// Parses a calendar date such as `2026-10-23`.
+fn date(text: &str) -> AppResult<NaiveDate> {
+    NaiveDate::parse_from_str(text, "%Y-%m-%d")
+        .map_err(|e| AppError::BadInput(format!("'{text}' is not a YYYY-MM-DD date: {e}")))
+}
+
+/// Keeps things in `area`, or everything when no area is given.
+fn in_area(area: Option<&String>, thing_area: &str) -> bool {
+    area.is_none_or(|a| a == thing_area)
+}

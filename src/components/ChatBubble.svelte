@@ -2,6 +2,7 @@
   import { api, errorText } from "../lib/api";
   import { chatContext } from "../lib/chat.svelte";
   import { t } from "../lib/copy";
+  import { changed } from "../lib/refresh.svelte";
 
   interface Props {
     page: string;
@@ -31,6 +32,8 @@
     error = "";
     try {
       messages.push({ from: "claude", text: await api.askClaude(page, chatContext.text, text) });
+      // Claude may have changed things through the Bridge tools.
+      changed();
     } catch (e) {
       error = t("chat.failed", { error: errorText(e) });
     } finally {

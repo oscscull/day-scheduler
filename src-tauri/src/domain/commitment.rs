@@ -11,6 +11,12 @@ pub struct Commitment {
     pub starts_at: DateTime<Utc>,
     pub ends_at: DateTime<Utc>,
     pub location: Option<String>,
+    /// Where it came from, e.g. `manual` or `calendar:work`. Synced entries keep user overrides.
+    pub source: String,
+    /// The connector's own id for it, so a re-sync updates instead of duplicating.
+    pub external_id: Option<String>,
+    /// Hidden by the user or an agent; a re-sync keeps it hidden.
+    pub hidden: bool,
 }
 
 /// A commitment as entered by hand or by an agent.

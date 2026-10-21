@@ -14,6 +14,7 @@ import type {
 
 /** Typed wrappers around the backend's Tauri commands. */
 export const api = {
+  mcpConnectCommand: () => invoke<string>("mcp_connect_command"),
   areas: () => invoke<Area[]>("areas"),
   addTodo: (title: string, area: string, due: string | null) =>
     invoke<undefined>("add_todo", { title, area, due }),
