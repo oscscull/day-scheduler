@@ -8,6 +8,7 @@ mod commands;
 mod config;
 mod connectors;
 mod cron;
+mod desktop;
 mod domain;
 mod error;
 mod mcp;
@@ -21,11 +22,19 @@ mod work;
 
 use tauri::Manager as _;
 
+fn settings_for_login(config: &config::Config) -> bool {
+    config::settings::load(config).map_or(true, |s| s.launch_at_login)
+}
+
 /// Opens the database and config folder, then hands both to every command.
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let db = store::Db::open(&paths::data_dir()?)?;
     let config = config::Config::open(paths::config_dir()?)?;
+    let launch_at_login = settings_for_login(&config);
     app.manage(app::App { db, config });
+    desktop::tray::build(app.handle())?;
+    // Launch-at-login is a convenience; failing to set it must not stop the app opening.
+    drop(desktop::login::apply(app.handle(), launch_at_login));
     scheduler::spawn(app.handle().clone());
     Ok(())
 }
@@ -50,39 +59,14 @@ pub fn run() -> tauri::Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .on_window_event(desktop::on_window_event)
         .setup(setup)
-        .invoke_handler(tauri::generate_handler![
-            commands::areas::areas,
-            commands::alerts::due_alert,
-            commands::alerts::alert_done,
-            commands::alerts::alert_snooze,
-            commands::connect::mcp_connect_command,
-            commands::screens::today,
-            commands::commitments::add_commitment,
-            commands::commitments::delete_commitment,
-            commands::commitments::hide_commitment,
-            commands::todos::add_todo,
-            commands::todos::set_todo_done,
-            commands::screens::work_items,
-            commands::screens::agent,
-            commands::items::reorder_items,
-            commands::items::save_item,
-            commands::items::delete_item,
-            commands::items::add_ask,
-            commands::items::resolve_ask,
-            commands::items::item_detail,
-            commands::schedules::set_schedule_enabled,
-            commands::schedules::save_schedule,
-            commands::schedules::delete_schedule,
-            commands::schedules::explain_cron,
-            commands::schedules::run_schedule_now,
-            commands::schedules::pause_all,
-            commands::schedules::resume_all,
-            commands::urgent::dismiss_urgent,
-            commands::urgent::dismiss_all_urgent,
-            commands::urgent::resolve_urgent,
-            commands::chat::ask_claude,
-            commands::chat::draft_schedule,
-        ])
-        .run(tauri::generate_context!())
+        .invoke_handler(commands::handler())
+        .build(tauri::generate_context!())?
+        .run(|handle, event| desktop::on_run_event(handle, &event));
+    Ok(())
 }

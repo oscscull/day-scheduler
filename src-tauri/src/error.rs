@@ -21,6 +21,8 @@ pub enum AppError {
     Claude(String),
     #[error("{0}")]
     Connector(String),
+    #[error("{0}")]
+    Desktop(String),
     #[error("couldn't notify: {0}")]
     Notify(String),
     #[error("{0}")]

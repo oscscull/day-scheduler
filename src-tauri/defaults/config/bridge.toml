@@ -3,6 +3,10 @@
 # This machine's name. Each area below says which machine runs its schedules.
 node = "work-mac"
 
+# Start Bridge when you log in, so schedules and alerts keep working. Closing the window keeps
+# it running in the menu bar; quit from there.
+launch_at_login = true
+
 # How many asks Today's Priorities section shows, taken from the top of the ranking.
 priority_limit = 3
 

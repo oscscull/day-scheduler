@@ -33,6 +33,8 @@ pub struct Settings {
     pub github: GithubSettings,
     pub calendar: CalendarSettings,
     pub alerts: AlertSettings,
+    /// Start Bridge when you log in, so schedules and alerts keep working.
+    pub launch_at_login: bool,
 }
 
 impl Default for Settings {
@@ -49,6 +51,7 @@ impl Default for Settings {
             github: GithubSettings::default(),
             calendar: CalendarSettings::default(),
             alerts: AlertSettings::default(),
+            launch_at_login: true,
         }
     }
 }
@@ -104,6 +107,7 @@ mod tests {
             github: GithubSettings::default(),
             calendar: CalendarSettings::default(),
             alerts: AlertSettings::default(),
+            launch_at_login: true,
         }
     }
 
