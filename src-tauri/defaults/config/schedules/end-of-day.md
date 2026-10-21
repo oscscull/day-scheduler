@@ -1,6 +1,6 @@
 +++
 name = "End-of-day wrap"
-node = "work-mac"
+area = "work"
 scope = "nothing"
 autonomy = "act"
 enabled = true

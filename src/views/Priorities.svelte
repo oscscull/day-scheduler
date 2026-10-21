@@ -1,10 +1,14 @@
 <script lang="ts">
+  import AreaDot from "../components/AreaDot.svelte";
   import Chip from "../components/Chip.svelte";
   import LoadError from "../components/LoadError.svelte";
   import { api, errorText } from "../lib/api";
   import { t } from "../lib/copy";
+  import { areas, inArea } from "../lib/areas.svelte";
+  import { chatContext } from "../lib/chat.svelte";
   import { workItems } from "../lib/items.svelte";
   import { poll } from "../lib/poll";
+  import { reorder } from "../lib/rank";
   import type { WorkItem } from "../lib/types";
 
   const { state: list, load } = workItems();
@@ -14,16 +18,17 @@
 
   $effect(() => poll(load));
 
-  const inPlay = $derived(list.items.filter((i) => i.stage !== "done"));
+  const inPlay = $derived(list.items.filter((i) => i.stage !== "done" && inArea(i)));
 
-  /** Moves `id` to `to` within the in-play list and saves the full order. */
+  $effect(() => {
+    chatContext.text = JSON.stringify({ area: areas.current, ranked: inPlay });
+  });
+
+  /** Moves `id` to `to` within the visible list and saves the full order. */
   async function move(id: string, to: number): Promise<void> {
-    const order = inPlay.filter((i) => i.id !== id);
-    const moved = inPlay.find((i) => i.id === id);
-    if (!moved) return;
-    order.splice(Math.max(0, Math.min(order.length, to)), 0, moved);
-    const done = list.items.filter((i) => i.stage === "done");
-    list.items = [...order, ...done];
+    const ids = reorder(list.items.map((i) => i.id), inPlay.map((i) => i.id), id, to);
+    const byId = new Map(list.items.map((i) => [i.id, i]));
+    list.items = ids.flatMap((i) => byId.get(i) ?? []);
     try {
       await api.reorderItems(list.items.map((i) => i.id));
       saveError = "";
@@ -63,6 +68,7 @@
       >
         <svg class="grip" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg>
         <span class="mono rank">{i + 1}</span>
+        <AreaDot area={item.area} />
         <span class="body">
           <span><span class="mono id">{item.id}</span>&nbsp; {item.title}</span>
           <span class="hint meta">{showsHolder(item)}</span>

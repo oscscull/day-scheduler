@@ -8,8 +8,10 @@
     reason = "tauri::command's async expansion discards a value; not our code"
 )]
 
+pub mod areas;
 pub mod chat;
 pub mod items;
 pub mod schedules;
 pub mod screens;
+pub mod todos;
 pub mod urgent;

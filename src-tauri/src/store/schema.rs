@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS items (
     stage TEXT NOT NULL,
     status TEXT,
     holder TEXT NOT NULL,
-    node TEXT NOT NULL,
+    area TEXT NOT NULL,
     opened_at TEXT NOT NULL,
     rank INTEGER NOT NULL
 );
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS asks (
 CREATE TABLE IF NOT EXISTS commitments (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
+    area TEXT NOT NULL,
     starts_at TEXT NOT NULL,
     ends_at TEXT NOT NULL,
     location TEXT
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS commitments (
 CREATE TABLE IF NOT EXISTS activity (
     id INTEGER PRIMARY KEY,
     text TEXT NOT NULL,
+    area TEXT NOT NULL,
     at TEXT NOT NULL,
     unread INTEGER NOT NULL
 );
@@ -48,8 +50,16 @@ CREATE TABLE IF NOT EXISTS urgent (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
     detail TEXT NOT NULL,
+    area TEXT NOT NULL,
     raised_at TEXT NOT NULL,
     schedule_id TEXT
+);
+CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    area TEXT NOT NULL,
+    due TEXT,
+    done_at TEXT
 );
 ";
 

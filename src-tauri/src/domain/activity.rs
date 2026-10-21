@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Activity {
     pub id: i64,
     pub text: String,
+    pub area: String,
     pub at: DateTime<Utc>,
     pub unread: bool,
 }

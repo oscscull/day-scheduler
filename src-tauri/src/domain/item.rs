@@ -33,7 +33,7 @@ pub struct WorkItem {
     pub stage: Stage,
     pub status: Option<Status>,
     pub holder: String,
-    pub node: String,
+    pub area: String,
     pub opened_at: DateTime<Utc>,
     pub rank: i64,
 }

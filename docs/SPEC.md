@@ -13,11 +13,18 @@ judgement work. Bridge shows what is in flight, runs recurring jobs, and interru
 2. **Priorities**: things where the user's attention unblocks work (design forks, questions).
 3. **Claude's activity**: quiet, notification-style updates.
 
+## Areas
+
+Everything belongs to one area of life, e.g. Work, Projects, Life. Areas are defined in `bridge.toml`
+(name, colour, and the machine that runs that area's schedules). A switcher at the top filters every
+view to one area or shows All, with colour dots telling areas apart.
+
 ## Views
 
 - **Today**: next commitment (with an "Urgent · n" pill when anything is urgent), Priorities, and
-  "From Claude". Priorities are derived, never ordered by
-  hand: the asks on the highest-ranked work, capped by `priority_limit`.
+  To do, and "From Claude". Priorities are derived, never ordered by hand: the asks on the
+  highest-ranked work in the chosen area, capped by `priority_limit`. To do holds things only the user
+  can do (errands, bookings), with an optional due date; done ones expire after `done_todo_ttl_days`.
 - **Priorities**: every item in play, drag to rank. The ranking drives Today and Claude's order of work.
 - **Board**: items by stage (up next, in progress, in review, done).
 - **In flight**: open items grouped by who they wait on (you, Claude, others).
@@ -42,7 +49,7 @@ No chip means it is moving.
   `pause.toml` (present only while everything is paused). Defaults ship in `src-tauri/defaults/config/`
   and are written only when missing.
 - **Database** (app data dir, SQLite): live state only. Items and their rank, asks, commitments,
-  activity, runs (with outcome: ok, failed, missed), urgent items. Activity and finished runs are deleted after their TTL.
+  activity, runs (with outcome: ok, failed, missed), urgent items, to-dos. Activity and finished runs are deleted after their TTL.
 - **Connectors** (GitHub, calendar, Slack): app code, called programmatically. Not built yet; the
   database is filled from `src-tauri/defaults/seed.json` sample data until they are.
 
@@ -59,5 +66,5 @@ Schedule triggers are `cron` (five fields, explained in plain English in the UI)
 
 - The scheduler that fires runs on time, records missed runs and respects the pause; the event watchers.
 - Connectors; items, asks and meetings are sample data.
-- Being designed: areas (Work, Personal projects, Life) replacing machines, and life to-dos.
+- Calendar and reminders feeding To do and commitments.
 - Meeting alerts, item detail view, multi-machine sync, agent access to Bridge's data (MCP).

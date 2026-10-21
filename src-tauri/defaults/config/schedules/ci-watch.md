@@ -1,6 +1,6 @@
 +++
 name = "CI watch"
-node = "work-mac"
+area = "work"
 scope = "each_pr"
 autonomy = "act"
 enabled = true

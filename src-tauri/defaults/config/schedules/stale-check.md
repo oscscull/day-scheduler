@@ -1,6 +1,6 @@
 +++
 name = "Stale check"
-node = "work-mac"
+area = "work"
 scope = "each_item"
 autonomy = "ask"
 enabled = false

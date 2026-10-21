@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { t } from "../lib/copy";
   import { longDate } from "../lib/time";
   import type { ViewId } from "../lib/views";
+  import AreaSwitch from "./AreaSwitch.svelte";
   import ViewSwitch from "./ViewSwitch.svelte";
 
   interface Props {
@@ -15,7 +15,7 @@
 <header>
   <span class="side">{longDate(new Date())}</span>
   <ViewSwitch {view} {onSelect} />
-  <span class="side end">{t("app.machines")}</span>
+  <div class="side end"><AreaSwitch /></div>
 </header>
 
 <style>
@@ -36,6 +36,7 @@
   }
 
   .end {
-    text-align: right;
+    display: flex;
+    justify-content: flex-end;
   }
 </style>

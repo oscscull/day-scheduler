@@ -1,3 +1,4 @@
+import { ALL, areas } from "../../lib/areas.svelte";
 import { t } from "../../lib/copy";
 import type { Schedule } from "../../lib/types";
 
@@ -8,7 +9,7 @@ export function blankSchedule(): Schedule {
     name: t("schedule.blankName"),
     prompt: "",
     trigger: { type: "cron", expr: "0 9 * * 1-5" },
-    node: "work-mac",
+    area: areas.current !== ALL ? areas.current : (areas.list[0]?.id ?? ""),
     scope: "nothing",
     autonomy: "ask",
     enabled: true,

@@ -48,3 +48,20 @@ export function age(iso: string, now: Date): string {
 }
 
 export const isStale = (iso: string, now: Date): boolean => ageMs(iso, now) >= STALE_AFTER;
+
+const shortDateFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
+
+/** "overdue", "today", "tomorrow", "Fri" within a week, otherwise "3 Nov". */
+export function dueText(date: string, now: Date): string {
+  const due = new Date(`${date}T00:00:00`);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((due.getTime() - today.getTime()) / DAY);
+  if (days < 0) return t("todo.overdue");
+  if (days === 0) return t("todo.today");
+  if (days === 1) return t("todo.tomorrow");
+  if (days < 7) return weekdayFormat.format(due);
+  return shortDateFormat.format(due);
+}
+
+export const isOverdue = (date: string, now: Date): boolean =>
+  new Date(`${date}T23:59:59`).getTime() < now.getTime();

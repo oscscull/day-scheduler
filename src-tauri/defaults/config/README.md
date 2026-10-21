@@ -3,7 +3,8 @@
 Read by: you, and agents asked to change what Bridge does. Bridge re-reads this folder on
 every refresh, so edits apply immediately.
 
-- `bridge.toml`: mechanical settings, including how long stored output lives.
+- `bridge.toml`: mechanical settings, how long stored output lives, and your areas (e.g. Work,
+  Projects, Life), each with the machine that runs its schedules.
 - `prompts/`: Bridge's built-in agent jobs. `{{name}}` placeholders are filled in by the app.
 - `schedules/`: one file per recurring job; the file name is its id. TOML between `+++`
   lines, then the instructions Claude follows. Copy an existing file to start a new one.

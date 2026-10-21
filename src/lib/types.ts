@@ -10,7 +10,7 @@ export interface WorkItem {
   stage: Stage;
   status: Status | null;
   holder: string;
-  node: string;
+  area: string;
   openedAt: string;
   rank: number;
 }
@@ -26,11 +26,13 @@ export interface Priority {
   ask: Ask;
   itemId: string;
   itemTitle: string;
+  area: string;
 }
 
 export interface Commitment {
   id: number;
   title: string;
+  area: string;
   startsAt: string;
   endsAt: string;
   location: string | null;
@@ -39,14 +41,33 @@ export interface Commitment {
 export interface Activity {
   id: number;
   text: string;
+  area: string;
   at: string;
   unread: boolean;
+}
+
+/** A part of life from bridge.toml, e.g. Work or Life. */
+export interface Area {
+  id: string;
+  name: string;
+  color: string;
+  node: string;
+}
+
+export interface Todo {
+  id: number;
+  title: string;
+  area: string;
+  /** A calendar date, "YYYY-MM-DD". */
+  due: string | null;
+  doneAt: string | null;
 }
 
 export interface Urgent {
   id: number;
   title: string;
   detail: string;
+  area: string;
   raisedAt: string;
   scheduleId: string | null;
 }
@@ -55,6 +76,8 @@ export interface TodayView {
   urgent: Urgent[];
   upcoming: Commitment[];
   priorities: Priority[];
+  priorityLimit: number;
+  todos: Todo[];
   activity: Activity[];
   running: number;
   inFlight: number;
@@ -84,7 +107,7 @@ export interface Schedule {
   name: string;
   prompt: string;
   trigger: Trigger;
-  node: string;
+  area: string;
   scope: Scope;
   autonomy: Autonomy;
   enabled: boolean;

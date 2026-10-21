@@ -12,7 +12,7 @@ use crate::error::{AppError, AppResult};
 #[derive(Debug, Serialize, Deserialize)]
 struct Settings {
     name: String,
-    node: String,
+    area: String,
     scope: Scope,
     autonomy: Autonomy,
     enabled: bool,
@@ -84,7 +84,7 @@ fn read(file: &Path) -> AppResult<Schedule> {
         name: s.name,
         prompt: body.to_owned(),
         trigger: s.trigger,
-        node: s.node,
+        area: s.area,
         scope: s.scope,
         autonomy: s.autonomy,
         enabled: s.enabled,
@@ -95,7 +95,7 @@ fn read(file: &Path) -> AppResult<Schedule> {
 pub fn save(config: &Config, schedule: &Schedule) -> AppResult<()> {
     let settings = Settings {
         name: schedule.name.clone(),
-        node: schedule.node.clone(),
+        area: schedule.area.clone(),
         scope: schedule.scope,
         autonomy: schedule.autonomy,
         enabled: schedule.enabled,

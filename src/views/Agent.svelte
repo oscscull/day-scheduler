@@ -1,6 +1,7 @@
 <script lang="ts">
   import LoadError from "../components/LoadError.svelte";
   import { api, errorText } from "../lib/api";
+  import { inArea } from "../lib/areas.svelte";
   import { chatContext } from "../lib/chat.svelte";
   import { t } from "../lib/copy";
   import { poll } from "../lib/poll";
@@ -85,7 +86,7 @@
           <ul>{#each data.problems as problem (problem)}<li class="mono">{problem}</li>{/each}</ul>
         </div>
       {/if}
-      <ScheduleList schedules={data.schedules} {now} paused={data.pause !== null} onOpen={(s) => (editing = s)} onToggle={setEnabled} onDelete={(s) => (deleting = s)} />
+      <ScheduleList schedules={data.schedules.filter(inArea)} {now} paused={data.pause !== null} onOpen={(s) => (editing = s)} onToggle={setEnabled} onDelete={(s) => (deleting = s)} />
     </section>
   {/if}
 </div>

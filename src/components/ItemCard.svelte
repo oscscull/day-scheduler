@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { WorkItem } from "../lib/types";
   import Age from "./Age.svelte";
+  import AreaDot from "./AreaDot.svelte";
   import Chip from "./Chip.svelte";
 
   interface Props {
@@ -17,7 +18,7 @@
 </script>
 
 <article class:done={item.stage === "done"}>
-  <span class="mono id">{item.id}</span>
+  <span class="id-row"><AreaDot area={item.area} /><span class="mono id">{item.id}</span></span>
   <span class="title">{item.title}</span>
   <span class="label">{item.stateLabel}</span>
   <span class="foot">
@@ -43,6 +44,12 @@
 
   .done {
     background: transparent;
+  }
+
+  .id-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .id {

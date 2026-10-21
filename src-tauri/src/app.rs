@@ -22,11 +22,12 @@ impl App {
     }
 
     /// Turns any files agents dropped in `inbox/` into urgent items.
-    pub fn take_inbox(&self) -> AppResult<()> {
+    pub fn take_inbox(&self, settings: &Settings) -> AppResult<()> {
         let raised = inbox::take(&self.config)?;
         self.db.with(|conn| {
             for r in raised {
-                urgent::raise(conn, &r.into_urgent(Utc::now()))?;
+                let area = settings.known_area(&r.area);
+                urgent::raise(conn, &r.into_urgent(area, Utc::now()))?;
             }
             Ok(())
         })
@@ -37,6 +38,7 @@ impl App {
         let ttl = Ttl {
             activity: Duration::days(settings.activity_ttl_days),
             runs: Duration::days(settings.run_ttl_days),
+            done_todos: Duration::days(settings.done_todo_ttl_days),
         };
         self.db.with(|conn| expire(conn, Utc::now(), ttl))
     }

@@ -1,14 +1,17 @@
 //! Fills an empty database with the sample data in `defaults/seed.json`.
-//! Times are relative to now, so the sample always looks current.
+//! Times are relative to now, so the sample always looks current. Read by: the app on first run.
+//! TTL: until real connectors fill the database.
 
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::Connection;
 use serde::Deserialize;
 
-use super::{activity, asks, commitments, items, runs, urgent};
+use super::{activity, asks, commitments, items, runs, todos, urgent};
+use crate::domain::activity::Activity;
 use crate::domain::commitment::Commitment;
 use crate::domain::item::{Stage, Status, WorkItem};
 use crate::domain::run::{Outcome, Run};
+use crate::domain::todo::Todo;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 
@@ -22,15 +25,7 @@ struct Seed {
     activity: Vec<SeedActivity>,
     runs: Vec<SeedRun>,
     urgent: Vec<SeedUrgent>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SeedUrgent {
-    title: String,
-    detail: String,
-    mins_ago: i64,
-    schedule_id: Option<String>,
+    todos: Vec<SeedTodo>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,7 +37,7 @@ struct SeedItem {
     stage: Stage,
     status: Option<Status>,
     holder: String,
-    node: String,
+    area: String,
     opened_mins_ago: i64,
 }
 
@@ -58,6 +53,7 @@ struct SeedAsk {
 #[serde(rename_all = "camelCase")]
 struct SeedCommitment {
     title: String,
+    area: String,
     starts_in_mins: i64,
     duration_mins: i64,
     location: Option<String>,
@@ -67,6 +63,7 @@ struct SeedCommitment {
 #[serde(rename_all = "camelCase")]
 struct SeedActivity {
     text: String,
+    area: String,
     mins_ago: i64,
     unread: bool,
 }
@@ -84,6 +81,24 @@ struct SeedRun {
     summary: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SeedUrgent {
+    title: String,
+    detail: String,
+    area: String,
+    mins_ago: i64,
+    schedule_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SeedTodo {
+    title: String,
+    area: String,
+    due_in_days: Option<i64>,
+}
+
 fn ago(now: DateTime<Utc>, mins: i64) -> DateTime<Utc> {
     now - Duration::minutes(mins)
 }
@@ -94,78 +109,100 @@ pub fn seed_if_empty(conn: &Connection, now: DateTime<Utc>) -> AppResult<()> {
         return Ok(());
     }
     let seed: Seed = serde_json::from_str(SEED)?;
-    seed_items(conn, seed.items, now)?;
+    for (rank, s) in (0_i64..).zip(seed.items) {
+        items::insert(conn, &item(s, rank, now))?;
+    }
     for a in seed.asks {
         asks::insert(conn, &a.item_id, &a.question, &a.context)?;
     }
-    seed_commitments(conn, seed.commitments, now)?;
+    for c in seed.commitments {
+        commitments::insert(conn, &commitment(c, now))?;
+    }
     for a in seed.activity {
-        activity::insert(conn, &a.text, ago(now, a.mins_ago), a.unread)?;
+        activity::insert(conn, &note(a, now))?;
     }
     for u in seed.urgent {
-        let item = Urgent {
-            id: 0,
-            title: u.title,
-            detail: u.detail,
-            raised_at: ago(now, u.mins_ago),
-            schedule_id: u.schedule_id,
-        };
-        urgent::raise(conn, &item)?;
+        urgent::raise(conn, &urgent_item(u, now))?;
     }
-    seed_runs(conn, seed.runs, now)
-}
-
-fn seed_items(conn: &Connection, list: Vec<SeedItem>, now: DateTime<Utc>) -> AppResult<()> {
-    for (rank, s) in (0_i64..).zip(list) {
-        let item = WorkItem {
-            id: s.id,
-            title: s.title,
-            state_label: s.state_label,
-            stage: s.stage,
-            status: s.status,
-            holder: s.holder,
-            node: s.node,
-            opened_at: ago(now, s.opened_mins_ago),
-            rank,
-        };
-        items::insert(conn, &item)?;
+    for t in seed.todos {
+        todos::insert(conn, &todo(t, now))?;
+    }
+    for r in seed.runs {
+        runs::insert(conn, &run(r, now))?;
     }
     Ok(())
 }
 
-fn seed_commitments(
-    conn: &Connection,
-    list: Vec<SeedCommitment>,
-    now: DateTime<Utc>,
-) -> AppResult<()> {
-    for s in list {
-        let starts_at = now + Duration::minutes(s.starts_in_mins);
-        let c = Commitment {
-            id: 0,
-            title: s.title,
-            starts_at,
-            ends_at: starts_at + Duration::minutes(s.duration_mins),
-            location: s.location,
-        };
-        commitments::insert(conn, &c)?;
+fn item(s: SeedItem, rank: i64, now: DateTime<Utc>) -> WorkItem {
+    WorkItem {
+        id: s.id,
+        title: s.title,
+        state_label: s.state_label,
+        stage: s.stage,
+        status: s.status,
+        holder: s.holder,
+        area: s.area,
+        opened_at: ago(now, s.opened_mins_ago),
+        rank,
     }
-    Ok(())
 }
 
-fn seed_runs(conn: &Connection, list: Vec<SeedRun>, now: DateTime<Utc>) -> AppResult<()> {
-    for s in list {
-        let run = Run {
-            id: 0,
-            schedule_id: s.schedule_id,
-            what: s.what,
-            target: s.target,
-            node: s.node,
-            started_at: ago(now, s.started_mins_ago),
-            finished_at: s.finished_mins_ago.map(|m| ago(now, m)),
-            outcome: s.outcome,
-            summary: s.summary,
-        };
-        runs::insert(conn, &run)?;
+fn commitment(s: SeedCommitment, now: DateTime<Utc>) -> Commitment {
+    let starts_at = now + Duration::minutes(s.starts_in_mins);
+    Commitment {
+        id: 0,
+        title: s.title,
+        area: s.area,
+        starts_at,
+        ends_at: starts_at + Duration::minutes(s.duration_mins),
+        location: s.location,
     }
-    Ok(())
+}
+
+fn note(s: SeedActivity, now: DateTime<Utc>) -> Activity {
+    Activity {
+        id: 0,
+        text: s.text,
+        area: s.area,
+        at: ago(now, s.mins_ago),
+        unread: s.unread,
+    }
+}
+
+fn urgent_item(s: SeedUrgent, now: DateTime<Utc>) -> Urgent {
+    Urgent {
+        id: 0,
+        title: s.title,
+        detail: s.detail,
+        area: s.area,
+        raised_at: ago(now, s.mins_ago),
+        schedule_id: s.schedule_id,
+    }
+}
+
+fn todo(s: SeedTodo, now: DateTime<Utc>) -> Todo {
+    let due = s
+        .due_in_days
+        .map(|d| (now + Duration::days(d)).date_naive());
+    Todo {
+        id: 0,
+        title: s.title,
+        area: s.area,
+        due,
+        done_at: None,
+    }
+}
+
+fn run(s: SeedRun, now: DateTime<Utc>) -> Run {
+    Run {
+        id: 0,
+        schedule_id: s.schedule_id,
+        what: s.what,
+        target: s.target,
+        node: s.node,
+        started_at: ago(now, s.started_mins_ago),
+        finished_at: s.finished_mins_ago.map(|m| ago(now, m)),
+        outcome: s.outcome,
+        summary: s.summary,
+    }
 }

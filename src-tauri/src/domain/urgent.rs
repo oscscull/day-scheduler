@@ -8,6 +8,7 @@ pub struct Urgent {
     pub id: i64,
     pub title: String,
     pub detail: String,
+    pub area: String,
     pub raised_at: DateTime<Utc>,
     /// Set when it is about a schedule, which lets the UI offer "Run now".
     pub schedule_id: Option<String>,

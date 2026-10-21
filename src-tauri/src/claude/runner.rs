@@ -23,13 +23,13 @@ fn summary_of(reply: &str) -> String {
         .collect()
 }
 
-fn started(schedule: &Schedule) -> Run {
+fn started(schedule: &Schedule, node: &str) -> Run {
     Run {
         id: 0,
         schedule_id: Some(schedule.id.clone()),
         what: schedule.name.clone(),
         target: String::new(),
-        node: schedule.node.clone(),
+        node: node.to_owned(),
         started_at: Utc::now(),
         finished_at: None,
         outcome: None,
@@ -42,6 +42,7 @@ fn failure(schedule: &Schedule, detail: String) -> Urgent {
         id: 0,
         title: format!("{} failed", schedule.name),
         detail,
+        area: schedule.area.clone(),
         raised_at: Utc::now(),
         schedule_id: Some(schedule.id.clone()),
     }
@@ -50,9 +51,12 @@ fn failure(schedule: &Schedule, detail: String) -> Urgent {
 /// Runs `schedule` now. A failure is recorded on the run and raised as urgent.
 pub async fn run(app: &App, schedule: &Schedule) -> AppResult<()> {
     let settings = app.settings()?;
-    let id = app.db.with(|conn| runs::start(conn, &started(schedule)))?;
+    let node = settings.node_for(&schedule.area).to_owned();
+    let id = app
+        .db
+        .with(|conn| runs::start(conn, &started(schedule, &node)))?;
     let vars = [
-        ("node", schedule.node.as_str()),
+        ("node", node.as_str()),
         ("name", schedule.name.as_str()),
         ("instructions", schedule.prompt.as_str()),
     ];

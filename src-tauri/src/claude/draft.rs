@@ -9,6 +9,7 @@ use crate::error::{AppError, AppResult};
 #[derive(Debug, Deserialize)]
 struct Draft {
     name: String,
+    area: String,
     cron: Option<String>,
     event: Option<EventKind>,
     prompt: String,
@@ -35,14 +36,15 @@ fn trigger(draft: &Draft) -> AppResult<Trigger> {
 }
 
 /// Builds a new, enabled schedule whose id is a slug of its name.
-pub fn parse(reply: &str, node: &str, request: &str) -> AppResult<Schedule> {
+/// The caller checks the area against the configured ones.
+pub fn parse(reply: &str, request: &str) -> AppResult<Schedule> {
     let draft: Draft = serde_json::from_str(json_in(reply)?)?;
     Ok(Schedule {
         id: slug(&draft.name),
         trigger: trigger(&draft)?,
         name: draft.name,
         prompt: draft.prompt,
-        node: node.to_owned(),
+        area: draft.area,
         scope: draft.scope,
         autonomy: draft.autonomy,
         enabled: true,
@@ -54,12 +56,12 @@ pub fn parse(reply: &str, node: &str, request: &str) -> AppResult<Schedule> {
 mod tests {
     use super::*;
 
-    const REPLY: &str = r#"Sure: {"name": "CI watch", "cron": null, "event": "ci_failed",
+    const REPLY: &str = r#"Sure: {"name": "CI watch", "area": "work", "cron": null, "event": "ci_failed",
         "prompt": "Re-run flaky jobs.", "scope": "each_pr", "autonomy": "act"} done"#;
 
     #[test]
     fn parses_event_drafts_inside_chatter() {
-        let s = parse(REPLY, "work-mac", "watch CI").unwrap();
+        let s = parse(REPLY, "watch CI").unwrap();
         assert_eq!(
             s.trigger,
             Trigger::Event {
@@ -72,6 +74,6 @@ mod tests {
 
     #[test]
     fn rejects_replies_without_json() {
-        assert!(parse("no idea", "", "").is_err());
+        assert!(parse("no idea", "").is_err());
     }
 }

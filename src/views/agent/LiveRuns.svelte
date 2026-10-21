@@ -22,7 +22,7 @@
         <span class="dot"></span>
         <span class="body">
           <span>{run.what}</span>
-          <span class="hint meta">{run.target} · {run.node}</span>
+          <span class="hint meta">{run.target ? t("agent.target", { target: run.target, node: run.node }) : run.node}</span>
         </span>
         <span class="mono elapsed">{age(run.startedAt, now)}</span>
       </li>

@@ -1,9 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type { AgentView, Explanation, Schedule, TodayView, WorkItem } from "./types";
+import type { AgentView, Area, Explanation, Schedule, TodayView, WorkItem } from "./types";
 
 /** Typed wrappers around the backend's Tauri commands. */
 export const api = {
+  areas: () => invoke<Area[]>("areas"),
+  addTodo: (title: string, area: string, due: string | null) =>
+    invoke<undefined>("add_todo", { title, area, due }),
+  setTodoDone: (id: number, done: boolean) => invoke<undefined>("set_todo_done", { id, done }),
   today: () => invoke<TodayView>("today"),
   workItems: () => invoke<WorkItem[]>("work_items"),
   agent: () => invoke<AgentView>("agent"),

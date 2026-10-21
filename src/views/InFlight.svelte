@@ -1,9 +1,12 @@
 <script lang="ts">
   import Age from "../components/Age.svelte";
+  import AreaDot from "../components/AreaDot.svelte";
   import Chip from "../components/Chip.svelte";
   import LoadError from "../components/LoadError.svelte";
   import { t } from "../lib/copy";
   import { WAITING, isInFlight, waitingOn } from "../lib/groups";
+  import { areas, inArea } from "../lib/areas.svelte";
+  import { chatContext } from "../lib/chat.svelte";
   import { workItems } from "../lib/items.svelte";
   import { poll } from "../lib/poll";
   import { age } from "../lib/time";
@@ -12,7 +15,11 @@
 
   $effect(() => poll(load));
 
-  const inFlight = $derived(list.items.filter(isInFlight));
+  const inFlight = $derived(list.items.filter((i) => isInFlight(i) && inArea(i)));
+
+  $effect(() => {
+    chatContext.text = JSON.stringify({ area: areas.current, inFlight });
+  });
   const oldest = $derived(
     inFlight.reduce<string | null>((min, i) => (min === null || i.openedAt < min ? i.openedAt : min), null),
   );
@@ -36,6 +43,7 @@
       <ul>
         {#each group.items as item (item.id)}
           <li class="row">
+            <AreaDot area={item.area} />
             <span class="body">
               <span><span class="mono id">{item.id}</span>&nbsp; {item.title}</span>
               <span class="hint label">{item.stateLabel}</span>

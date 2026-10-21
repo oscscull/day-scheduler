@@ -4,7 +4,7 @@ use super::codec::{column, encode, required};
 use crate::domain::item::WorkItem;
 use crate::error::AppResult;
 
-const SELECT: &str = "SELECT id, title, state_label, stage, status, holder, node, opened_at, rank
+const SELECT: &str = "SELECT id, title, state_label, stage, status, holder, area, opened_at, rank
                       FROM items ORDER BY rank";
 
 fn from_row(row: &Row<'_>) -> rusqlite::Result<WorkItem> {
@@ -15,7 +15,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<WorkItem> {
         stage: required(row, 3)?,
         status: column(row, 4)?,
         holder: row.get(5)?,
-        node: row.get(6)?,
+        area: row.get(6)?,
         opened_at: row.get(7)?,
         rank: row.get(8)?,
     })
@@ -30,7 +30,7 @@ pub fn list(conn: &Connection) -> AppResult<Vec<WorkItem>> {
 
 pub fn insert(conn: &Connection, item: &WorkItem) -> AppResult<()> {
     conn.execute(
-        "INSERT INTO items (id, title, state_label, stage, status, holder, node, opened_at, rank)
+        "INSERT INTO items (id, title, state_label, stage, status, holder, area, opened_at, rank)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             item.id,
@@ -39,7 +39,7 @@ pub fn insert(conn: &Connection, item: &WorkItem) -> AppResult<()> {
             encode(&item.stage)?,
             item.status.map(|s| encode(&s)).transpose()?,
             item.holder,
-            item.node,
+            item.area,
             item.opened_at,
             item.rank
         ],

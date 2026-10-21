@@ -1,5 +1,4 @@
 import { api, errorText } from "./api";
-import { chatContext } from "./chat.svelte";
 import type { WorkItem } from "./types";
 
 /** Work items in priority order, shared by Priorities, Board and In flight. */
@@ -11,7 +10,6 @@ export function workItems() {
       state.items = await api.workItems();
       state.now = new Date();
       state.error = "";
-      chatContext.text = JSON.stringify(state.items);
     } catch (e) {
       state.error = errorText(e);
     }

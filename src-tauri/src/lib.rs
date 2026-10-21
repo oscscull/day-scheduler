@@ -35,7 +35,10 @@ pub fn run() -> tauri::Result<()> {
         .plugin(tauri_plugin_opener::init())
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
+            commands::areas::areas,
             commands::screens::today,
+            commands::todos::add_todo,
+            commands::todos::set_todo_done,
             commands::screens::work_items,
             commands::screens::agent,
             commands::items::reorder_items,

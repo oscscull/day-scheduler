@@ -3,6 +3,8 @@
   import LoadError from "../components/LoadError.svelte";
   import { t } from "../lib/copy";
   import { STAGES } from "../lib/groups";
+  import { areas, inArea } from "../lib/areas.svelte";
+  import { chatContext } from "../lib/chat.svelte";
   import { workItems } from "../lib/items.svelte";
   import { poll } from "../lib/poll";
 
@@ -11,8 +13,12 @@
   $effect(() => poll(load));
 
   const columns = $derived(
-    STAGES.map((stage) => ({ stage, items: list.items.filter((i) => i.stage === stage) })),
+    STAGES.map((stage) => ({ stage, items: list.items.filter((i) => i.stage === stage && inArea(i)) })),
   );
+
+  $effect(() => {
+    chatContext.text = JSON.stringify({ area: areas.current, columns });
+  });
 </script>
 
 <main>

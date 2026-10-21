@@ -1,6 +1,6 @@
 +++
 name = "Morning brief"
-node = "work-mac"
+area = "work"
 scope = "nothing"
 autonomy = "act"
 enabled = true

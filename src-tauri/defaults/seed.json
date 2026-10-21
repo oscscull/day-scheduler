@@ -7,8 +7,8 @@
       "stage": "in_progress",
       "status": "decision",
       "holder": "you",
-      "node": "work-mac",
-      "openedMinsAgo": 42
+      "openedMinsAgo": 42,
+      "area": "work"
     },
     {
       "id": "BR-1",
@@ -17,8 +17,8 @@
       "stage": "in_progress",
       "status": "decision",
       "holder": "you",
-      "node": "home-mac",
-      "openedMinsAgo": 70
+      "openedMinsAgo": 70,
+      "area": "projects"
     },
     {
       "id": "JD-99",
@@ -27,8 +27,18 @@
       "stage": "in_progress",
       "status": "proceeding",
       "holder": "Claude",
-      "node": "work-mac",
-      "openedMinsAgo": 134
+      "openedMinsAgo": 134,
+      "area": "work"
+    },
+    {
+      "id": "LIFE-1",
+      "title": "Saturday dinner with friends",
+      "stateLabel": "pick a restaurant",
+      "stage": "in_progress",
+      "status": "decision",
+      "holder": "you",
+      "area": "life",
+      "openedMinsAgo": 300
     },
     {
       "id": "AUTH-77",
@@ -37,8 +47,8 @@
       "stage": "in_review",
       "status": "decision",
       "holder": "you",
-      "node": "work-mac",
-      "openedMinsAgo": 3120
+      "openedMinsAgo": 3120,
+      "area": "work"
     },
     {
       "id": "JD-95",
@@ -47,8 +57,8 @@
       "stage": "in_progress",
       "status": "dependency",
       "holder": "Ops",
-      "node": "work-mac",
-      "openedMinsAgo": 12960
+      "openedMinsAgo": 12960,
+      "area": "work"
     },
     {
       "id": "JD-97",
@@ -57,8 +67,8 @@
       "stage": "in_review",
       "status": "review",
       "holder": "Sam",
-      "node": "work-mac",
-      "openedMinsAgo": 4680
+      "openedMinsAgo": 4680,
+      "area": "work"
     },
     {
       "id": "REN-14",
@@ -67,8 +77,8 @@
       "stage": "in_review",
       "status": "ci",
       "holder": "CI",
-      "node": "home-mac",
-      "openedMinsAgo": 1560
+      "openedMinsAgo": 1560,
+      "area": "projects"
     },
     {
       "id": "JD-106",
@@ -77,8 +87,8 @@
       "stage": "up_next",
       "status": "queued",
       "holder": "Claude",
-      "node": "work-mac",
-      "openedMinsAgo": 1440
+      "openedMinsAgo": 1440,
+      "area": "work"
     },
     {
       "id": "BR-2",
@@ -87,8 +97,8 @@
       "stage": "up_next",
       "status": "queued",
       "holder": "Claude",
-      "node": "home-mac",
-      "openedMinsAgo": 60
+      "openedMinsAgo": 60,
+      "area": "projects"
     },
     {
       "id": "JD-11",
@@ -97,8 +107,8 @@
       "stage": "done",
       "status": null,
       "holder": "Claude",
-      "node": "work-mac",
-      "openedMinsAgo": 180
+      "openedMinsAgo": 180,
+      "area": "work"
     },
     {
       "id": "JD-93",
@@ -107,8 +117,8 @@
       "stage": "done",
       "status": null,
       "holder": "Claude",
-      "node": "work-mac",
-      "openedMinsAgo": 2880
+      "openedMinsAgo": 2880,
+      "area": "work"
     }
   ],
   "asks": [
@@ -131,6 +141,11 @@
       "itemId": "JD-97",
       "question": "Sam asks whether to split the PR in two",
       "context": "Review comment on PR #790"
+    },
+    {
+      "itemId": "LIFE-1",
+      "question": "Pick a restaurant for Saturday",
+      "context": "Claude found 3 with a table for four at 19:30"
     }
   ],
   "commitments": [
@@ -138,40 +153,66 @@
       "title": "Design review",
       "startsInMins": -210,
       "durationMins": 60,
-      "location": null
+      "location": null,
+      "area": "work"
     },
     {
       "title": "Sprint planning",
       "startsInMins": 28,
       "durationMins": 60,
-      "location": "Zoom"
+      "location": "Zoom",
+      "area": "work"
     },
     {
       "title": "Standup",
       "startsInMins": 1138,
       "durationMins": 15,
-      "location": "Zoom"
+      "location": "Zoom",
+      "area": "work"
+    },
+    {
+      "title": "Dentist",
+      "area": "life",
+      "startsInMins": 223,
+      "durationMins": 45,
+      "location": "Smile Dental"
     }
   ],
   "activity": [
     {
       "text": "Replied to 2 review comments on #77 and pushed a fix",
       "minsAgo": 1,
-      "unread": true
+      "unread": true,
+      "area": "work"
     },
     {
       "text": "Submitted the weekly expense report",
       "minsAgo": 22,
-      "unread": true
+      "unread": true,
+      "area": "work"
     },
     {
       "text": "Finished JD-11 and opened PR #821",
       "minsAgo": 50,
-      "unread": false
+      "unread": false,
+      "area": "work"
     },
     {
       "text": "Started fixing the failing parity cases on JD-99",
       "minsAgo": 134,
+      "unread": false,
+      "area": "work"
+    },
+    {
+      "text": "Found 3 restaurants with a table for four on Saturday at 19:30",
+      "area": "life",
+      "minsAgo": 17,
+      "unread": true
+    },
+    {
+      "text": "Drafted the phase 1 plan for Bridge",
+      "area": "projects",
+      "minsAgo": 72,
       "unread": false
     }
   ],
@@ -272,19 +313,54 @@
       "title": "Morning brief didn’t run",
       "detail": "Due 09:00 on work-mac. The machine was asleep.",
       "minsAgo": 333,
-      "scheduleId": "morning-brief"
+      "scheduleId": "morning-brief",
+      "area": "work"
     },
     {
       "title": "CI on main has been red for 2 hours",
       "detail": "Raised by CI watch. Blocks 3 of your PRs.",
       "minsAgo": 112,
-      "scheduleId": null
+      "scheduleId": null,
+      "area": "work"
     },
     {
       "title": "End-of-day wrap didn’t finish",
       "detail": "Claude couldn’t reach Slack yesterday. You were offline.",
       "minsAgo": 1262,
-      "scheduleId": "end-of-day"
+      "scheduleId": "end-of-day",
+      "area": "work"
+    }
+  ],
+  "todos": [
+    {
+      "title": "Make dinner",
+      "area": "life",
+      "dueInDays": 2
+    },
+    {
+      "title": "Book the car service",
+      "area": "life",
+      "dueInDays": 4
+    },
+    {
+      "title": "Pay council tax",
+      "area": "life",
+      "dueInDays": -1
+    },
+    {
+      "title": "Renew the bridge.dev domain",
+      "area": "projects",
+      "dueInDays": 13
+    },
+    {
+      "title": "Approve team expenses",
+      "area": "work",
+      "dueInDays": 0
+    },
+    {
+      "title": "Call Mum",
+      "area": "life",
+      "dueInDays": null
     }
   ]
 }

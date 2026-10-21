@@ -3,15 +3,16 @@ use rusqlite::{Connection, OptionalExtension as _, Row, params};
 use crate::domain::urgent::Urgent;
 use crate::error::{AppError, AppResult};
 
-const COLUMNS: &str = "id, title, detail, raised_at, schedule_id";
+const COLUMNS: &str = "id, title, detail, area, raised_at, schedule_id";
 
 fn from_row(row: &Row<'_>) -> rusqlite::Result<Urgent> {
     Ok(Urgent {
         id: row.get(0)?,
         title: row.get(1)?,
         detail: row.get(2)?,
-        raised_at: row.get(3)?,
-        schedule_id: row.get(4)?,
+        area: row.get(3)?,
+        raised_at: row.get(4)?,
+        schedule_id: row.get(5)?,
     })
 }
 
@@ -37,8 +38,8 @@ pub fn find(conn: &Connection, id: i64) -> AppResult<Urgent> {
 /// Stores a new urgent item; its `id` is ignored and assigned by the database.
 pub fn raise(conn: &Connection, item: &Urgent) -> AppResult<()> {
     conn.execute(
-        "INSERT INTO urgent (title, detail, raised_at, schedule_id) VALUES (?1, ?2, ?3, ?4)",
-        params![item.title, item.detail, item.raised_at, item.schedule_id],
+        "INSERT INTO urgent (title, detail, area, raised_at, schedule_id) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![item.title, item.detail, item.area, item.raised_at, item.schedule_id],
     )?;
     Ok(())
 }

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import AreaDot from "../../components/AreaDot.svelte";
   import Toggle from "../../components/Toggle.svelte";
+  import { findArea } from "../../lib/areas.svelte";
   import { t } from "../../lib/copy";
   import { dayClock } from "../../lib/time";
   import type { ScheduleView } from "../../lib/types";
@@ -40,9 +42,9 @@
     <li class="row" class:paused={!s.enabled || paused}>
       <button type="button" class="open" onclick={() => onOpen(s)}>
         <span class="body">
-          <span class="name">{s.name}</span>
+          <span class="name-row"><AreaDot area={s.area} /><span class="name">{s.name}</span></span>
           <span class="hint meta">
-            {whenText(s.trigger, s.explanation)} · {s.node} · {t(s.autonomy === "act" ? "agent.acts" : "agent.asks")}
+            {whenText(s.trigger, s.explanation)} · {findArea(s.area)?.name ?? t("area.unknown")} · {t(s.autonomy === "act" ? "agent.acts" : "agent.asks")}
           </span>
           <span class="hint meta">{lastText(s)}</span>
           {#if problemText(s)}<span class="problem">{problemText(s)}</span>{/if}
@@ -92,6 +94,12 @@
 
   .name {
     font-weight: 500;
+  }
+
+  .name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .meta {

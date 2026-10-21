@@ -1,6 +1,6 @@
 # Mechanical settings only. Behaviour lives in prompts/ and schedules/.
 
-# This machine's name, shown in the app and used by schedules' `node`.
+# This machine's name. Each area below says which machine runs its schedules.
 node = "work-mac"
 
 # How many asks Today's Priorities section shows, taken from the top of the ranking.
@@ -12,3 +12,24 @@ claude_command = "claude"
 # How long stored agent output lives before it is deleted.
 activity_ttl_days = 7
 run_ttl_days = 14
+done_todo_ttl_days = 1
+
+# Areas of your life Bridge keeps apart. Everything belongs to one. Rename, recolour or add more.
+# `node` is the machine that runs that area's schedules.
+[[areas]]
+id = "work"
+name = "Work"
+color = "#3b6fd8"
+node = "work-mac"
+
+[[areas]]
+id = "projects"
+name = "Projects"
+color = "#8a5cc7"
+node = "home-mac"
+
+[[areas]]
+id = "life"
+name = "Life"
+color = "#2e8a47"
+node = "home-mac"

@@ -4,6 +4,7 @@ use tauri::State;
 use crate::app::App;
 use crate::claude;
 use crate::config::prompts::{Prompt, render};
+use crate::domain::activity::Activity;
 use crate::error::AppResult;
 use crate::store::{activity, urgent};
 
@@ -31,7 +32,14 @@ pub async fn resolve_urgent(app: State<'_, App>, id: i64, message: String) -> Ap
     let prompt = render(&app.config, Prompt::ResolveUrgent, &vars)?;
     let reply = claude::ask(&settings.claude_command, &prompt).await?;
     app.db.with(|conn| {
-        activity::insert(conn, &reply, Utc::now(), true)?;
+        let note = Activity {
+            id: 0,
+            text: reply.clone(),
+            area: item.area.clone(),
+            at: Utc::now(),
+            unread: true,
+        };
+        activity::insert(conn, &note)?;
         urgent::dismiss(conn, id)
     })?;
     Ok(reply)

@@ -1,6 +1,6 @@
 +++
 name = "Review replies"
-node = "work-mac"
+area = "work"
 scope = "each_pr"
 autonomy = "act"
 enabled = true

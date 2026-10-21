@@ -1,11 +1,14 @@
 <script lang="ts">
+  import AreaDot from "../components/AreaDot.svelte";
   import LoadError from "../components/LoadError.svelte";
   import { api, errorText } from "../lib/api";
+  import { areas, inArea } from "../lib/areas.svelte";
   import { chatContext } from "../lib/chat.svelte";
   import { t } from "../lib/copy";
   import { poll } from "../lib/poll";
   import { clock, dayClock, until } from "../lib/time";
   import type { TodayView } from "../lib/types";
+  import TodoList from "./today/TodoList.svelte";
   import UrgentModal from "./today/UrgentModal.svelte";
   import UrgentPill from "./today/UrgentPill.svelte";
 
@@ -19,7 +22,6 @@
       data = await api.today();
       now = new Date();
       error = "";
-      chatContext.text = JSON.stringify(data);
     } catch (e) {
       error = errorText(e);
     }
@@ -27,8 +29,18 @@
 
   $effect(() => poll(load));
 
-  const next = $derived(data?.upcoming[0]);
-  const then = $derived(data?.upcoming[1]);
+  // Everything on Today follows the area switcher.
+  const upcoming = $derived(data?.upcoming.filter(inArea) ?? []);
+  const next = $derived(upcoming[0]);
+  const then = $derived(upcoming[1]);
+  const priorities = $derived(data ? data.priorities.filter(inArea).slice(0, data.priorityLimit) : []);
+  const todos = $derived(data?.todos.filter(inArea) ?? []);
+  const activity = $derived(data?.activity.filter(inArea) ?? []);
+  const urgent = $derived(data?.urgent.filter(inArea) ?? []);
+
+  $effect(() => {
+    chatContext.text = JSON.stringify({ area: areas.current, upcoming, priorities, todos, activity, urgent });
+  });
 </script>
 
 <div class="column">
@@ -37,10 +49,10 @@
     <section class="next" aria-label={t("today.next")}>
       <div class="label-row">
         <span class="section-label">{t("today.next")}</span>
-        <UrgentPill count={data.urgent.length} onOpen={() => (showUrgent = true)} />
+        <UrgentPill count={urgent.length} onOpen={() => (showUrgent = true)} />
       </div>
       {#if next}
-        <h1>{next.title}</h1>
+        <div class="title-row"><AreaDot area={next.area} /><h1>{next.title}</h1></div>
         <p class="when">
           <span class="mono">{clock(next.startsAt)}</span>
           <span class="muted">{t("today.in", { when: until(next.startsAt, now) })}</span>
@@ -58,10 +70,13 @@
       <h2>{t("today.priorities")}</h2>
       <p class="hint sub">{t("today.prioritiesHint")}</p>
       <ul>
-        {#each data.priorities as p (p.ask.id)}
+        {#each priorities as p (p.ask.id)}
           <li class="row priority">
-            <span>{p.ask.question}</span>
-            <span class="hint small">{p.ask.context} · {t("today.unblocks", { id: p.itemId })}</span>
+            <AreaDot area={p.area} />
+            <span class="body">
+              <span>{p.ask.question}</span>
+              <span class="hint small">{p.ask.context} · {t("today.unblocks", { id: p.itemId })}</span>
+            </span>
           </li>
         {:else}
           <li class="hint">{t("today.noPriorities")}</li>
@@ -69,12 +84,15 @@
       </ul>
     </section>
 
+    <TodoList {todos} {now} onChanged={load} />
+
     <section aria-label={t("today.fromClaude")}>
       <h2 class="section-label">{t("today.fromClaude")}</h2>
       <ul class="activity">
-        {#each data.activity as a (a.id)}
+        {#each activity as a (a.id)}
           <li class:unread={a.unread}>
             <span class="dot"></span>
+            <AreaDot area={a.area} />
             <span class="text">{a.text}</span>
             <span class="mono time">{clock(a.at)}</span>
           </li>
@@ -86,7 +104,7 @@
 </div>
 
 {#if showUrgent && data}
-  <UrgentModal items={data.urgent} {now} onClose={() => (showUrgent = false)} onChanged={load} />
+  <UrgentModal items={urgent} {now} onClose={() => (showUrgent = false)} onChanged={load} />
 {/if}
 
 <style>
@@ -139,9 +157,22 @@
 
   .priority {
     display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 14px 0;
+  }
+
+  .priority .body {
+    flex: 1 1 0;
+    display: flex;
     flex-direction: column;
     gap: 3px;
-    padding: 14px 0;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .small {

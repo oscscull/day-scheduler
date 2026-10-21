@@ -14,7 +14,7 @@ macro_rules! default_file {
     };
 }
 
-const FILES: [(&str, &str); 12] = [
+const FILES: [(&str, &str); 13] = [
     default_file!("README.md"),
     default_file!("bridge.toml"),
     default_file!("prompts/chat.md"),
@@ -27,6 +27,7 @@ const FILES: [(&str, &str); 12] = [
     default_file!("schedules/expense-report.md"),
     default_file!("schedules/stale-check.md"),
     default_file!("schedules/end-of-day.md"),
+    default_file!("schedules/meal-plan.md"),
 ];
 
 pub fn write_missing(root: &Path) -> AppResult<()> {

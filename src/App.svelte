@@ -1,6 +1,7 @@
 <script lang="ts">
   import ChatBubble from "./components/ChatBubble.svelte";
   import Header from "./components/Header.svelte";
+  import { loadAreas } from "./lib/areas.svelte";
   import { t } from "./lib/copy";
   import { suggestionKeys, viewLabel, type ViewId } from "./lib/views";
   import Agent from "./views/Agent.svelte";
@@ -10,6 +11,10 @@
   import Today from "./views/Today.svelte";
 
   let view = $state<ViewId>("today");
+
+  $effect(() => {
+    void loadAreas();
+  });
 </script>
 
 <Header {view} onSelect={(next) => (view = next)} />

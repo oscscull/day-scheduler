@@ -1,6 +1,6 @@
 +++
 name = "Expense report"
-node = "work-mac"
+area = "work"
 scope = "nothing"
 autonomy = "act"
 enabled = true

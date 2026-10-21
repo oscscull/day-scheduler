@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
 
   import Modal from "../../components/Modal.svelte";
+  import { areas, findArea } from "../../lib/areas.svelte";
   import { api, errorText } from "../../lib/api";
   import { t, type CopyKey } from "../../lib/copy";
   import { dayClock } from "../../lib/time";
@@ -68,8 +69,11 @@
 
   <div class="pair">
     <label class="field">
-      {t("schedule.node")}
-      <input class="input" bind:value={form.node} />
+      {t("schedule.area")}
+      <select class="input" bind:value={form.area}>
+        {#each areas.list as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
+      </select>
+      {#if findArea(form.area)}<span class="hint small">{t("schedule.runsOn", { node: findArea(form.area)?.node ?? "" })}</span>{/if}
     </label>
     <label class="field">
       {t("schedule.scope")}
@@ -116,6 +120,10 @@
     line-height: 1.45;
     resize: vertical;
     background: var(--surface-soft);
+  }
+
+  .small {
+    font-size: 12px;
   }
 
   .pair {

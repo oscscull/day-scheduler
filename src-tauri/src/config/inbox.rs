@@ -22,15 +22,19 @@ pub struct Raised {
     pub title: String,
     #[serde(default)]
     pub detail: String,
+    /// Checked against the configured areas by the caller.
+    #[serde(default)]
+    pub area: String,
     pub schedule_id: Option<String>,
 }
 
 impl Raised {
-    pub fn into_urgent(self, at: DateTime<Utc>) -> Urgent {
+    pub fn into_urgent(self, area: String, at: DateTime<Utc>) -> Urgent {
         Urgent {
             id: 0,
             title: self.title,
             detail: self.detail,
+            area,
             raised_at: at,
             schedule_id: self.schedule_id,
         }
@@ -65,6 +69,7 @@ fn read(file: &Path) -> Raised {
         .unwrap_or_else(|reason| Raised {
             title: format!("Couldn't read {}", file.display()),
             detail: reason,
+            area: String::new(),
             schedule_id: None,
         })
 }

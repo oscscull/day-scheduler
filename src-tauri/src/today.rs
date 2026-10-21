@@ -14,6 +14,7 @@ pub struct Priority {
     pub ask: Ask,
     pub item_id: String,
     pub item_title: String,
+    pub area: String,
 }
 
 /// Asks on the highest-ranked work first, capped at `limit`.
@@ -28,6 +29,7 @@ pub fn priorities(items: &[WorkItem], asks: &[Ask], limit: usize) -> Vec<Priorit
                     ask: a.clone(),
                     item_id: item.id.clone(),
                     item_title: item.title.clone(),
+                    area: item.area.clone(),
                 })
         })
         .take(limit)
@@ -56,7 +58,7 @@ mod tests {
             stage: Stage::InProgress,
             status: None,
             holder: String::new(),
-            node: String::new(),
+            area: String::new(),
             opened_at: Utc::now(),
             rank,
         }
@@ -99,6 +101,7 @@ mod tests {
         let meeting = |id, start: i64| Commitment {
             id,
             title: String::new(),
+            area: String::new(),
             starts_at: now + Duration::minutes(start),
             ends_at: now + Duration::minutes(start + 30),
             location: None,

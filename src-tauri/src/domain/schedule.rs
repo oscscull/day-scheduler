@@ -42,7 +42,8 @@ pub struct Schedule {
     pub name: String,
     pub prompt: String,
     pub trigger: Trigger,
-    pub node: String,
+    /// Which area this belongs to; the area decides the machine it runs on.
+    pub area: String,
     pub scope: Scope,
     pub autonomy: Autonomy,
     pub enabled: bool,
