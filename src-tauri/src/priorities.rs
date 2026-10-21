@@ -1,8 +1,8 @@
 //! What needs the user, derived from the work itself and ranked by it. Never ordered by hand.
 //!
-//! First, in rank order: explicit asks and items waiting on the user's decision. Then things an
-//! agent should be fixing (failing CI). Lowest: nudges for items that have waited on reviewers
-//! too long.
+//! First, in rank order: explicit asks and items waiting on the user's decision. Lower: nudges for
+//! items that have waited on reviewers too long. Things the system can handle itself (like failing
+//! CI, which it hands to Claude) never appear here.
 
 use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
@@ -18,8 +18,6 @@ pub enum Reason {
     Ask { ask: Ask },
     /// The item itself waits on the user, e.g. a PR to review or merge.
     Decision,
-    /// Something broke that an agent should fix, e.g. failing CI.
-    Fix,
     /// The item has waited on others long enough to chase.
     Nudge,
 }
@@ -78,15 +76,11 @@ fn worth_a_nudge(item: &WorkItem, rules: Rules) -> bool {
 pub fn priorities(items: &[WorkItem], asks: &[Ask], rules: Rules) -> Vec<Priority> {
     let open: Vec<&WorkItem> = items.iter().filter(|i| i.stage != Stage::Done).collect();
     let first = open.iter().flat_map(|i| needs_you(i, asks));
-    let broken = open
-        .iter()
-        .filter(|i| i.status == Some(Status::CiFailed))
-        .map(|i| priority(i, Reason::Fix));
     let later = open
         .iter()
         .filter(|i| worth_a_nudge(i, rules))
         .map(|i| priority(i, Reason::Nudge));
-    first.chain(broken).chain(later).collect()
+    first.chain(later).collect()
 }
 
 #[cfg(test)]
@@ -131,7 +125,6 @@ mod tests {
             .map(|p| match &p.reason {
                 Reason::Ask { ask } => format!("ask{}", ask.id),
                 Reason::Decision => format!("decide {}", p.item_id),
-                Reason::Fix => format!("fix {}", p.item_id),
                 Reason::Nudge => format!("nudge {}", p.item_id),
             })
             .collect()
@@ -149,7 +142,7 @@ mod tests {
         let asks = [ask(7, "asked")];
         assert_eq!(
             kinds(&priorities(&items, &asks, RULES())),
-            ["decide mine", "ask7", "fix broken", "nudge stale"]
+            ["decide mine", "ask7", "nudge stale"]
         );
     }
 

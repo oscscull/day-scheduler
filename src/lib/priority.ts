@@ -9,8 +9,6 @@ export function describe(p: Priority, now: Date): { text: string; context: strin
       return { text: p.ask.question, context: p.ask.context ? `${p.ask.context} · ${p.itemId}` : p.itemId };
     case "decision":
       return { text: p.itemTitle, context: `${p.itemLabel} · ${p.itemId}` };
-    case "fix":
-      return { text: t("priority.fix", { title: p.itemTitle }), context: t("priority.fixHint", { id: p.itemId }) };
     case "nudge":
       return {
         text: t("priority.nudge", { holder: p.holder || t("priority.reviewers"), title: p.itemTitle }),

@@ -29,17 +29,6 @@ pub fn delete_item(app: State<'_, App>, id: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn add_ask(
-    app: State<'_, App>,
-    item_id: String,
-    question: String,
-    context: String,
-) -> AppResult<()> {
-    app.db
-        .with(|conn| asks::insert(conn, &item_id, &question, &context))
-}
-
-#[tauri::command]
 pub fn resolve_ask(app: State<'_, App>, id: i64) -> AppResult<()> {
     app.db.with(|conn| asks::resolve(conn, id))
 }

@@ -6,15 +6,12 @@
   import type { Ask } from "../../lib/types";
 
   interface Props {
-    itemId: string;
     node: string | undefined;
     asks: Ask[];
   }
 
-  let { itemId, node, asks }: Props = $props();
+  let { node, asks }: Props = $props();
 
-  let question = $state("");
-  let context = $state("");
   let error = $state("");
 
   async function run(work: () => Promise<unknown>): Promise<void> {
@@ -27,14 +24,9 @@
     }
   }
 
-  async function add(): Promise<void> {
-    if (!question.trim()) return;
-    await run(() => route.addAsk(node, itemId, question.trim(), context.trim()));
-    question = "";
-    context = "";
-  }
 </script>
 
+{#if asks.length > 0}
 <section aria-label={t("item.asks")}>
   <h3 class="section-label">{t("item.asks")}</h3>
   <ul>
@@ -48,18 +40,11 @@
           {t("item.answered")}
         </button>
       </li>
-    {:else}
-      <li class="row hint small empty">{t("item.noAsks")}</li>
     {/each}
   </ul>
-  <form onsubmit={(e) => { e.preventDefault(); void add(); }}>
-    <label class="sr-only" for="ask-question">{t("item.addAsk")}</label>
-    <input id="ask-question" class="input" bind:value={question} placeholder={t("item.askPlaceholder")} />
-    <input class="input" bind:value={context} placeholder={t("item.askContextPlaceholder")} aria-label={t("item.askContextPlaceholder")} />
-    <button type="submit" class="button-secondary" disabled={!question.trim()}>{t("item.addAsk")}</button>
-  </form>
   {#if error}<p class="error">{error}</p>{/if}
 </section>
+{/if}
 
 <style>
   h3 {
@@ -85,24 +70,10 @@
     font-size: 13px;
   }
 
-  .empty {
-    padding: 10px 0;
-  }
 
   button.small {
     padding: 6px 10px;
     font-size: 13px;
   }
 
-  form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  form .input {
-    flex: 1 1 200px;
-    font-size: 14px;
-  }
 </style>

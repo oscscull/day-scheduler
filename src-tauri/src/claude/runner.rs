@@ -70,7 +70,11 @@ async fn ask(app: &App, schedule: &Schedule, node: &str, trigger: &str) -> AppRe
         ("trigger", trigger),
     ];
     let prompt = render(&app.config, Prompt::RunSchedule, &vars)?;
-    super::ask_with(&settings.claude_command, &prompt, &schedule.allowed_tools).await
+    let opts = super::Ask {
+        tools: &schedule.allowed_tools,
+        session: super::Session::Fresh,
+    };
+    super::ask_with(&settings.claude_command, &prompt, &opts).await
 }
 
 /// Runs `schedule` now. Success lands in "From Claude"; failure is raised as urgent.

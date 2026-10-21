@@ -18,6 +18,10 @@ pub struct GithubSettings {
     pub ignore: Vec<String>,
     /// Owners or repos where the user reviews their own PRs, so review waits on them.
     pub self_review: Vec<String>,
+    /// When CI fails on a PR nobody is on, and no `ci_failed` schedule covers it, hand it to Claude.
+    pub fix_ci: bool,
+    /// Claude Code tools that run may use, besides the Bridge tools.
+    pub fix_ci_tools: Vec<String>,
 }
 
 impl Default for GithubSettings {
@@ -29,6 +33,8 @@ impl Default for GithubSettings {
             areas: BTreeMap::new(),
             ignore: Vec::new(),
             self_review: Vec::new(),
+            fix_ci: true,
+            fix_ci_tools: Vec::new(),
         }
     }
 }

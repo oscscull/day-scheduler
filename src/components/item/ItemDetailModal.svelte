@@ -67,7 +67,7 @@
     </div>
     {#if item.link}<Links link={item.link} />{/if}
     {#if item.source !== "manual"}<p class="hint small">{t("item.synced", { source: item.source })}</p>{/if}
-    <AskList itemId={item.id} {node} asks={detail.asks} />
+    <AskList {node} asks={detail.asks} />
     <History events={detail.history} {now} />
     {#if confirming}
       <p class="error">{t("item.confirmDelete", { id: item.id })}</p>

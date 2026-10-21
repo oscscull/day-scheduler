@@ -42,7 +42,6 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         items::reorder_items,
         items::save_item,
         items::delete_item,
-        items::add_ask,
         items::resolve_ask,
         items::item_detail,
         schedules::set_schedule_enabled,

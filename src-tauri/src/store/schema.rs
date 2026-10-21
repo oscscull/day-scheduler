@@ -84,6 +84,12 @@ CREATE TABLE IF NOT EXISTS alert_state (
     done INTEGER NOT NULL DEFAULT 0,
     snoozed_until TEXT
 );
+CREATE TABLE IF NOT EXISTS watch (
+    item_id TEXT PRIMARY KEY,
+    session TEXT,
+    nudges INTEGER NOT NULL DEFAULT 0,
+    last_nudge TEXT
+);
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL

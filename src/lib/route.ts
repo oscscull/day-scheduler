@@ -7,8 +7,6 @@ const peer = <T = unknown>(node: string, tool: string, args: object): Promise<T>
 export const route = {
   resolveAsk: (node: string | undefined, id: number) =>
     node ? peer(node, "resolve_ask", { ask_id: id }) : api.resolveAsk(id),
-  addAsk: (node: string | undefined, itemId: string, question: string, context: string) =>
-    node ? peer(node, "add_ask", { item_id: itemId, question, context }) : api.addAsk(itemId, question, context),
   setTodoDone: (node: string | undefined, id: number, done: boolean) =>
     node ? peer(node, "complete_todo", { id, done }) : api.setTodoDone(id, done),
   addTodo: (node: string | undefined, title: string, area: string, due: string | null) =>

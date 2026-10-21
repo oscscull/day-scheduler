@@ -73,7 +73,6 @@ export interface Ask {
 export type Priority = (
   | { kind: "ask"; ask: Ask }
   | { kind: "decision" }
-  | { kind: "fix" }
   | { kind: "nudge" }
 ) & {
   /** Set when it lives on another machine; edits go back there. */
@@ -166,7 +165,7 @@ export interface Run {
   summary: string | null;
 }
 
-export type EventKind = "ci_failed" | "pr_new_comments";
+export type EventKind = "ci_failed" | "ci_passed" | "pr_new_comments";
 export type Trigger = { type: "cron"; expr: string } | { type: "event"; kind: EventKind };
 export type Autonomy = "ask" | "act";
 export type Scope = "each_pr" | "each_item" | "one" | "nothing";

@@ -88,6 +88,7 @@ pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
     }
     conn.execute("DELETE FROM asks WHERE item_id = ?1", [id])?;
     conn.execute("DELETE FROM item_events WHERE item_id = ?1", [id])?;
+    conn.execute("DELETE FROM watch WHERE item_id = ?1", [id])?;
     conn.execute("DELETE FROM items WHERE id = ?1", [id])?;
     Ok(())
 }

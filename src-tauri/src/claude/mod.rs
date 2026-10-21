@@ -20,11 +20,30 @@ fn bridge_server() -> AppResult<String> {
     Ok(config.to_string())
 }
 
-/// Sends one prompt and returns Claude's reply text. The Bridge tools are always available;
-/// `tools` lists other Claude Code tools it may use without asking.
-pub async fn ask_with(command: &str, prompt: &str, tools: &[String]) -> AppResult<String> {
+/// How to run one headless Claude call.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Ask<'a> {
+    /// Claude Code tools it may use without asking, besides the Bridge tools.
+    pub tools: &'a [String],
+    pub session: Session<'a>,
+}
+
+/// Which Claude Code session a run belongs to.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum Session<'a> {
+    /// A throwaway session.
+    #[default]
+    Fresh,
+    /// A new session with this id, so Bridge can come back to it later.
+    Start(&'a str),
+    /// Continue an existing session with its own context.
+    Resume(&'a str),
+}
+
+/// Sends one prompt and returns Claude's reply text. The Bridge tools are always available.
+pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<String> {
     let mut allowed = vec![BRIDGE_TOOLS.to_owned()];
-    allowed.extend_from_slice(tools);
+    allowed.extend_from_slice(opts.tools);
     let mut cmd = Command::new(cli::resolve(command));
     cmd.arg("-p")
         .arg(prompt)
@@ -32,6 +51,11 @@ pub async fn ask_with(command: &str, prompt: &str, tools: &[String]) -> AppResul
         .arg(bridge_server()?)
         .arg("--allowedTools")
         .arg(allowed.join(","));
+    match opts.session {
+        Session::Fresh => {}
+        Session::Start(id) => drop(cmd.arg("--session-id").arg(id)),
+        Session::Resume(id) => drop(cmd.arg("--resume").arg(id)),
+    }
     let out = cmd.output().await?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
@@ -44,7 +68,7 @@ pub async fn ask_with(command: &str, prompt: &str, tools: &[String]) -> AppResul
 
 /// Sends one prompt with only the Bridge tools.
 pub async fn ask(command: &str, prompt: &str) -> AppResult<String> {
-    ask_with(command, prompt, &[]).await
+    ask_with(command, prompt, &Ask::default()).await
 }
 
 /// The command a user runs once so their own Claude Code sessions can use Bridge.

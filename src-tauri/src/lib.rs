@@ -20,6 +20,7 @@ mod scheduler;
 mod store;
 mod today;
 mod views;
+mod watchdog;
 mod work;
 
 use tauri::Manager as _;

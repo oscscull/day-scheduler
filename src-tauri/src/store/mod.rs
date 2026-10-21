@@ -17,6 +17,7 @@ pub mod runs;
 pub mod sync_state;
 pub mod todos;
 pub mod urgent;
+pub mod watch;
 
 use std::path::Path;
 use std::sync::Mutex;

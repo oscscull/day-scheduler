@@ -33,8 +33,6 @@ export const api = {
   saveItem: (item: ItemInput) => invoke<string>("save_item", { item }),
   deleteItem: (id: string) => invoke<undefined>("delete_item", { id }),
   itemDetail: (id: string) => invoke<ItemDetail>("item_detail", { id }),
-  addAsk: (itemId: string, question: string, context: string) =>
-    invoke<undefined>("add_ask", { itemId, question, context }),
   resolveAsk: (id: number) => invoke<undefined>("resolve_ask", { id }),
   addCommitment: (commitment: CommitmentInput) => invoke<undefined>("add_commitment", { commitment }),
   hideCommitment: (id: number) => invoke<undefined>("hide_commitment", { id }),

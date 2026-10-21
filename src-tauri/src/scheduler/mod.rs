@@ -1,5 +1,6 @@
 //! Fires cron schedules on time on this machine, and records the ones that were missed.
 
+mod ci;
 mod connectors;
 mod due;
 mod events;

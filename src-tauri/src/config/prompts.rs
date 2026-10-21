@@ -8,6 +8,9 @@ pub enum Prompt {
     DraftSchedule,
     ResolveUrgent,
     RunSchedule,
+    CheckIn,
+    FixCi,
+    CiDone,
 }
 
 impl Prompt {
@@ -17,6 +20,9 @@ impl Prompt {
             Self::DraftSchedule => "draft-schedule.md",
             Self::ResolveUrgent => "resolve-urgent.md",
             Self::RunSchedule => "run-schedule.md",
+            Self::CheckIn => "check-in.md",
+            Self::FixCi => "fix-ci.md",
+            Self::CiDone => "ci-done.md",
         }
     }
 }

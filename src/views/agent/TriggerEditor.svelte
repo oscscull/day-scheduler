@@ -13,7 +13,7 @@
 
   let { trigger, now, onChange }: Props = $props();
 
-  const EVENTS: EventKind[] = ["pr_new_comments", "ci_failed"];
+  const EVENTS: EventKind[] = ["pr_new_comments", "ci_failed", "ci_passed"];
 
   // Keep both shapes so switching back and forth doesn't lose what was typed.
   const start = untrack(() => trigger);

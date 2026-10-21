@@ -14,6 +14,7 @@ mod sync;
 mod todos;
 mod updates;
 mod urgent;
+mod watch;
 
 use chrono::{DateTime, NaiveDate, Utc};
 
@@ -32,6 +33,7 @@ pub fn all() -> Vec<Tool> {
         schedules::tools(),
         settings::tools(),
         sync::tools(),
+        watch::tools(),
     ]
     .into_iter()
     .flatten()

@@ -28,7 +28,8 @@ Connectors and schedules only act for areas this machine runs.
 
 ## Views
 
-- **Today**: next meeting, Priorities (asks on the highest-ranked work, derived, never hand-ordered),
+- **Today**: next meeting, Priorities (derived from ranked work: asks and decisions, then nudges for
+  reviews that have waited past `nudge_after_hours`; never things the system handles itself),
   To do (things only the user can do), and "From Claude".
 - **Priorities**: everything in play, drag to rank (per machine). The ranking drives Today.
 - **Board**: items by stage. **In flight**: open items by who they wait on.
@@ -51,7 +52,7 @@ Connectors and schedules only act for areas this machine runs.
 Populate by default, never fight overrides. Each keeps the last snapshot it saw and only re-applies
 the fields it owns when they change upstream; hidden or re-filed records stay that way.
 
-- **GitHub** (`gh` CLI): open PRs become items; new comments and CI failures fire event schedules.
+- **GitHub** (`gh` CLI): open PRs become items; new comments, CI failing and CI passing fire events.
   PRs with no requested reviewers, or in `self_review` repos, wait on the user.
 - **Calendar** (private iCal links): meetings, with recurrence, exceptions and join links.
 - **Slack**: no connector; agents bring things in through the tools.
@@ -62,6 +63,15 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
 other tools only when their file lists them in `allowed_tools`. The scheduler ticks every 30s:
 cron runs fire on time, runs missed while asleep are recorded and raised as urgent, and Pause all
 stops everything. Event triggers cost nothing until they fire.
+
+CI is Bridge's to watch, never an agent's. When CI finishes on an item a Claude session claimed
+(`claim_item`), Bridge resumes that session with the result (`prompts/ci-done.md`). A failure
+nobody is on, and no `ci_failed` schedule covers, goes to a new claimed session
+(`prompts/fix-ci.md`, `[github] fix_ci`).
+
+The watchdog keeps claimed work moving: agents post updates as they go, and only an item Claude is
+carrying that stays quiet past `[watchdog] quiet_minutes` gets a check-in (`prompts/check-in.md`),
+at most `max_nudges` times before the user is told. Waiting on CI or reviewers isn't silence.
 
 ## Not built yet
 

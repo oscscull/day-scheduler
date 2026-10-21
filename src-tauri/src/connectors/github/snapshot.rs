@@ -21,6 +21,8 @@ pub struct Owned {
 pub struct Snapshot {
     pub owned: Owned,
     pub ci_failing: bool,
+    #[serde(default)]
+    pub ci_passed: bool,
     pub comments: u64,
 }
 
@@ -74,6 +76,7 @@ pub fn of(pr: &Pr) -> Snapshot {
             holder: holder.to_owned(),
         },
         ci_failing: failing(pr),
+        ci_passed: pr.ci.as_deref() == Some("SUCCESS"),
         comments: pr.comments,
     }
 }
@@ -87,6 +90,9 @@ pub fn events(old: Option<&Snapshot>, new: &Snapshot) -> Vec<EventKind> {
     }
     if new.ci_failing && !old.ci_failing {
         events.push(EventKind::CiFailed);
+    }
+    if new.ci_passed && !old.ci_passed {
+        events.push(EventKind::CiPassed);
     }
     events
 }
@@ -139,6 +145,8 @@ mod tests {
     fn events_fire_on_change_only() {
         let before = of(&pr(Some("SUCCESS"), None, 2));
         let after = of(&pr(Some("FAILURE"), None, 3));
+        let fixed = of(&pr(Some("SUCCESS"), None, 3));
+        assert_eq!(events(Some(&after), &fixed), [EventKind::CiPassed]);
         assert_eq!(events(None, &after), []);
         assert_eq!(events(Some(&before), &before), []);
         assert_eq!(

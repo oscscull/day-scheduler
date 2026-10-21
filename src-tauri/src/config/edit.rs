@@ -127,6 +127,27 @@ pub fn map_github(config: &Config, owner_or_repo: &str, area: &str) -> AppResult
     })
 }
 
+pub fn set_watchdog(
+    config: &Config,
+    enabled: Option<bool>,
+    quiet_minutes: Option<i64>,
+    max_nudges: Option<u32>,
+) -> AppResult<()> {
+    edit(config, |doc| {
+        let w = table(doc, "watchdog")?;
+        if let Some(on) = enabled {
+            w.insert("enabled", value(on));
+        }
+        if let Some(minutes) = quiet_minutes {
+            w.insert("quiet_minutes", value(minutes));
+        }
+        if let Some(n) = max_nudges {
+            w.insert("max_nudges", value(i64::from(n)));
+        }
+        Ok(())
+    })
+}
+
 pub fn set_sync(config: &Config, enabled: bool, port: Option<u16>) -> AppResult<()> {
     edit(config, |doc| {
         let sync = table(doc, "sync")?;
