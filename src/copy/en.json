@@ -242,5 +242,7 @@
   "connections.never": "not synced yet",
   "connections.synced": "synced {when} ago",
   "connections.failed": "last sync failed: {error}",
-  "item.synced": "From {source}. Bridge updates it when it changes there; your edits stick until then."
+  "item.synced": "From {source}. Bridge updates it when it changes there; your edits stick until then.",
+  "today.hide": "Hide",
+  "today.hideHint": "Hide {title}. It stays hidden after calendar syncs."
 }

@@ -9,6 +9,7 @@ mod commitments;
 mod items;
 mod overview;
 mod schedules;
+mod settings;
 mod todos;
 mod updates;
 mod urgent;
@@ -28,6 +29,7 @@ pub fn all() -> Vec<Tool> {
         urgent::tools(),
         updates::tools(),
         schedules::tools(),
+        settings::tools(),
     ]
     .into_iter()
     .flatten()

@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::config::pause::Pause;
 use crate::config::schedules::Loaded;
-use crate::connectors::{github, status};
+use crate::connectors::{calendar, github, status};
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::run::Run;
 use crate::domain::schedule::{Schedule, Trigger};
@@ -58,6 +58,9 @@ pub fn build(conn: &Connection, loaded: Loaded, pause: Option<Pause>) -> AppResu
         schedules,
         problems,
         pause,
-        connections: vec![status::read(conn, github::SOURCE)?],
+        connections: vec![
+            status::read(conn, github::SOURCE)?,
+            status::read(conn, calendar::SOURCE)?,
+        ],
     })
 }

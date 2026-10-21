@@ -49,3 +49,19 @@ ignore = []
 [github.areas]
 # "my-org" = "work"
 # "me/side-project" = "projects"
+
+# Calendars become meetings on Today, alerted before they start. Use each calendar's private iCal
+# link (Google: Settings > your calendar > "Secret address in iCal format"). Hide or re-file any
+# event in Bridge and the next sync keeps it that way.
+[calendar]
+poll_minutes = 15
+days_ahead = 14
+ignore_all_day = true
+# Skip events whose title contains any of these.
+ignore_titles = []
+
+# [[calendar.feeds]]
+# name = "work"
+# url = "https://calendar.google.com/calendar/ical/.../basic.ics"
+# area = "work"
+# ignore_titles = ["Lunch"]

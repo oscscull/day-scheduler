@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use super::Config;
+use super::calendar::CalendarSettings;
 use super::github::GithubSettings;
 use crate::error::AppResult;
 
 /// A part of life Bridge keeps separate, e.g. Work, Personal projects, Life.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Area {
     pub id: String,
     pub name: String,
@@ -29,6 +30,7 @@ pub struct Settings {
     pub done_item_ttl_days: i64,
     pub areas: Vec<Area>,
     pub github: GithubSettings,
+    pub calendar: CalendarSettings,
 }
 
 impl Default for Settings {
@@ -43,6 +45,7 @@ impl Default for Settings {
             done_item_ttl_days: 30,
             areas: Vec::new(),
             github: GithubSettings::default(),
+            calendar: CalendarSettings::default(),
         }
     }
 }
@@ -96,6 +99,7 @@ mod tests {
             done_item_ttl_days: 30,
             areas: vec![area("work", "work-mac"), area("life", "home-mac")],
             github: GithubSettings::default(),
+            calendar: CalendarSettings::default(),
         }
     }
 

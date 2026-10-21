@@ -21,6 +21,15 @@
   let showUrgent = $state(false);
   let addingCommitment = $state(false);
 
+  async function hide(id: number): Promise<void> {
+    try {
+      await api.hideCommitment(id);
+      changed();
+    } catch (e) {
+      error = errorText(e);
+    }
+  }
+
   async function answered(id: number): Promise<void> {
     try {
       await api.resolveAsk(id);
@@ -73,6 +82,7 @@
           <span class="mono">{clock(next.startsAt)}</span>
           <span class="muted">{t("today.in", { when: until(next.startsAt, now) })}</span>
           {#if next.location}<span class="muted">{t("today.where", { location: next.location })}</span>{/if}
+          <button type="button" class="quiet" aria-label={t("today.hideHint", { title: next.title })} onclick={() => hide(next.id)}>{t("today.hide")}</button>
         </p>
         <p class="hint">
           {then ? t("today.then", { title: then.title, when: dayClock(then.startsAt, now) }) : t("today.nothingAfter")}
@@ -148,6 +158,14 @@
     border: 0;
     background: transparent;
     text-align: left;
+  }
+
+  .quiet {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--faint);
+    font-size: 13px;
   }
 
   .tick {

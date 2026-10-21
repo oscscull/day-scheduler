@@ -34,6 +34,26 @@ pub fn list(conn: &Connection) -> AppResult<Vec<Commitment>> {
     )
 }
 
+/// Everything from one source, hidden ones included, for syncing.
+pub fn from_source(conn: &Connection, source: &str) -> AppResult<Vec<Commitment>> {
+    query(
+        conn,
+        &format!("SELECT {COLUMNS} FROM commitments WHERE source = ?1"),
+        [source],
+    )
+}
+
+pub fn by_external(
+    conn: &Connection,
+    source: &str,
+    external_id: &str,
+) -> AppResult<Option<Commitment>> {
+    let sql = format!("SELECT {COLUMNS} FROM commitments WHERE source = ?1 AND external_id = ?2");
+    Ok(conn
+        .query_row(&sql, [source, external_id], from_row)
+        .optional()?)
+}
+
 pub fn get(conn: &Connection, id: i64) -> AppResult<Commitment> {
     conn.query_row(
         &format!("SELECT {COLUMNS} FROM commitments WHERE id = ?1"),

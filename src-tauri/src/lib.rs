@@ -56,6 +56,7 @@ pub fn run() -> tauri::Result<()> {
             commands::screens::today,
             commands::commitments::add_commitment,
             commands::commitments::delete_commitment,
+            commands::commitments::hide_commitment,
             commands::todos::add_todo,
             commands::todos::set_todo_done,
             commands::screens::work_items,

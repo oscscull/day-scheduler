@@ -26,3 +26,12 @@ pub fn add_commitment(app: State<'_, App>, commitment: CommitmentInput) -> AppRe
 pub fn delete_commitment(app: State<'_, App>, id: i64) -> AppResult<()> {
     app.db.with(|conn| commitments::delete(conn, id))
 }
+
+/// Hides a meeting, e.g. a calendar event the user doesn't care about. Re-syncs keep it hidden.
+#[tauri::command]
+pub fn hide_commitment(app: State<'_, App>, id: i64) -> AppResult<()> {
+    app.db.with(|conn| {
+        let c = commitments::get(conn, id)?;
+        commitments::update(conn, &Commitment { hidden: true, ..c })
+    })
+}

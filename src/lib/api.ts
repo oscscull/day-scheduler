@@ -29,6 +29,7 @@ export const api = {
     invoke<undefined>("add_ask", { itemId, question, context }),
   resolveAsk: (id: number) => invoke<undefined>("resolve_ask", { id }),
   addCommitment: (commitment: CommitmentInput) => invoke<undefined>("add_commitment", { commitment }),
+  hideCommitment: (id: number) => invoke<undefined>("hide_commitment", { id }),
   deleteCommitment: (id: number) => invoke<undefined>("delete_commitment", { id }),
   reorderItems: (ids: string[]) => invoke<undefined>("reorder_items", { ids }),
   setScheduleEnabled: (id: string, enabled: boolean) =>
