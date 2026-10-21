@@ -1,18 +1,21 @@
 <script lang="ts">
   import { untrack } from "svelte";
 
-  import { api, errorText } from "../../lib/api";
+  import { errorText } from "../../lib/api";
   import { areas } from "../../lib/areas.svelte";
   import { t, type CopyKey } from "../../lib/copy";
   import { STAGES } from "../../lib/groups";
   import { changed } from "../../lib/refresh.svelte";
+  import type { Editing } from "../../lib/detail.svelte";
+  import { ownerOf } from "../../lib/peers.svelte";
+  import { route } from "../../lib/route";
   import type { ItemInput, Stage, Status } from "../../lib/types";
   import Modal from "../Modal.svelte";
 
   interface Props {
-    item: ItemInput;
+    item: Editing;
     onClose: () => void;
-    onSaved: (id: string) => void;
+    onSaved: (id: string, node: string | undefined) => void;
   }
 
   let { item, onClose, onSaved }: Props = $props();
@@ -22,16 +25,19 @@
   const statusKey = (s: Status): CopyKey => `status.${s}`;
 
   // Edit a copy; nothing is saved until Save.
-  let form = $state<ItemInput>({ ...untrack(() => item) });
+  const start = untrack(() => item);
+  let form = $state<ItemInput>({ ...start });
   let link = $state(untrack(() => item.link) ?? "");
   let error = $state("");
-  const isNew = untrack(() => item.id === "");
+  const isNew = start.id === "";
 
   async function save(): Promise<void> {
     try {
-      const id = await api.saveItem({ ...$state.snapshot(form), link: link.trim() || null });
+      // Existing items stay where they are; new ones go to the machine that runs their area.
+      const node = isNew ? ownerOf(form.area) : start.node;
+      const id = await route.saveItem(node, { ...$state.snapshot(form), link: link.trim() || null });
       changed();
-      onSaved(id);
+      onSaved(id, node);
     } catch (e) {
       error = t("item.failed", { error: errorText(e) });
     }

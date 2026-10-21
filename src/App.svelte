@@ -5,6 +5,7 @@
   import ItemEditor from "./components/item/ItemEditor.svelte";
   import { detail, openItem } from "./lib/detail.svelte";
   import { loadAreas } from "./lib/areas.svelte";
+  import { loadPeers } from "./lib/peers.svelte";
   import { t } from "./lib/copy";
   import { suggestionKeys, viewLabel, type ViewId } from "./lib/views";
   import Agent from "./views/Agent.svelte";
@@ -15,8 +16,13 @@
 
   let view = $state<ViewId>("today");
 
+  const PEERS_EVERY_MS = 60_000;
+
   $effect(() => {
     void loadAreas();
+    void loadPeers();
+    const timer = setInterval(() => void loadPeers(), PEERS_EVERY_MS);
+    return () => clearInterval(timer);
   });
 </script>
 
@@ -39,13 +45,13 @@
 {/key}
 
 {#if detail.id}
-  <ItemDetailModal id={detail.id} onClose={() => (detail.id = null)} />
+  <ItemDetailModal id={detail.id} node={detail.node} onClose={() => (detail.id = null)} />
 {/if}
 
 {#if detail.editing}
   <ItemEditor
     item={detail.editing}
     onClose={() => (detail.editing = null)}
-    onSaved={(id) => { detail.editing = null; openItem(id); }}
+    onSaved={(id, node) => { detail.editing = null; openItem(id, node); }}
   />
 {/if}

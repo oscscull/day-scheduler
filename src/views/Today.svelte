@@ -7,8 +7,11 @@
   import { t } from "../lib/copy";
   import { poll } from "../lib/poll";
   import { clock, dayClock, until } from "../lib/time";
-  import type { TodayView } from "../lib/types";
+  import type { Commitment, Priority, TodayView } from "../lib/types";
   import { openItem } from "../lib/detail.svelte";
+  import { mergeToday } from "../lib/merge";
+  import { fromPeers } from "../lib/peers.svelte";
+  import { route } from "../lib/route";
   import { changed } from "../lib/refresh.svelte";
   import CommitmentModal from "./today/CommitmentModal.svelte";
   import TodoList from "./today/TodoList.svelte";
@@ -21,18 +24,18 @@
   let showUrgent = $state(false);
   let addingCommitment = $state(false);
 
-  async function hide(id: number): Promise<void> {
+  async function hide(c: Commitment): Promise<void> {
     try {
-      await api.hideCommitment(id);
+      await route.hideMeeting(c.node, c.id);
       changed();
     } catch (e) {
       error = errorText(e);
     }
   }
 
-  async function answered(id: number): Promise<void> {
+  async function answered(p: Priority): Promise<void> {
     try {
-      await api.resolveAsk(id);
+      await route.resolveAsk(p.node, p.ask.id);
       changed();
     } catch (e) {
       error = errorText(e);
@@ -41,7 +44,8 @@
 
   async function load(): Promise<void> {
     try {
-      data = await api.today();
+      const [local, remote] = await Promise.all([api.today(), fromPeers<TodayView>("get_overview")]);
+      data = mergeToday(local, remote);
       now = new Date();
       error = "";
     } catch (e) {
@@ -82,7 +86,7 @@
           <span class="mono">{clock(next.startsAt)}</span>
           <span class="muted">{t("today.in", { when: until(next.startsAt, now) })}</span>
           {#if next.location}<span class="muted">{t("today.where", { location: next.location })}</span>{/if}
-          <button type="button" class="quiet" aria-label={t("today.hideHint", { title: next.title })} onclick={() => hide(next.id)}>{t("today.hide")}</button>
+          <button type="button" class="quiet" aria-label={t("today.hideHint", { title: next.title })} onclick={() => hide(next)}>{t("today.hide")}</button>
         </p>
         <p class="hint">
           {then ? t("today.then", { title: then.title, when: dayClock(then.startsAt, now) }) : t("today.nothingAfter")}
@@ -96,14 +100,14 @@
       <h2>{t("today.priorities")}</h2>
       <p class="hint sub">{t("today.prioritiesHint")}</p>
       <ul>
-        {#each priorities as p (p.ask.id)}
+        {#each priorities as p (`${p.node ?? ""}${p.ask.id}`)}
           <li class="row priority">
             <AreaDot area={p.area} />
-            <button type="button" class="body open" onclick={() => openItem(p.itemId)}>
+            <button type="button" class="body open" onclick={() => openItem(p.itemId, p.node)}>
               <span>{p.ask.question}</span>
               <span class="hint small">{p.ask.context ? `${p.ask.context} · ` : ""}{t("today.unblocks", { id: p.itemId })}</span>
             </button>
-            <button type="button" class="tick" aria-label={t("today.answered", { question: p.ask.question })} onclick={() => answered(p.ask.id)}>✓</button>
+            <button type="button" class="tick" aria-label={t("today.answered", { question: p.ask.question })} onclick={() => answered(p)}>✓</button>
           </li>
         {:else}
           <li class="hint">{t("today.noPriorities")}</li>
@@ -116,7 +120,7 @@
     <section aria-label={t("today.fromClaude")}>
       <h2 class="section-label">{t("today.fromClaude")}</h2>
       <ul class="activity">
-        {#each activity as a (a.id)}
+        {#each activity as a (`${a.node ?? ""}${a.id}`)}
           <li class:unread={a.unread}>
             <span class="dot"></span>
             <AreaDot area={a.area} />

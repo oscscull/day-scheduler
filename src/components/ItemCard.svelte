@@ -18,7 +18,7 @@
   );
 </script>
 
-<button type="button" class="card" class:done={item.stage === "done"} onclick={() => openItem(item.id)}>
+<button type="button" class="card" class:done={item.stage === "done"} onclick={() => openItem(item.id, item.node)}>
   <span class="id-row"><AreaDot area={item.area} /><span class="mono id">{item.id}</span></span>
   <span class="title">{item.title}</span>
   <span class="label">{item.stateLabel}</span>

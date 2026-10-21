@@ -1,7 +1,8 @@
 <script lang="ts">
   import { openUrl } from "@tauri-apps/plugin-opener";
 
-  import { api, errorText } from "../../lib/api";
+  import { errorText } from "../../lib/api";
+  import { route } from "../../lib/route";
   import { findArea } from "../../lib/areas.svelte";
   import { t } from "../../lib/copy";
   import { editItem } from "../../lib/detail.svelte";
@@ -15,10 +16,12 @@
 
   interface Props {
     id: string;
+    /** The machine it lives on; unset for this one. */
+    node: string | undefined;
     onClose: () => void;
   }
 
-  let { id, onClose }: Props = $props();
+  let { id, node, onClose }: Props = $props();
 
   let detail = $state<ItemDetail | null>(null);
   let error = $state("");
@@ -28,12 +31,12 @@
   // Reload whenever anything is edited, including asks added here.
   $effect(() => {
     void refresh.version;
-    api.itemDetail(id).then((d) => (detail = d)).catch((e: unknown) => (error = errorText(e)));
+    route.itemDetail(node, id).then((d) => (detail = { ...d, item: { ...d.item, ...(node ? { node } : {}) } })).catch((e: unknown) => (error = errorText(e)));
   });
 
   async function remove(): Promise<void> {
     try {
-      await api.deleteItem(id);
+      await route.deleteItem(node, id);
       changed();
       onClose();
     } catch (e) {
@@ -62,7 +65,7 @@
       {#if item.holder}<span class="hint">· {item.holder}</span>{/if}
     </div>
     {#if item.source !== "manual"}<p class="hint small">{t("item.synced", { source: item.source })}</p>{/if}
-    <AskList itemId={item.id} asks={detail.asks} />
+    <AskList itemId={item.id} {node} asks={detail.asks} />
     <History events={detail.history} {now} />
     {#if confirming}
       <p class="error">{t("item.confirmDelete", { id: item.id })}</p>

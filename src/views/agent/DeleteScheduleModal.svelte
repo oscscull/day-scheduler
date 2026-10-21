@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from "../../components/Modal.svelte";
-  import { api, errorText } from "../../lib/api";
+  import { errorText } from "../../lib/api";
+  import { route } from "../../lib/route";
   import { t } from "../../lib/copy";
   import type { Schedule } from "../../lib/types";
 
@@ -19,7 +20,7 @@
     busy = true;
     error = "";
     try {
-      await api.deleteSchedule(schedule.id);
+      await route.deleteSchedule(schedule.node, schedule.id);
       onDeleted();
     } catch (e) {
       error = t("deleteSchedule.failed", { error: errorText(e) });

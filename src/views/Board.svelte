@@ -38,7 +38,7 @@
           <h2 class="section-label">
             {t(`stage.${col.stage}`)} <span class="mono count">{col.items.length}</span>
           </h2>
-          {#each col.items as item (item.id)}
+          {#each col.items as item (`${item.node ?? ""}${item.id}`)}
             <ItemCard {item} now={list.now} />
           {/each}
         </section>

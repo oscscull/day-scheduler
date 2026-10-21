@@ -250,5 +250,7 @@
   "alert.join": "Join now",
   "alert.snooze": "1 min",
   "alert.snoozeLabel": "Remind me again in a minute",
-  "alert.skip": "Skip"
+  "alert.skip": "Skip",
+  "connections.peerUp": "connected",
+  "connections.peerDown": "unreachable: {error}"
 }

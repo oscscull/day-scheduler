@@ -1,15 +1,17 @@
 <script lang="ts">
-  import { api, errorText } from "../../lib/api";
+  import { errorText } from "../../lib/api";
+  import { route } from "../../lib/route";
   import { t } from "../../lib/copy";
   import { changed } from "../../lib/refresh.svelte";
   import type { Ask } from "../../lib/types";
 
   interface Props {
     itemId: string;
+    node: string | undefined;
     asks: Ask[];
   }
 
-  let { itemId, asks }: Props = $props();
+  let { itemId, node, asks }: Props = $props();
 
   let question = $state("");
   let context = $state("");
@@ -27,7 +29,7 @@
 
   async function add(): Promise<void> {
     if (!question.trim()) return;
-    await run(() => api.addAsk(itemId, question.trim(), context.trim()));
+    await run(() => route.addAsk(node, itemId, question.trim(), context.trim()));
     question = "";
     context = "";
   }
@@ -42,7 +44,7 @@
           <span>{ask.question}</span>
           {#if ask.context}<span class="hint small">{ask.context}</span>{/if}
         </span>
-        <button type="button" class="button-secondary small" onclick={() => run(() => api.resolveAsk(ask.id))}>
+        <button type="button" class="button-secondary small" onclick={() => run(() => route.resolveAsk(node, ask.id))}>
           {t("item.answered")}
         </button>
       </li>

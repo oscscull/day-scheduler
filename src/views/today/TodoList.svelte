@@ -1,6 +1,8 @@
 <script lang="ts">
   import AreaDot from "../../components/AreaDot.svelte";
-  import { api, errorText } from "../../lib/api";
+  import { errorText } from "../../lib/api";
+  import { ownerOf } from "../../lib/peers.svelte";
+  import { route } from "../../lib/route";
   import { ALL, areas } from "../../lib/areas.svelte";
   import { t } from "../../lib/copy";
   import { dueText, isOverdue } from "../../lib/time";
@@ -28,7 +30,7 @@
   async function add(): Promise<void> {
     if (!title.trim()) return;
     try {
-      await api.addTodo(title.trim(), area, due || null);
+      await route.addTodo(ownerOf(area), title.trim(), area, due || null);
       title = "";
       due = "";
       adding = false;
@@ -41,7 +43,7 @@
 
   async function toggle(todo: Todo): Promise<void> {
     try {
-      await api.setTodoDone(todo.id, todo.doneAt === null);
+      await route.setTodoDone(todo.node, todo.id, todo.doneAt === null);
       onChanged();
     } catch (e) {
       error = t("todo.failed", { error: errorText(e) });
@@ -83,7 +85,7 @@
   {#if error}<p class="error">{error}</p>{/if}
 
   <ul>
-    {#each todos as todo (todo.id)}
+    {#each todos as todo (`${todo.node ?? ""}${todo.id}`)}
       <li class="row" class:done={todo.doneAt !== null}>
         <label class="check">
           <input type="checkbox" checked={todo.doneAt !== null} onchange={() => toggle(todo)} />

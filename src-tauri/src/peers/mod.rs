@@ -2,6 +2,7 @@
 //! as the MCP server); the UI merges what peers serve, and edits to their records go back to them.
 
 pub mod client;
+pub mod handoff;
 pub mod server;
 
 use std::io::Read as _;

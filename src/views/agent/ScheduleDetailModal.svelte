@@ -3,7 +3,8 @@
 
   import Modal from "../../components/Modal.svelte";
   import { areas, findArea } from "../../lib/areas.svelte";
-  import { api, errorText } from "../../lib/api";
+  import { errorText } from "../../lib/api";
+  import { route } from "../../lib/route";
   import { t, type CopyKey } from "../../lib/copy";
   import { dayClock } from "../../lib/time";
   import type { Run, Schedule, Scope } from "../../lib/types";
@@ -33,7 +34,7 @@
 
   async function runNow(): Promise<void> {
     try {
-      await api.runScheduleNow(form.id);
+      await route.runSchedule(form.node, form.id);
       onSaved();
     } catch (e) {
       error = errorText(e);
@@ -44,7 +45,7 @@
     saving = true;
     error = "";
     try {
-      await api.saveSchedule($state.snapshot(form));
+      await route.saveSchedule(form.node, $state.snapshot(form));
       onSaved();
     } catch (e) {
       error = t("schedule.saveFailed", { error: errorText(e) });

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t, type CopyKey } from "../../lib/copy";
+  import { machine } from "../../lib/peers.svelte";
   import { age } from "../../lib/time";
   import type { Connection } from "../../lib/types";
 
@@ -27,6 +28,12 @@
   <ul>
     {#each connections as c (c.name)}
       <li><span class="name">{nameOf(c)}</span> <span class:error={c.error} class="hint">{stateOf(c)}</span></li>
+    {/each}
+    {#each machine.peers as p (p.name)}
+      <li>
+        <span class="name">{p.name}</span>
+        <span class:error={p.error} class="hint">{p.error ? t("connections.peerDown", { error: p.error }) : t("connections.peerUp")}</span>
+      </li>
     {/each}
   </ul>
 </section>

@@ -4,6 +4,8 @@ export type Stage = "up_next" | "in_progress" | "in_review" | "done";
 export type Status = "decision" | "review" | "ci" | "dependency" | "proceeding" | "queued";
 
 export interface WorkItem {
+  /** Set when it lives on another machine; edits go back there. */
+  node?: string;
   id: string;
   title: string;
   stateLabel: string;
@@ -68,6 +70,8 @@ export interface Ask {
 }
 
 export interface Priority {
+  /** Set when it lives on another machine; edits go back there. */
+  node?: string;
   ask: Ask;
   itemId: string;
   itemTitle: string;
@@ -75,6 +79,8 @@ export interface Priority {
 }
 
 export interface Commitment {
+  /** Set when it lives on another machine; edits go back there. */
+  node?: string;
   id: number;
   title: string;
   area: string;
@@ -88,6 +94,8 @@ export interface Commitment {
 }
 
 export interface Activity {
+  /** Set when it lives on another machine; edits go back there. */
+  node?: string;
   id: number;
   text: string;
   area: string;
@@ -104,6 +112,8 @@ export interface Area {
 }
 
 export interface Todo {
+  /** Set when it lives on another machine; edits go back there. */
+  node?: string;
   id: number;
   title: string;
   area: string;
@@ -113,6 +123,8 @@ export interface Todo {
 }
 
 export interface Urgent {
+  /** Set when it lives on another machine; edits go back there. */
+  node?: string;
   id: number;
   title: string;
   detail: string;
@@ -152,6 +164,8 @@ export type Autonomy = "ask" | "act";
 export type Scope = "each_pr" | "each_item" | "one" | "nothing";
 
 export interface Schedule {
+  /** Set when it lives on another machine; edits go back there. */
+  node?: string;
   id: string;
   name: string;
   prompt: string;
@@ -161,6 +175,7 @@ export interface Schedule {
   autonomy: Autonomy;
   enabled: boolean;
   request: string;
+  allowedTools: string[];
 }
 
 export type Unit = "minute" | "hour" | "day" | "month" | "weekday";

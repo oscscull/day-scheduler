@@ -1,6 +1,8 @@
 <script lang="ts">
   import Modal from "../../components/Modal.svelte";
-  import { api, errorText } from "../../lib/api";
+  import { errorText } from "../../lib/api";
+  import { ownerOf } from "../../lib/peers.svelte";
+  import { route } from "../../lib/route";
   import { ALL, areas } from "../../lib/areas.svelte";
   import { t } from "../../lib/copy";
   import { changed } from "../../lib/refresh.svelte";
@@ -26,7 +28,7 @@
 
   async function save(): Promise<void> {
     try {
-      await api.addCommitment({
+      await route.addMeeting(ownerOf(area), {
         title: title.trim(),
         area,
         startsAt: at(start),

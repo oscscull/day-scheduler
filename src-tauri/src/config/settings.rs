@@ -68,16 +68,11 @@ impl Settings {
             .map_or(self.node.as_str(), |a| a.node.as_str())
     }
 
-    /// `area` if it is configured, otherwise the first area.
+    /// `area` if it is configured (or none are), otherwise the first area.
     pub fn known_area(&self, area: &str) -> String {
-        let fallback = self
-            .areas
-            .first()
-            .map_or_else(String::new, |a| a.id.clone());
-        if self.areas.iter().any(|a| a.id == area) {
-            area.to_owned()
-        } else {
-            fallback
+        match self.areas.first() {
+            Some(first) if !self.areas.iter().any(|a| a.id == area) => first.id.clone(),
+            Some(_) | None => area.to_owned(),
         }
     }
 }
@@ -125,6 +120,7 @@ mod tests {
     fn unknown_areas_fall_back_to_the_first() {
         assert_eq!(settings().known_area("life"), "life");
         assert_eq!(settings().known_area("nope"), "work");
+        assert_eq!(Settings::default().known_area("life"), "life");
     }
 
     #[test]

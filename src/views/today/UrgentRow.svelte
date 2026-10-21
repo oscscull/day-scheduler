@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, errorText } from "../../lib/api";
+  import { route } from "../../lib/route";
   import { t } from "../../lib/copy";
   import { dayClock } from "../../lib/time";
   import type { Urgent } from "../../lib/types";
@@ -31,11 +32,11 @@
     }
   }
 
-  const dismiss = () => act(() => api.dismissUrgent(item.id));
+  const dismiss = () => act(() => route.dismissUrgent(item.node, item.id));
   const runNow = (id: string) =>
     act(async () => {
-      await api.runScheduleNow(id);
-      await api.dismissUrgent(item.id);
+      await route.runSchedule(item.node, id);
+      await route.dismissUrgent(item.node, item.id);
     });
   const send = () => message.trim() && act(() => api.resolveUrgent(item.id, message.trim()));
 </script>
@@ -54,7 +55,10 @@
       {@const id = item.scheduleId}
       <button type="button" class="button-primary small" disabled={busy} onclick={() => runNow(id)}>{t("urgent.runNow")}</button>
     {/if}
-    <button type="button" class="button-secondary small" disabled={busy} onclick={() => (replying = !replying)}>{t("urgent.tell")}</button>
+    {#if !item.node}
+      <!-- Bridge's Claude acts on this machine, so it can only resolve local items. -->
+      <button type="button" class="button-secondary small" disabled={busy} onclick={() => (replying = !replying)}>{t("urgent.tell")}</button>
+    {/if}
     <button type="button" class="quiet" disabled={busy} onclick={dismiss}>{t("urgent.dismiss")}</button>
   </div>
   {#if replying}

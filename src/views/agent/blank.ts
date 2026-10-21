@@ -14,5 +14,6 @@ export function blankSchedule(): Schedule {
     autonomy: "ask",
     enabled: true,
     request: "",
+    allowedTools: [],
   };
 }

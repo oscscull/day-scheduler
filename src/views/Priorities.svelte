@@ -10,6 +10,7 @@
   import { workItems } from "../lib/items.svelte";
   import { poll } from "../lib/poll";
   import { reorder } from "../lib/rank";
+  import { route } from "../lib/route";
   import type { WorkItem } from "../lib/types";
 
   const { state: list, load } = workItems();
@@ -25,13 +26,28 @@
     chatContext.text = JSON.stringify({ area: areas.current, ranked: inPlay });
   });
 
-  /** Moves `id` to `to` within the visible list and saves the full order. */
-  async function move(id: string, to: number): Promise<void> {
-    const ids = reorder(list.items.map((i) => i.id), inPlay.map((i) => i.id), id, to);
-    const byId = new Map(list.items.map((i) => [i.id, i]));
-    list.items = ids.flatMap((i) => byId.get(i) ?? []);
+  // Ids repeat across machines, so the list is keyed by machine and id.
+  const keyOf = (i: WorkItem): string => `${i.node ?? ""}|${i.id}`;
+
+  /** Saves the order on the machine that owns `moved`. Each machine ranks its own items. */
+  async function save(moved: WorkItem): Promise<void> {
+    const same = list.items.filter((i) => i.node === moved.node);
+    if (moved.node) {
+      await route.moveItem(moved.node, moved.id, same.findIndex((i) => i.id === moved.id) + 1);
+    } else {
+      await api.reorderItems(same.map((i) => i.id));
+    }
+  }
+
+  /** Moves `key` to `to` within the visible list. */
+  async function move(key: string, to: number): Promise<void> {
+    const keys = reorder(list.items.map(keyOf), inPlay.map(keyOf), key, to);
+    const byKey = new Map(list.items.map((i) => [keyOf(i), i]));
+    list.items = keys.flatMap((k) => byKey.get(k) ?? []);
+    const moved = byKey.get(key);
+    if (!moved) return;
     try {
-      await api.reorderItems(list.items.map((i) => i.id));
+      await save(moved);
       saveError = "";
     } catch (e) {
       saveError = t("priorities.saveFailed", { error: errorText(e) });
@@ -39,12 +55,12 @@
   }
 
   function drop(index: number): void {
-    const id = dragging;
+    const key = dragging;
     dragging = null;
     over = null;
-    if (!id) return;
-    const from = inPlay.findIndex((i) => i.id === id);
-    void move(id, from < index ? index - 1 : index);
+    if (!key) return;
+    const from = inPlay.findIndex((i) => keyOf(i) === key);
+    void move(key, from < index ? index - 1 : index);
   }
 
   const showsHolder = (item: WorkItem): string => `${t(`stage.${item.stage}`)} · ${item.holder}`;
@@ -60,12 +76,12 @@
   {#if saveError}<p class="error">{saveError}</p>{/if}
 
   <ol class="list">
-    {#each inPlay as item, i (item.id)}
+    {#each inPlay as item, i (keyOf(item))}
       <li
         draggable="true"
-        class:dragging={dragging === item.id}
-        class:over={over === i && dragging !== item.id}
-        ondragstart={(e) => { e.dataTransfer?.setData("text/plain", item.id); dragging = item.id; }}
+        class:dragging={dragging === keyOf(item)}
+        class:over={over === i && dragging !== keyOf(item)}
+        ondragstart={(e) => { e.dataTransfer?.setData("text/plain", keyOf(item)); dragging = keyOf(item); }}
         ondragover={(e) => { e.preventDefault(); over = i; }}
         ondrop={(e) => { e.preventDefault(); drop(i); }}
         ondragend={() => { dragging = null; over = null; }}
@@ -74,13 +90,13 @@
         <span class="mono rank">{i + 1}</span>
         <AreaDot area={item.area} />
         <span class="body">
-          <button type="button" class="open" onclick={() => openItem(item.id)}><span class="mono id">{item.id}</span>&nbsp; {item.title}</button>
+          <button type="button" class="open" onclick={() => openItem(item.id, item.node)}><span class="mono id">{item.id}</span>&nbsp; {item.title}</button>
           <span class="hint meta">{showsHolder(item)}</span>
         </span>
         {#if item.status}<Chip status={item.status} />{/if}
         <span class="arrows">
-          <button type="button" aria-label={t("priorities.moveUp", { title: item.title })} onclick={() => move(item.id, i - 1)}>▲</button>
-          <button type="button" aria-label={t("priorities.moveDown", { title: item.title })} onclick={() => move(item.id, i + 1)}>▼</button>
+          <button type="button" aria-label={t("priorities.moveUp", { title: item.title })} onclick={() => move(keyOf(item), i - 1)}>▲</button>
+          <button type="button" aria-label={t("priorities.moveDown", { title: item.title })} onclick={() => move(keyOf(item), i + 1)}>▼</button>
         </span>
       </li>
     {:else}

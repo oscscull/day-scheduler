@@ -15,6 +15,10 @@ import type {
 
 /** Typed wrappers around the backend's Tauri commands. */
 export const api = {
+  machine: () => invoke<string>("machine"),
+  peers: () => invoke<{ name: string; error: string | null }[]>("peers"),
+  peerCall: <T = unknown>(node: string, tool: string, args: object) =>
+    invoke<T>("peer_call", { node, tool, args }),
   mcpConnectCommand: () => invoke<string>("mcp_connect_command"),
   dueAlert: () => invoke<Commitment | null>("due_alert"),
   alertDone: (id: number) => invoke<undefined>("alert_done", { id }),

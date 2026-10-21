@@ -5,6 +5,7 @@ use crate::claude::{self, draft};
 use crate::config::prompts::{Prompt, render};
 use crate::config::schedules;
 use crate::error::AppResult;
+use crate::peers;
 
 /// Answers a question from the "Ask Claude" bubble. The reply is not stored.
 #[tauri::command]
@@ -39,6 +40,11 @@ pub async fn draft_schedule(app: State<'_, App>, request: String) -> AppResult<S
     let reply = claude::ask(&settings.claude_command, &prompt).await?;
     let mut schedule = draft::parse(&reply, &request)?;
     schedule.area = settings.known_area(&schedule.area);
+    if let Some(id) =
+        peers::handoff::create_elsewhere_async(settings.clone(), schedule.clone()).await?
+    {
+        return Ok(id);
+    }
     schedule.id = schedules::free_id(&app.config, &schedule.id);
     schedules::save(&app.config, &schedule)?;
     Ok(schedule.id)

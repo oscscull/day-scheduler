@@ -6,6 +6,7 @@ use crate::config::{pause, schedules};
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::schedule::Schedule;
 use crate::error::{AppError, AppResult};
+use crate::peers;
 use crate::scheduler;
 use crate::store::runs;
 
@@ -27,8 +28,13 @@ pub fn delete_schedule(app: State<'_, App>, id: String) -> AppResult<()> {
 
 /// Writes a schedule file. An empty id creates a new one.
 #[tauri::command]
-pub fn save_schedule(app: State<'_, App>, mut schedule: Schedule) -> AppResult<String> {
+pub async fn save_schedule(app: State<'_, App>, mut schedule: Schedule) -> AppResult<String> {
     if schedule.id.is_empty() {
+        if let Some(id) =
+            peers::handoff::create_elsewhere_async(app.settings()?, schedule.clone()).await?
+        {
+            return Ok(id);
+        }
         schedule.id = schedules::free_id(&app.config, &schedules::slug(&schedule.name));
     }
     schedules::save(&app.config, &schedule)?;

@@ -1,13 +1,18 @@
 import type { ItemInput, WorkItem } from "./types";
 
+/** An item being edited, and the machine it lives on (unset: this one). */
+export type Editing = ItemInput & { node?: string | undefined };
+
 /** Which item's detail or editor is open, from any view. */
 export const detail = $state({
   id: null as string | null,
-  editing: null as ItemInput | null,
+  node: undefined as string | undefined,
+  editing: null as Editing | null,
 });
 
-export const openItem = (id: string): void => {
+export const openItem = (id: string, node?: string): void => {
   detail.id = id;
+  detail.node = node;
 };
 
 export function editItem(item: WorkItem): void {
@@ -20,6 +25,7 @@ export function editItem(item: WorkItem): void {
     holder: item.holder,
     area: item.area,
     link: item.link,
+    node: item.node,
   };
 }
 

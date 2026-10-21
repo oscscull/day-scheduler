@@ -42,11 +42,11 @@
     <section aria-label={t(group.label)}>
       <h2 class="section-label">{t(group.label)}</h2>
       <ul>
-        {#each group.items as item (item.id)}
+        {#each group.items as item (`${item.node ?? ""}${item.id}`)}
           <li class="row">
             <AreaDot area={item.area} />
             <span class="body">
-              <button type="button" class="open" onclick={() => openItem(item.id)}><span class="mono id">{item.id}</span>&nbsp; {item.title}</button>
+              <button type="button" class="open" onclick={() => openItem(item.id, item.node)}><span class="mono id">{item.id}</span>&nbsp; {item.title}</button>
               <span class="hint label">{item.stateLabel}</span>
             </span>
             {#if item.status}<Chip status={item.status} />{/if}

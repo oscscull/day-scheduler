@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from "../../components/Modal.svelte";
   import { api, errorText } from "../../lib/api";
+  import { route } from "../../lib/route";
   import { t } from "../../lib/copy";
   import type { Urgent } from "../../lib/types";
   import UrgentRow from "./UrgentRow.svelte";
@@ -19,6 +20,7 @@
   async function dismissAll(): Promise<void> {
     try {
       await api.dismissAllUrgent();
+      await Promise.all(items.filter((i) => i.node).map((i) => route.dismissUrgent(i.node, i.id)));
       onChanged();
       onClose();
     } catch (e) {
@@ -29,7 +31,7 @@
 
 <Modal title={t("urgent.title")} subtitle={t("urgent.hint")} {onClose}>
   <ul>
-    {#each items as item (item.id)}
+    {#each items as item (`${item.node ?? ""}${item.id}`)}
       <UrgentRow {item} {now} onDone={onChanged} />
     {:else}
       <li class="row hint clear">{t("urgent.allClear")}</li>

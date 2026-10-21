@@ -5,7 +5,10 @@
   import { chatContext } from "../lib/chat.svelte";
   import { t } from "../lib/copy";
   import { poll } from "../lib/poll";
-  import type { AgentView, Schedule } from "../lib/types";
+  import { mergeAgent } from "../lib/merge";
+  import { fromPeers } from "../lib/peers.svelte";
+  import { route } from "../lib/route";
+  import type { AgentView, Schedule, ScheduleView } from "../lib/types";
   import ConnectClaude from "./agent/ConnectClaude.svelte";
   import Connections from "./agent/Connections.svelte";
   import DeleteScheduleModal from "./agent/DeleteScheduleModal.svelte";
@@ -27,7 +30,8 @@
 
   async function load(): Promise<void> {
     try {
-      data = await api.agent();
+      const [local, remote] = await Promise.all([api.agent(), fromPeers<AgentView>("list_schedules")]);
+      data = mergeAgent(local, remote);
       now = new Date();
       error = "";
       chatContext.text = JSON.stringify(data);
@@ -38,9 +42,9 @@
 
   $effect(() => poll(load));
 
-  async function setEnabled(id: string, enabled: boolean): Promise<void> {
+  async function setEnabled(s: ScheduleView, enabled: boolean): Promise<void> {
     try {
-      await api.setScheduleEnabled(id, enabled);
+      await route.setScheduleEnabled(s.node, s.id, enabled);
     } catch (e) {
       error = errorText(e);
     }
@@ -63,7 +67,7 @@
     editing = data?.schedules.find((s) => s.id === id) ?? null;
   }
 
-  const editingView = $derived(data?.schedules.find((s) => s.id === editing?.id) ?? null);
+  const editingView = $derived(data?.schedules.find((s) => s.id === editing?.id && s.node === editing?.node) ?? null);
 </script>
 
 <div class="column">

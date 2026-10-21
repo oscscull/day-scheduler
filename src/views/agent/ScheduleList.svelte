@@ -13,7 +13,7 @@
     /** Every schedule is paused; individual switches are kept as they are. */
     paused: boolean;
     onOpen: (schedule: ScheduleView) => void;
-    onToggle: (id: string, enabled: boolean) => void;
+    onToggle: (schedule: ScheduleView, enabled: boolean) => void;
     onDelete: (schedule: ScheduleView) => void;
   }
 
@@ -38,7 +38,7 @@
 </script>
 
 <ul>
-  {#each schedules as s (s.id)}
+  {#each schedules as s (`${s.node ?? ""}${s.id}`)}
     <li class="row" class:paused={!s.enabled || paused}>
       <button type="button" class="open" onclick={() => onOpen(s)}>
         <span class="body">
@@ -54,7 +54,7 @@
       <Toggle
         on={s.enabled}
         label={t(s.enabled ? "agent.pause" : "agent.resume", { name: s.name })}
-        onChange={(on) => onToggle(s.id, on)}
+        onChange={(on) => onToggle(s, on)}
       />
       <button type="button" class="delete" aria-label={t("agent.delete", { name: s.name })} onclick={() => onDelete(s)}>×</button>
     </li>
