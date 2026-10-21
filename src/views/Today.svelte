@@ -10,6 +10,8 @@
   import type { Commitment, Priority, TodayView } from "../lib/types";
   import { openItem } from "../lib/detail.svelte";
   import { mergeToday } from "../lib/merge";
+  import { nav } from "../lib/nav.svelte";
+  import { describe, keyOf } from "../lib/priority";
   import { fromPeers } from "../lib/peers.svelte";
   import { route } from "../lib/route";
   import { changed } from "../lib/refresh.svelte";
@@ -35,7 +37,7 @@
 
   async function answered(p: Priority): Promise<void> {
     try {
-      await route.resolveAsk(p.node, p.ask.id);
+      if (p.kind === "ask") await route.resolveAsk(p.node, p.ask.id);
       changed();
     } catch (e) {
       error = errorText(e);
@@ -59,7 +61,9 @@
   const upcoming = $derived(data?.upcoming.filter(inArea) ?? []);
   const next = $derived(upcoming[0]);
   const then = $derived(upcoming[1]);
-  const priorities = $derived(data ? data.priorities.filter(inArea).slice(0, data.priorityLimit) : []);
+  const allPriorities = $derived(data?.priorities.filter(inArea) ?? []);
+  const priorities = $derived(data ? allPriorities.slice(0, data.priorityLimit) : []);
+  const hiddenPriorities = $derived(allPriorities.length - priorities.length);
   const todos = $derived(data?.todos.filter(inArea) ?? []);
   const activity = $derived(data?.activity.filter(inArea) ?? []);
   const urgent = $derived(data?.urgent.filter(inArea) ?? []);
@@ -100,19 +104,25 @@
       <h2>{t("today.priorities")}</h2>
       <p class="hint sub">{t("today.prioritiesHint")}</p>
       <ul>
-        {#each priorities as p (`${p.node ?? ""}${p.ask.id}`)}
+        {#each priorities as p (keyOf(p))}
+          {@const line = describe(p, now)}
           <li class="row priority">
             <AreaDot area={p.area} />
             <button type="button" class="body open" onclick={() => openItem(p.itemId, p.node)}>
-              <span>{p.ask.question}</span>
-              <span class="hint small">{p.ask.context ? `${p.ask.context} · ` : ""}{t("today.unblocks", { id: p.itemId })}</span>
+              <span>{line.text}</span>
+              <span class="hint small">{line.context}</span>
             </button>
-            <button type="button" class="tick" aria-label={t("today.answered", { question: p.ask.question })} onclick={() => answered(p)}>✓</button>
+            {#if p.kind === "ask"}
+              <button type="button" class="tick" aria-label={t("today.answered", { question: line.text })} onclick={() => answered(p)}>✓</button>
+            {/if}
           </li>
         {:else}
           <li class="hint">{t("today.noPriorities")}</li>
         {/each}
       </ul>
+      {#if hiddenPriorities > 0}
+        <button type="button" class="link more" onclick={() => (nav.view = "priorities")}>{t("today.more", { n: hiddenPriorities })}</button>
+      {/if}
     </section>
 
     <TodoList {todos} {now} onChanged={load} />
@@ -143,6 +153,10 @@
 {/if}
 
 <style>
+  .more {
+    margin-top: 8px;
+  }
+
   .label-actions {
     display: flex;
     align-items: center;

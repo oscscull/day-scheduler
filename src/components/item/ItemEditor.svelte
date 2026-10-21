@@ -20,7 +20,7 @@
 
   let { item, onClose, onSaved }: Props = $props();
 
-  const STATUSES: Status[] = ["decision", "review", "ci", "dependency", "proceeding", "queued"];
+  const STATUSES: Status[] = ["decision", "review", "ci", "ci_failed", "dependency", "proceeding", "queued"];
   const stageKey = (s: Stage): CopyKey => `stage.${s}`;
   const statusKey = (s: Status): CopyKey => `status.${s}`;
 

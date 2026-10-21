@@ -5,16 +5,17 @@
   import ItemEditor from "./components/item/ItemEditor.svelte";
   import { detail, openItem } from "./lib/detail.svelte";
   import { loadAreas } from "./lib/areas.svelte";
+  import { nav } from "./lib/nav.svelte";
   import { loadPeers } from "./lib/peers.svelte";
   import { t } from "./lib/copy";
-  import { suggestionKeys, viewLabel, type ViewId } from "./lib/views";
+  import { suggestionKeys, viewLabel } from "./lib/views";
   import Agent from "./views/Agent.svelte";
   import Board from "./views/Board.svelte";
   import InFlight from "./views/InFlight.svelte";
   import Priorities from "./views/Priorities.svelte";
   import Today from "./views/Today.svelte";
 
-  let view = $state<ViewId>("today");
+  const view = $derived(nav.view);
 
   const PEERS_EVERY_MS = 60_000;
 
@@ -26,7 +27,7 @@
   });
 </script>
 
-<Header {view} onSelect={(next) => (view = next)} />
+<Header {view} onSelect={(next) => (nav.view = next)} />
 
 {#if view === "today"}
   <Today />

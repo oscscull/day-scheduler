@@ -1,7 +1,7 @@
 // Mirrors the Rust types the backend sends. Keep in step with src-tauri/src/domain and views.
 
 export type Stage = "up_next" | "in_progress" | "in_review" | "done";
-export type Status = "decision" | "review" | "ci" | "dependency" | "proceeding" | "queued";
+export type Status = "decision" | "review" | "ci" | "ci_failed" | "dependency" | "proceeding" | "queued";
 
 export interface WorkItem {
   /** Set when it lives on another machine; edits go back there. */
@@ -69,14 +69,22 @@ export interface Ask {
   context: string;
 }
 
-export interface Priority {
+/** Something that needs the user, derived from the work. `kind` says why. */
+export type Priority = (
+  | { kind: "ask"; ask: Ask }
+  | { kind: "decision" }
+  | { kind: "fix" }
+  | { kind: "nudge" }
+) & {
   /** Set when it lives on another machine; edits go back there. */
   node?: string;
-  ask: Ask;
   itemId: string;
   itemTitle: string;
+  itemLabel: string;
+  holder: string;
   area: string;
-}
+  since: string;
+};
 
 export interface Commitment {
   /** Set when it lives on another machine; edits go back there. */

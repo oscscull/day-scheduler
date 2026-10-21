@@ -18,7 +18,10 @@ pub enum Stage {
 pub enum Status {
     Decision,
     Review,
+    /// CI is running.
     Ci,
+    /// CI failed: an agent should be fixing it.
+    CiFailed,
     Dependency,
     Proceeding,
     Queued,

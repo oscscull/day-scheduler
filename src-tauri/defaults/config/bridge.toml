@@ -10,6 +10,9 @@ launch_at_login = true
 # How many asks Today's Priorities section shows, taken from the top of the ranking.
 priority_limit = 3
 
+# How long something waits on reviewers before Today suggests nudging them.
+nudge_after_hours = 24
+
 # Command used to run Claude headlessly (`<command> -p "<prompt>"`).
 claude_command = "claude"
 

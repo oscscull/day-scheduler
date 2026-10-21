@@ -11,7 +11,7 @@ export type Waiting = "you" | "claude" | "others";
 /** Who an in-flight item is waiting on. */
 export function waitingOn(item: WorkItem): Waiting {
   if (item.status === "decision") return "you";
-  if (item.status === "proceeding" || item.status === null) return "claude";
+  if (item.status === "proceeding" || item.status === "ci_failed" || item.status === null) return "claude";
   return "others";
 }
 

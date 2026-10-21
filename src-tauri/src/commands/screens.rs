@@ -14,8 +14,13 @@ pub fn today(app: State<'_, App>) -> AppResult<TodayView> {
     let settings = app.settings()?;
     app.expire(&settings)?;
     app.take_inbox(&settings)?;
-    app.db
-        .with(|conn| today::build(conn, settings.priority_limit, Utc::now()))
+    app.db.with(|conn| {
+        today::build(
+            conn,
+            settings.priority_limit,
+            settings.priority_rules(Utc::now()),
+        )
+    })
 }
 
 /// All work items in priority order. Board, In flight and Priorities share this.

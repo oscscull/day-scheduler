@@ -15,6 +15,7 @@ mod mcp;
 mod notify;
 mod paths;
 mod peers;
+mod priorities;
 mod scheduler;
 mod store;
 mod today;

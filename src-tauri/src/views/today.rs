@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -8,8 +7,9 @@ use crate::domain::item::Stage;
 use crate::domain::todo::Todo;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
+use crate::priorities::{Priority, Rules, priorities};
 use crate::store::{activity, asks, commitments, items, runs, todos, urgent};
-use crate::today::{Priority, priorities, upcoming};
+use crate::today::upcoming;
 
 const ACTIVITY_SHOWN: u32 = 12;
 /// Enough upcoming commitments for any one area to still show its next two.
@@ -30,7 +30,9 @@ pub struct TodayView {
     pub in_flight: usize,
 }
 
-pub fn build(conn: &Connection, priority_limit: usize, now: DateTime<Utc>) -> AppResult<TodayView> {
+/// What Today shows. `rules` decide which waiting items are worth a nudge.
+pub fn build(conn: &Connection, priority_limit: usize, rules: Rules) -> AppResult<TodayView> {
+    let now = rules.now;
     let ranked = items::list(conn)?;
     let in_flight = ranked
         .iter()
@@ -42,7 +44,7 @@ pub fn build(conn: &Connection, priority_limit: usize, now: DateTime<Utc>) -> Ap
             .into_iter()
             .take(UPCOMING_SHOWN)
             .collect(),
-        priorities: priorities(&ranked, &asks::list(conn)?, usize::MAX),
+        priorities: priorities(&ranked, &asks::list(conn)?, rules),
         priority_limit,
         todos: todos::list(conn)?,
         activity: activity::recent(conn, ACTIVITY_SHOWN)?,

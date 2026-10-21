@@ -27,8 +27,18 @@ pub struct Pr {
     pub ci: Option<String>,
     /// Comments, reviews and review-thread replies together.
     pub comments: u64,
-    /// Nobody else was asked to review it, so the review is the author's own.
-    pub self_review: bool,
+    pub reviewers: Reviewers,
+}
+
+/// Who is expected to review a PR.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reviewers {
+    /// Someone was asked to review it.
+    Requested,
+    /// Nobody has been asked yet.
+    NoneRequested,
+    /// The user reviews their own PRs in this repo (from config, not GitHub).
+    Yourself,
 }
 
 async fn gh(args: &[&str]) -> AppResult<String> {
@@ -160,7 +170,11 @@ impl Node {
             review: self.review_decision,
             ci,
             comments: self.comments.total_count + self.reviews.total_count + threads,
-            self_review: self.review_requests.total_count == 0,
+            reviewers: if self.review_requests.total_count == 0 {
+                Reviewers::NoneRequested
+            } else {
+                Reviewers::Requested
+            },
         })
     }
 }

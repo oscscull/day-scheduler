@@ -13,6 +13,7 @@
   import Modal from "../Modal.svelte";
   import AskList from "./AskList.svelte";
   import History from "./History.svelte";
+  import Links from "./Links.svelte";
 
   interface Props {
     id: string;
@@ -64,6 +65,7 @@
       {#if item.stateLabel}<span class="label">{item.stateLabel}</span>{/if}
       {#if item.holder}<span class="hint">· {item.holder}</span>{/if}
     </div>
+    {#if item.link}<Links link={item.link} />{/if}
     {#if item.source !== "manual"}<p class="hint small">{t("item.synced", { source: item.source })}</p>{/if}
     <AskList itemId={item.id} {node} asks={detail.asks} />
     <History events={detail.history} {now} />

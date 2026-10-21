@@ -28,6 +28,7 @@
   .decision { background: var(--chip-decision-bg); color: var(--chip-decision-fg); }
   .review { background: var(--chip-review-bg); color: var(--chip-review-fg); }
   .ci { background: var(--chip-ci-bg); color: var(--chip-ci-fg); }
+  .ci_failed { background: var(--urgent-bg); color: var(--urgent-fg); }
   .dependency { background: var(--chip-dependency-bg); color: var(--chip-dependency-fg); }
   .proceeding { background: var(--chip-proceeding-bg); color: var(--chip-proceeding-fg); }
   .queued { background: var(--chip-queued-bg); color: var(--chip-queued-fg); }

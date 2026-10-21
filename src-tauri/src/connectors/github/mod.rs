@@ -43,9 +43,13 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
         let mut fired = Vec::new();
         let mut open = HashSet::new();
         for pr in prs.iter().filter(|p| !settings.ignores(&p.repo)) {
-            let pr = &fetch::Pr {
-                self_review: pr.self_review || settings.self_reviews(&pr.repo),
-                ..pr.clone()
+            let pr = &if settings.self_reviews(&pr.repo) {
+                fetch::Pr {
+                    reviewers: fetch::Reviewers::Yourself,
+                    ..pr.clone()
+                }
+            } else {
+                pr.clone()
             };
             let area = settings.area_for(&pr.repo);
             // Another machine syncs the areas it runs, so two never duplicate a PR.

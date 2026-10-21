@@ -39,8 +39,10 @@ struct OverviewArgs {
 }
 
 fn overview(ctx: &Ctx, args: OverviewArgs) -> AppResult<TodayView> {
-    let limit = ctx.settings()?.priority_limit;
-    let mut view = ctx.db.with(|c| today::build(c, limit, Utc::now()))?;
+    let settings = ctx.settings()?;
+    let limit = settings.priority_limit;
+    let rules = settings.priority_rules(Utc::now());
+    let mut view = ctx.db.with(|c| today::build(c, limit, rules))?;
     let keep = |a: &str| in_area(args.area.as_ref(), a);
     view.upcoming.retain(|c| keep(&c.area));
     view.priorities.retain(|p| keep(&p.area));

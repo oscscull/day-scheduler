@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::fetch::Pr;
+use super::fetch::{Pr, Reviewers};
 use crate::domain::item::{Stage, Status};
 use crate::domain::schedule::EventKind;
 
@@ -38,7 +38,10 @@ fn waiting_on_review(pr: &Pr) -> bool {
 /// (status, label, holder) for a PR, most pressing first.
 fn state(pr: &Pr) -> (Option<Status>, &'static str, &'static str) {
     if failing(pr) {
-        return (Some(Status::Ci), "CI failing", "CI");
+        return (Some(Status::CiFailed), "CI failing, needs a fix", "Claude");
+    }
+    if matches!(pr.ci.as_deref(), Some("PENDING" | "EXPECTED")) {
+        return (Some(Status::Ci), "CI running", "CI");
     }
     if pr.draft {
         return (None, "draft", "you");
@@ -51,10 +54,12 @@ fn state(pr: &Pr) -> (Option<Status>, &'static str, &'static str) {
 }
 
 pub fn of(pr: &Pr) -> Snapshot {
-    let (status, label, holder) = if pr.self_review && waiting_on_review(pr) {
-        (Some(Status::Decision), "ready for your review", "you")
-    } else {
-        state(pr)
+    let (status, label, holder) = match (waiting_on_review(pr), pr.reviewers) {
+        (true, Reviewers::Yourself) => (Some(Status::Decision), "ready for your review", "you"),
+        (true, Reviewers::NoneRequested) => {
+            (Some(Status::Decision), "no reviewer requested yet", "you")
+        }
+        (true | false, _) => state(pr),
     };
     Snapshot {
         owned: Owned {
@@ -100,28 +105,34 @@ mod tests {
             review: review.map(str::to_owned),
             ci: ci.map(str::to_owned),
             comments,
-            self_review: false,
+            reviewers: Reviewers::Requested,
         }
     }
 
     #[test]
     fn failing_ci_wins_over_review_state() {
         let s = of(&pr(Some("FAILURE"), Some("APPROVED"), 0));
-        assert_eq!(s.owned.status, Some(Status::Ci));
+        assert_eq!(s.owned.status, Some(Status::CiFailed));
     }
 
     #[test]
     fn solo_reviews_wait_on_you() {
         let solo = Pr {
-            self_review: true,
+            reviewers: Reviewers::Yourself,
             ..pr(Some("SUCCESS"), None, 0)
         };
-        assert_eq!(of(&solo).owned.status, Some(Status::Decision));
+        assert_eq!(of(&solo).owned.label, "ready for your review");
+        let unrequested = Pr {
+            reviewers: Reviewers::NoneRequested,
+            ..pr(Some("SUCCESS"), None, 0)
+        };
+        assert_eq!(of(&unrequested).owned.label, "no reviewer requested yet");
+        assert_eq!(of(&unrequested).owned.status, Some(Status::Decision));
         let failing = Pr {
-            self_review: true,
+            reviewers: Reviewers::Yourself,
             ..pr(Some("FAILURE"), None, 0)
         };
-        assert_eq!(of(&failing).owned.status, Some(Status::Ci));
+        assert_eq!(of(&failing).owned.status, Some(Status::CiFailed));
     }
 
     #[test]

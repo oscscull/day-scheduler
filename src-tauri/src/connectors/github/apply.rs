@@ -122,7 +122,7 @@ mod tests {
             review: None,
             ci: Some("SUCCESS".to_owned()),
             comments,
-            self_review: false,
+            reviewers: super::super::fetch::Reviewers::Requested,
         }
     }
 

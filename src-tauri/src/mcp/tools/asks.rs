@@ -6,14 +6,16 @@ use super::super::tool::{Tool, tool};
 use super::in_area;
 use crate::error::AppResult;
 use crate::store::{asks, items};
-use crate::today::{Priority, priorities};
+use chrono::Utc;
+
+use crate::priorities::{Priority, priorities};
 
 pub fn tools() -> Vec<Tool> {
     vec![
         tool(
             "list_asks",
-            "Every open ask (a decision or question that needs the user), ordered by how high its \
-             item is ranked. Today shows the first few.",
+            "Everything that needs the user, in order: asks and items waiting on their decision by \
+             item rank, then nudges for items waiting on reviewers too long. Today shows the first few.",
             list,
         ),
         tool(
@@ -34,9 +36,10 @@ struct ListArgs {
 }
 
 fn list(ctx: &Ctx, args: ListArgs) -> AppResult<Vec<Priority>> {
+    let rules = ctx.settings()?.priority_rules(Utc::now());
     let mut all = ctx
         .db
-        .with(|c| Ok(priorities(&items::list(c)?, &asks::list(c)?, usize::MAX)))?;
+        .with(|c| Ok(priorities(&items::list(c)?, &asks::list(c)?, rules)))?;
     all.retain(|p| in_area(args.area.as_ref(), &p.area));
     Ok(all)
 }
