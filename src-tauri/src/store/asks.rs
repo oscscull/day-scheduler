@@ -25,3 +25,17 @@ pub fn insert(conn: &Connection, item_id: &str, question: &str, context: &str) -
     )?;
     Ok(())
 }
+
+/// An ask is gone once answered; nothing about it needs keeping.
+pub fn resolve(conn: &Connection, id: i64) -> AppResult<()> {
+    conn.execute("DELETE FROM asks WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+pub fn for_item(conn: &Connection, item_id: &str) -> AppResult<Vec<Ask>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, item_id, question, context FROM asks WHERE item_id = ?1 ORDER BY id",
+    )?;
+    let rows = stmt.query_map([item_id], from_row)?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}

@@ -86,6 +86,7 @@
           <ul>{#each data.problems as problem (problem)}<li class="mono">{problem}</li>{/each}</ul>
         </div>
       {/if}
+      {#if data.schedules.filter(inArea).length === 0}<p class="hint">{t("empty.agent")}</p>{/if}
       <ScheduleList schedules={data.schedules.filter(inArea)} {now} paused={data.pause !== null} onOpen={(s) => (editing = s)} onToggle={setEnabled} onDelete={(s) => (deleting = s)} />
     </section>
   {/if}

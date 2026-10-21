@@ -59,7 +59,9 @@ mod tests {
             status: None,
             holder: String::new(),
             area: String::new(),
+            link: None,
             opened_at: Utc::now(),
+            state_since: Utc::now(),
             rank,
         }
     }

@@ -1,6 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type { AgentView, Area, Explanation, Schedule, TodayView, WorkItem } from "./types";
+import type {
+  AgentView,
+  Area,
+  CommitmentInput,
+  Explanation,
+  ItemDetail,
+  ItemInput,
+  Schedule,
+  TodayView,
+  WorkItem,
+} from "./types";
 
 /** Typed wrappers around the backend's Tauri commands. */
 export const api = {
@@ -11,6 +21,14 @@ export const api = {
   today: () => invoke<TodayView>("today"),
   workItems: () => invoke<WorkItem[]>("work_items"),
   agent: () => invoke<AgentView>("agent"),
+  saveItem: (item: ItemInput) => invoke<string>("save_item", { item }),
+  deleteItem: (id: string) => invoke<undefined>("delete_item", { id }),
+  itemDetail: (id: string) => invoke<ItemDetail>("item_detail", { id }),
+  addAsk: (itemId: string, question: string, context: string) =>
+    invoke<undefined>("add_ask", { itemId, question, context }),
+  resolveAsk: (id: number) => invoke<undefined>("resolve_ask", { id }),
+  addCommitment: (commitment: CommitmentInput) => invoke<undefined>("add_commitment", { commitment }),
+  deleteCommitment: (id: number) => invoke<undefined>("delete_commitment", { id }),
   reorderItems: (ids: string[]) => invoke<undefined>("reorder_items", { ids }),
   setScheduleEnabled: (id: string, enabled: boolean) =>
     invoke<undefined>("set_schedule_enabled", { id, enabled }),

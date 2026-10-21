@@ -7,6 +7,7 @@
   import { WAITING, isInFlight, waitingOn } from "../lib/groups";
   import { areas, inArea } from "../lib/areas.svelte";
   import { chatContext } from "../lib/chat.svelte";
+  import { openItem } from "../lib/detail.svelte";
   import { workItems } from "../lib/items.svelte";
   import { poll } from "../lib/poll";
   import { age } from "../lib/time";
@@ -45,7 +46,7 @@
           <li class="row">
             <AreaDot area={item.area} />
             <span class="body">
-              <span><span class="mono id">{item.id}</span>&nbsp; {item.title}</span>
+              <button type="button" class="open" onclick={() => openItem(item.id)}><span class="mono id">{item.id}</span>&nbsp; {item.title}</button>
               <span class="hint label">{item.stateLabel}</span>
             </span>
             {#if item.status}<Chip status={item.status} />{/if}
@@ -83,6 +84,13 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
+  }
+
+  .open {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
   }
 
   .id {

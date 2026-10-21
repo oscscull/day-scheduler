@@ -8,6 +8,9 @@
   import { poll } from "../lib/poll";
   import { clock, dayClock, until } from "../lib/time";
   import type { TodayView } from "../lib/types";
+  import { openItem } from "../lib/detail.svelte";
+  import { changed } from "../lib/refresh.svelte";
+  import CommitmentModal from "./today/CommitmentModal.svelte";
   import TodoList from "./today/TodoList.svelte";
   import UrgentModal from "./today/UrgentModal.svelte";
   import UrgentPill from "./today/UrgentPill.svelte";
@@ -16,6 +19,16 @@
   let error = $state("");
   let now = $state(new Date());
   let showUrgent = $state(false);
+  let addingCommitment = $state(false);
+
+  async function answered(id: number): Promise<void> {
+    try {
+      await api.resolveAsk(id);
+      changed();
+    } catch (e) {
+      error = errorText(e);
+    }
+  }
 
   async function load(): Promise<void> {
     try {
@@ -49,7 +62,10 @@
     <section class="next" aria-label={t("today.next")}>
       <div class="label-row">
         <span class="section-label">{t("today.next")}</span>
-        <UrgentPill count={urgent.length} onOpen={() => (showUrgent = true)} />
+        <span class="label-actions">
+          <UrgentPill count={urgent.length} onOpen={() => (showUrgent = true)} />
+          <button type="button" class="link" onclick={() => (addingCommitment = true)}>{t("commitment.add")}</button>
+        </span>
       </div>
       {#if next}
         <div class="title-row"><AreaDot area={next.area} /><h1>{next.title}</h1></div>
@@ -73,10 +89,11 @@
         {#each priorities as p (p.ask.id)}
           <li class="row priority">
             <AreaDot area={p.area} />
-            <span class="body">
+            <button type="button" class="body open" onclick={() => openItem(p.itemId)}>
               <span>{p.ask.question}</span>
-              <span class="hint small">{p.ask.context} · {t("today.unblocks", { id: p.itemId })}</span>
-            </span>
+              <span class="hint small">{p.ask.context ? `${p.ask.context} · ` : ""}{t("today.unblocks", { id: p.itemId })}</span>
+            </button>
+            <button type="button" class="tick" aria-label={t("today.answered", { question: p.ask.question })} onclick={() => answered(p.ask.id)}>✓</button>
           </li>
         {:else}
           <li class="hint">{t("today.noPriorities")}</li>
@@ -103,11 +120,46 @@
   {/if}
 </div>
 
+{#if addingCommitment}
+  <CommitmentModal onClose={() => (addingCommitment = false)} />
+{/if}
+
 {#if showUrgent && data}
   <UrgentModal items={urgent} {now} onClose={() => (showUrgent = false)} onChanged={load} />
 {/if}
 
 <style>
+  .label-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .link {
+    padding: 8px 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+  }
+
+  .open {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+  }
+
+  .tick {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--muted);
+  }
+
   .label-row {
     display: flex;
     justify-content: space-between;

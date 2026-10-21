@@ -3,6 +3,7 @@
 pub mod activity;
 pub mod ask;
 pub mod commitment;
+pub mod event;
 pub mod item;
 pub mod run;
 pub mod schedule;

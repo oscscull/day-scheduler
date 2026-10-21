@@ -2,8 +2,9 @@
   import ItemCard from "../components/ItemCard.svelte";
   import LoadError from "../components/LoadError.svelte";
   import { t } from "../lib/copy";
+  import { newItem } from "../lib/detail.svelte";
   import { STAGES } from "../lib/groups";
-  import { areas, inArea } from "../lib/areas.svelte";
+  import { ALL, areas, inArea } from "../lib/areas.svelte";
   import { chatContext } from "../lib/chat.svelte";
   import { workItems } from "../lib/items.svelte";
   import { poll } from "../lib/poll";
@@ -11,6 +12,9 @@
   const { state: list, load } = workItems();
 
   $effect(() => poll(load));
+
+  const newArea = (): string => (areas.current !== ALL ? areas.current : (areas.list[0]?.id ?? ""));
+  const isEmpty = $derived(list.items.filter(inArea).length === 0);
 
   const columns = $derived(
     STAGES.map((stage) => ({ stage, items: list.items.filter((i) => i.stage === stage && inArea(i)) })),
@@ -22,6 +26,10 @@
 </script>
 
 <main>
+  <div class="top">
+    {#if isEmpty}<p class="hint">{t("empty.board")}</p>{:else}<span></span>{/if}
+    <button type="button" class="button-primary" onclick={() => newItem(newArea())}>{t("item.new")}</button>
+  </div>
   <LoadError error={list.error} />
   <div class="scroll">
     <div class="grid">
@@ -43,7 +51,15 @@
   main {
     max-width: var(--wide);
     margin: 0 auto;
-    padding: 48px 24px 96px;
+    padding: 32px 24px 96px;
+  }
+
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
   }
 
   .scroll {

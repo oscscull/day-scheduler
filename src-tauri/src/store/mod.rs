@@ -2,12 +2,12 @@
 //! Behaviour (schedules, prompts, policies) lives in files instead; see `config`.
 
 mod codec;
-mod schema;
-mod seed;
+pub mod schema;
 
 pub mod activity;
 pub mod asks;
 pub mod commitments;
+pub mod events;
 pub mod expire;
 pub mod items;
 pub mod runs;
@@ -17,7 +17,6 @@ pub mod urgent;
 use std::path::Path;
 use std::sync::Mutex;
 
-use chrono::Utc;
 use rusqlite::Connection;
 
 use crate::error::{AppError, AppResult};
@@ -29,12 +28,11 @@ pub struct Db {
 }
 
 impl Db {
-    /// Opens (or creates) the database in `dir`, migrating and seeding it.
+    /// Opens (or creates) the database in `dir` and brings its tables up to date.
     pub fn open(dir: &Path) -> AppResult<Self> {
         std::fs::create_dir_all(dir)?;
         let conn = Connection::open(dir.join("bridge.sqlite"))?;
         schema::migrate(&conn)?;
-        seed::seed_if_empty(&conn, Utc::now())?;
         Ok(Self {
             conn: Mutex::new(conn),
         })

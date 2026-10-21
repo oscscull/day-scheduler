@@ -34,6 +34,24 @@ pub struct WorkItem {
     pub status: Option<Status>,
     pub holder: String,
     pub area: String,
+    /// Where the work lives: a ticket, PR or doc.
+    pub link: Option<String>,
     pub opened_at: DateTime<Utc>,
+    /// When the stage, status or label last changed.
+    pub state_since: DateTime<Utc>,
     pub rank: i64,
+}
+
+/// The editable parts of an item, as sent from the UI or an agent. An empty `id` creates one.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemInput {
+    pub id: String,
+    pub title: String,
+    pub state_label: String,
+    pub stage: Stage,
+    pub status: Option<Status>,
+    pub holder: String,
+    pub area: String,
+    pub link: Option<String>,
 }

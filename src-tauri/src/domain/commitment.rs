@@ -12,3 +12,14 @@ pub struct Commitment {
     pub ends_at: DateTime<Utc>,
     pub location: Option<String>,
 }
+
+/// A commitment as entered by hand or by an agent.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitmentInput {
+    pub title: String,
+    pub area: String,
+    pub starts_at: DateTime<Utc>,
+    pub ends_at: DateTime<Utc>,
+    pub location: Option<String>,
+}

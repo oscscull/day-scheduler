@@ -4,7 +4,8 @@
   import LoadError from "../components/LoadError.svelte";
   import { api, errorText } from "../lib/api";
   import { t } from "../lib/copy";
-  import { areas, inArea } from "../lib/areas.svelte";
+  import { ALL, areas, inArea } from "../lib/areas.svelte";
+  import { newItem, openItem } from "../lib/detail.svelte";
   import { chatContext } from "../lib/chat.svelte";
   import { workItems } from "../lib/items.svelte";
   import { poll } from "../lib/poll";
@@ -50,7 +51,10 @@
 </script>
 
 <div class="column">
-  <h1 class="page-title">{t("priorities.title")}</h1>
+  <div class="title-row">
+    <h1 class="page-title">{t("priorities.title")}</h1>
+    <button type="button" class="button-primary" onclick={() => newItem(areas.current !== ALL ? areas.current : (areas.list[0]?.id ?? ""))}>{t("item.new")}</button>
+  </div>
   <p class="hint intro">{t("priorities.hint")}</p>
   <LoadError error={list.error} />
   {#if saveError}<p class="error">{saveError}</p>{/if}
@@ -70,7 +74,7 @@
         <span class="mono rank">{i + 1}</span>
         <AreaDot area={item.area} />
         <span class="body">
-          <span><span class="mono id">{item.id}</span>&nbsp; {item.title}</span>
+          <button type="button" class="open" onclick={() => openItem(item.id)}><span class="mono id">{item.id}</span>&nbsp; {item.title}</button>
           <span class="hint meta">{showsHolder(item)}</span>
         </span>
         {#if item.status}<Chip status={item.status} />{/if}
@@ -79,11 +83,32 @@
           <button type="button" aria-label={t("priorities.moveDown", { title: item.title })} onclick={() => move(item.id, i + 1)}>▼</button>
         </span>
       </li>
+    {:else}
+      <li class="hint empty">{t("empty.priorities")}</li>
     {/each}
   </ol>
 </div>
 
 <style>
+  .title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .open {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+  }
+
+  .empty {
+    cursor: default;
+    padding: 20px 16px;
+  }
+
   .intro {
     margin: 6px 0 28px;
   }

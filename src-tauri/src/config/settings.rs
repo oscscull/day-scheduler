@@ -14,8 +14,10 @@ pub struct Area {
     pub node: String,
 }
 
-/// Mechanical settings from `bridge.toml`.
+/// Mechanical settings from `bridge.toml`. Anything missing falls back to a default, so a
+/// hand-edited file with a line removed still loads.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Settings {
     pub node: String,
     pub priority_limit: usize,
@@ -23,7 +25,23 @@ pub struct Settings {
     pub activity_ttl_days: i64,
     pub run_ttl_days: i64,
     pub done_todo_ttl_days: i64,
+    pub done_item_ttl_days: i64,
     pub areas: Vec<Area>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            node: "this-mac".to_owned(),
+            priority_limit: 3,
+            claude_command: "claude".to_owned(),
+            activity_ttl_days: 7,
+            run_ttl_days: 14,
+            done_todo_ttl_days: 1,
+            done_item_ttl_days: 30,
+            areas: Vec::new(),
+        }
+    }
 }
 
 impl Settings {
@@ -72,6 +90,7 @@ mod tests {
             activity_ttl_days: 7,
             run_ttl_days: 14,
             done_todo_ttl_days: 1,
+            done_item_ttl_days: 30,
             areas: vec![area("work", "work-mac"), area("life", "home-mac")],
         }
     }
@@ -86,6 +105,13 @@ mod tests {
     fn unknown_areas_fall_back_to_the_first() {
         assert_eq!(settings().known_area("life"), "life");
         assert_eq!(settings().known_area("nope"), "work");
+    }
+
+    #[test]
+    fn missing_lines_fall_back() {
+        let parsed: Settings = toml::from_str("node = \"x\"").unwrap();
+        assert_eq!(parsed.priority_limit, 3);
+        assert_eq!(parsed.node, "x");
     }
 
     #[test]

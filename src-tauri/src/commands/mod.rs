@@ -10,6 +10,7 @@
 
 pub mod areas;
 pub mod chat;
+pub mod commitments;
 pub mod items;
 pub mod schedules;
 pub mod screens;

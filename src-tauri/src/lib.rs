@@ -10,6 +10,7 @@ mod error;
 mod store;
 mod today;
 mod views;
+mod work;
 
 use tauri::Manager as _;
 
@@ -37,11 +38,18 @@ pub fn run() -> tauri::Result<()> {
         .invoke_handler(tauri::generate_handler![
             commands::areas::areas,
             commands::screens::today,
+            commands::commitments::add_commitment,
+            commands::commitments::delete_commitment,
             commands::todos::add_todo,
             commands::todos::set_todo_done,
             commands::screens::work_items,
             commands::screens::agent,
             commands::items::reorder_items,
+            commands::items::save_item,
+            commands::items::delete_item,
+            commands::items::add_ask,
+            commands::items::resolve_ask,
+            commands::items::item_detail,
             commands::schedules::set_schedule_enabled,
             commands::schedules::save_schedule,
             commands::schedules::delete_schedule,

@@ -29,3 +29,8 @@ pub fn insert(conn: &Connection, c: &Commitment) -> AppResult<()> {
     )?;
     Ok(())
 }
+
+pub fn delete(conn: &Connection, id: i64) -> AppResult<()> {
+    conn.execute("DELETE FROM commitments WHERE id = ?1", [id])?;
+    Ok(())
+}

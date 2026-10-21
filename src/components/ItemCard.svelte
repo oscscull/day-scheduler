@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openItem } from "../lib/detail.svelte";
   import type { WorkItem } from "../lib/types";
   import Age from "./Age.svelte";
   import AreaDot from "./AreaDot.svelte";
@@ -17,7 +18,7 @@
   );
 </script>
 
-<article class:done={item.stage === "done"}>
+<button type="button" class="card" class:done={item.stage === "done"} onclick={() => openItem(item.id)}>
   <span class="id-row"><AreaDot area={item.area} /><span class="mono id">{item.id}</span></span>
   <span class="title">{item.title}</span>
   <span class="label">{item.stateLabel}</span>
@@ -29,10 +30,12 @@
     {/if}
     <Age since={item.openedAt} {now} />
   </span>
-</article>
+</button>
 
 <style>
-  article {
+  .card {
+    width: 100%;
+    text-align: left;
     display: flex;
     flex-direction: column;
     gap: 6px;

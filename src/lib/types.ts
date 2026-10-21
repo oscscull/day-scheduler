@@ -11,8 +11,50 @@ export interface WorkItem {
   status: Status | null;
   holder: string;
   area: string;
+  link: string | null;
   openedAt: string;
+  stateSince: string;
   rank: number;
+}
+
+/** What the UI sends to create (empty id) or edit an item. */
+export interface ItemInput {
+  id: string;
+  title: string;
+  stateLabel: string;
+  stage: Stage;
+  status: Status | null;
+  holder: string;
+  area: string;
+  link: string | null;
+}
+
+export type Change =
+  | { kind: "created" }
+  | { kind: "stage"; stage: Stage }
+  | { kind: "status"; status: Status | null }
+  | { kind: "label"; label: string }
+  | { kind: "note"; text: string };
+
+export interface ItemEvent {
+  id: number;
+  itemId: string;
+  at: string;
+  change: Change;
+}
+
+export interface ItemDetail {
+  item: WorkItem;
+  asks: Ask[];
+  history: ItemEvent[];
+}
+
+export interface CommitmentInput {
+  title: string;
+  area: string;
+  startsAt: string;
+  endsAt: string;
+  location: string | null;
 }
 
 export interface Ask {

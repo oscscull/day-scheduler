@@ -14,23 +14,22 @@ macro_rules! default_file {
     };
 }
 
-const FILES: [(&str, &str); 13] = [
+const FILES: [(&str, &str); 6] = [
     default_file!("README.md"),
     default_file!("bridge.toml"),
     default_file!("prompts/chat.md"),
     default_file!("prompts/draft-schedule.md"),
     default_file!("prompts/resolve-urgent.md"),
     default_file!("prompts/run-schedule.md"),
-    default_file!("schedules/morning-brief.md"),
-    default_file!("schedules/review-replies.md"),
-    default_file!("schedules/ci-watch.md"),
-    default_file!("schedules/expense-report.md"),
-    default_file!("schedules/stale-check.md"),
-    default_file!("schedules/end-of-day.md"),
-    default_file!("schedules/meal-plan.md"),
 ];
 
+/// Folders that must exist even when empty.
+const DIRS: [&str; 2] = ["schedules", "inbox"];
+
 pub fn write_missing(root: &Path) -> AppResult<()> {
+    for dir in DIRS {
+        std::fs::create_dir_all(root.join(dir))?;
+    }
     for (relative, contents) in FILES {
         let path = root.join(relative);
         if path.exists() {

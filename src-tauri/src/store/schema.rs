@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS items (
     status TEXT,
     holder TEXT NOT NULL,
     area TEXT NOT NULL,
+    link TEXT,
     opened_at TEXT NOT NULL,
+    state_since TEXT NOT NULL,
     rank INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS asks (
@@ -53,6 +55,12 @@ CREATE TABLE IF NOT EXISTS urgent (
     area TEXT NOT NULL,
     raised_at TEXT NOT NULL,
     schedule_id TEXT
+);
+CREATE TABLE IF NOT EXISTS item_events (
+    id INTEGER PRIMARY KEY,
+    item_id TEXT NOT NULL,
+    at TEXT NOT NULL,
+    change TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS todos (
     id INTEGER PRIMARY KEY,
