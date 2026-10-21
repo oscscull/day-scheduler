@@ -34,7 +34,7 @@ pub fn check(handle: &AppHandle) -> AppResult<()> {
     let showing = handle.get_webview_window(WINDOW);
     match (current(&handle.state::<App>())?, showing) {
         (Some(_), None) => open(handle),
-        (None, Some(window)) => Ok(window.close()?),
+        (None, Some(_)) => close(handle),
         (Some(_) | None, _) => Ok(()),
     }
 }
@@ -55,9 +55,14 @@ fn open(handle: &AppHandle) -> AppResult<()> {
 }
 
 /// Closes the alert after Join, Snooze or Skip; the next check reopens it if another is due.
+/// macOS only lets the main thread change windows, and the scheduler runs on a worker.
 pub fn close(handle: &AppHandle) -> AppResult<()> {
-    if let Some(window) = handle.get_webview_window(WINDOW) {
-        window.close()?;
-    }
+    let main = handle.clone();
+    handle.run_on_main_thread(move || {
+        if let Some(window) = main.get_webview_window(WINDOW) {
+            // Nothing useful to do if it's already gone.
+            drop(window.destroy());
+        }
+    })?;
     Ok(())
 }

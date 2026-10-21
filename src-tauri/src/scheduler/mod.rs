@@ -9,7 +9,12 @@ use crate::domain::schedule::Schedule;
 
 use std::time::Duration;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager as _};
+
+use crate::app::App;
+use crate::store::meta;
+
+const LAST_ERROR: &str = "scheduler.last_error";
 
 const EVERY: Duration = Duration::from_secs(30);
 
@@ -22,8 +27,10 @@ pub fn run_now(handle: &AppHandle, schedule: Schedule) {
 pub fn spawn(handle: AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
-            // One bad tick (e.g. a half-written settings file) must not stop the loop.
-            drop(tick::tick(&handle));
+            // One bad tick (e.g. a half-written settings file) must not stop the loop; the error is
+            // kept for diagnostics instead.
+            let error = tick::tick(&handle).err().map(|e| e.to_string()).unwrap_or_default();
+            drop(handle.state::<App>().db.with(|c| meta::set_text(c, LAST_ERROR, &error)));
             tokio::time::sleep(EVERY).await;
         }
     });
