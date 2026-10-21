@@ -6,10 +6,13 @@
   import { poll } from "../lib/poll";
   import { clock, dayClock, until } from "../lib/time";
   import type { TodayView } from "../lib/types";
+  import UrgentModal from "./today/UrgentModal.svelte";
+  import UrgentPill from "./today/UrgentPill.svelte";
 
   let data = $state<TodayView | null>(null);
   let error = $state("");
   let now = $state(new Date());
+  let showUrgent = $state(false);
 
   async function load(): Promise<void> {
     try {
@@ -32,8 +35,11 @@
   <LoadError {error} />
   {#if data}
     <section class="next" aria-label={t("today.next")}>
-      {#if next}
+      <div class="label-row">
         <span class="section-label">{t("today.next")}</span>
+        <UrgentPill count={data.urgent.length} onOpen={() => (showUrgent = true)} />
+      </div>
+      {#if next}
         <h1>{next.title}</h1>
         <p class="when">
           <span class="mono">{clock(next.startsAt)}</span>
@@ -79,7 +85,19 @@
   {/if}
 </div>
 
+{#if showUrgent && data}
+  <UrgentModal items={data.urgent} {now} onClose={() => (showUrgent = false)} onChanged={load} />
+{/if}
+
 <style>
+  .label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+  }
+
   .next {
     padding: 24px 0 48px;
     display: flex;

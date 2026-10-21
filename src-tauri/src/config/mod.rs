@@ -4,6 +4,8 @@
 mod defaults;
 mod frontmatter;
 
+pub mod inbox;
+pub mod pause;
 pub mod prompts;
 pub mod schedules;
 pub mod settings;

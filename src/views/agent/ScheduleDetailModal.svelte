@@ -30,6 +30,15 @@
   const subtitle = $derived(form.request ? t("schedule.from", { request: form.request }) : t("schedule.byHand"));
   const scopeKey = (s: Scope): CopyKey => `scope.${s}`;
 
+  async function runNow(): Promise<void> {
+    try {
+      await api.runScheduleNow(form.id);
+      onSaved();
+    } catch (e) {
+      error = errorText(e);
+    }
+  }
+
   async function save(): Promise<void> {
     saving = true;
     error = "";
@@ -91,6 +100,9 @@
   <div class="foot">
     <span class="mono file">{isNew ? t("schedule.newFile") : t("schedule.file", { id: form.id })}</span>
     <div class="buttons">
+      {#if !isNew}
+        <button type="button" class="button-secondary" onclick={runNow}>{t("schedule.runNow")}</button>
+      {/if}
       <button type="button" class="button-secondary" onclick={onClose}>{t("schedule.cancel")}</button>
       <button type="button" class="button-primary" onclick={save} disabled={saving || !form.name.trim()}>
         {t("schedule.save")}

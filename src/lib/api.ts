@@ -13,6 +13,12 @@ export const api = {
   saveSchedule: (schedule: Schedule) => invoke<string>("save_schedule", { schedule }),
   deleteSchedule: (id: string) => invoke<undefined>("delete_schedule", { id }),
   explainCron: (expr: string) => invoke<Explanation>("explain_cron", { expr }),
+  runScheduleNow: (id: string) => invoke<undefined>("run_schedule_now", { id }),
+  pauseAll: (until: string | null) => invoke<undefined>("pause_all", { until }),
+  resumeAll: () => invoke<undefined>("resume_all"),
+  dismissUrgent: (id: number) => invoke<undefined>("dismiss_urgent", { id }),
+  dismissAllUrgent: () => invoke<undefined>("dismiss_all_urgent"),
+  resolveUrgent: (id: number, message: string) => invoke<string>("resolve_urgent", { id, message }),
   askClaude: (page: string, context: string, message: string) =>
     invoke<string>("ask_claude", { page, context, message }),
   draftSchedule: (request: string) => invoke<string>("draft_schedule", { request }),

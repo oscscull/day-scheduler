@@ -6,6 +6,8 @@ use crate::error::AppResult;
 pub enum Prompt {
     Chat,
     DraftSchedule,
+    ResolveUrgent,
+    RunSchedule,
 }
 
 impl Prompt {
@@ -13,6 +15,8 @@ impl Prompt {
         match self {
             Self::Chat => "chat.md",
             Self::DraftSchedule => "draft-schedule.md",
+            Self::ResolveUrgent => "resolve-urgent.md",
+            Self::RunSchedule => "run-schedule.md",
         }
     }
 }

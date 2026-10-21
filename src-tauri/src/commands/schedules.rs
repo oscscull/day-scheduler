@@ -1,11 +1,12 @@
-use chrono::Local;
-use tauri::State;
+use chrono::{DateTime, Local, Utc};
+use tauri::{AppHandle, Manager as _, State};
 
 use crate::app::App;
-use crate::config::schedules;
+use crate::claude::runner;
+use crate::config::{pause, schedules};
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::schedule::Schedule;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::store::runs;
 
 const PREVIEW_RUNS: usize = 3;
@@ -38,4 +39,31 @@ pub fn save_schedule(app: State<'_, App>, mut schedule: Schedule) -> AppResult<S
 #[tauri::command]
 pub fn explain_cron(expr: String) -> AppResult<Explanation> {
     explain(&expr, Local::now(), PREVIEW_RUNS)
+}
+
+/// Starts a schedule in the background; the Agent view shows it as live until it finishes.
+#[tauri::command]
+pub fn run_schedule_now(handle: AppHandle, id: String) -> AppResult<()> {
+    let schedule = schedules::find(&handle.state::<App>().config, &id)?;
+    tauri::async_runtime::spawn(async move {
+        let app = handle.state::<App>();
+        // The runner records its own failures as a failed run plus an urgent item.
+        drop(runner::run(&app, &schedule).await);
+    });
+    Ok(())
+}
+
+/// Pauses every schedule until `until` (an RFC 3339 time), or until resumed if `None`.
+#[tauri::command]
+pub fn pause_all(app: State<'_, App>, until: Option<String>) -> AppResult<()> {
+    let until = until
+        .map(|text| DateTime::parse_from_rfc3339(&text).map(|t| t.with_timezone(&Utc)))
+        .transpose()
+        .map_err(|e| AppError::NotFound(format!("a valid pause end time ({e})")))?;
+    pause::pause(&app.config, until)
+}
+
+#[tauri::command]
+pub fn resume_all(app: State<'_, App>) -> AppResult<()> {
+    pause::resume(&app.config)
 }

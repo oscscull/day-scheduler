@@ -8,6 +8,8 @@
   import DeleteScheduleModal from "./agent/DeleteScheduleModal.svelte";
   import LiveRuns from "./agent/LiveRuns.svelte";
   import NewScheduleModal from "./agent/NewScheduleModal.svelte";
+  import PauseModal from "./agent/PauseModal.svelte";
+  import PausedBanner from "./agent/PausedBanner.svelte";
   import ScheduleDetailModal from "./agent/ScheduleDetailModal.svelte";
   import ScheduleList from "./agent/ScheduleList.svelte";
   import { blankSchedule } from "./agent/blank";
@@ -18,6 +20,7 @@
   let creating = $state(false);
   let editing = $state<Schedule | null>(null);
   let deleting = $state<Schedule | null>(null);
+  let pausing = $state(false);
 
   async function load(): Promise<void> {
     try {
@@ -35,6 +38,15 @@
   async function setEnabled(id: string, enabled: boolean): Promise<void> {
     try {
       await api.setScheduleEnabled(id, enabled);
+    } catch (e) {
+      error = errorText(e);
+    }
+    await load();
+  }
+
+  async function resume(): Promise<void> {
+    try {
+      await api.resumeAll();
     } catch (e) {
       error = errorText(e);
     }
@@ -59,15 +71,21 @@
     <section class="scheduled" aria-label={t("agent.scheduled")}>
       <div class="head">
         <h2>{t("agent.scheduled")}</h2>
-        <button type="button" class="button-primary" onclick={() => (creating = true)}>{t("agent.new")}</button>
+        <div class="buttons">
+          {#if !data.pause}
+            <button type="button" class="button-secondary" onclick={() => (pausing = true)}>{t("agent.pauseAll")}</button>
+          {/if}
+          <button type="button" class="button-primary" onclick={() => (creating = true)}>{t("agent.new")}</button>
+        </div>
       </div>
+      {#if data.pause}<PausedBanner until={data.pause.until} onResume={resume} />{/if}
       {#if data.problems.length > 0}
         <div class="problems" role="alert">
           <p>{t("agent.problems")}</p>
           <ul>{#each data.problems as problem (problem)}<li class="mono">{problem}</li>{/each}</ul>
         </div>
       {/if}
-      <ScheduleList schedules={data.schedules} {now} onOpen={(s) => (editing = s)} onToggle={setEnabled} onDelete={(s) => (deleting = s)} />
+      <ScheduleList schedules={data.schedules} {now} paused={data.pause !== null} onOpen={(s) => (editing = s)} onToggle={setEnabled} onDelete={(s) => (deleting = s)} />
     </section>
   {/if}
 </div>
@@ -78,6 +96,10 @@
     onCreated={created}
     onManual={() => { creating = false; editing = blankSchedule(); }}
   />
+{/if}
+
+{#if pausing}
+  <PauseModal onClose={() => (pausing = false)} onPaused={() => { pausing = false; void load(); }} />
 {/if}
 
 {#if deleting}
@@ -113,6 +135,11 @@
   h2 {
     font-size: 15px;
     font-weight: 600;
+  }
+
+  .buttons {
+    display: flex;
+    gap: 8px;
   }
 
   .problems {

@@ -12,3 +12,4 @@ pub mod chat;
 pub mod items;
 pub mod schedules;
 pub mod screens;
+pub mod urgent;

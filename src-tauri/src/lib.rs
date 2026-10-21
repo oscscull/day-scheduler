@@ -43,6 +43,12 @@ pub fn run() -> tauri::Result<()> {
             commands::schedules::save_schedule,
             commands::schedules::delete_schedule,
             commands::schedules::explain_cron,
+            commands::schedules::run_schedule_now,
+            commands::schedules::pause_all,
+            commands::schedules::resume_all,
+            commands::urgent::dismiss_urgent,
+            commands::urgent::dismiss_all_urgent,
+            commands::urgent::resolve_urgent,
             commands::chat::ask_claude,
             commands::chat::draft_schedule,
         ])

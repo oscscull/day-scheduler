@@ -2,7 +2,7 @@ use chrono::Utc;
 use tauri::State;
 
 use crate::app::App;
-use crate::config::schedules;
+use crate::config::{pause, schedules};
 use crate::domain::item::WorkItem;
 use crate::error::AppResult;
 use crate::store::items;
@@ -13,6 +13,7 @@ use crate::views::today::{self, TodayView};
 pub fn today(app: State<'_, App>) -> AppResult<TodayView> {
     let settings = app.settings()?;
     app.expire(&settings)?;
+    app.take_inbox()?;
     app.db
         .with(|conn| today::build(conn, settings.priority_limit, Utc::now()))
 }
@@ -28,5 +29,6 @@ pub fn agent(app: State<'_, App>) -> AppResult<AgentView> {
     let settings = app.settings()?;
     app.expire(&settings)?;
     let loaded = schedules::list(&app.config)?;
-    app.db.with(|conn| agent::build(conn, loaded))
+    let paused = pause::current(&app.config, Utc::now())?;
+    app.db.with(|conn| agent::build(conn, loaded, paused))
 }

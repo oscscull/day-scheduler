@@ -1,10 +1,12 @@
 use chrono::{Duration, Utc};
 
 use crate::config::Config;
+use crate::config::inbox;
 use crate::config::settings::{self, Settings};
 use crate::error::AppResult;
 use crate::store::Db;
 use crate::store::expire::{Ttl, expire};
+use crate::store::urgent;
 
 /// Shared state behind every command.
 #[derive(Debug)]
@@ -17,6 +19,17 @@ impl App {
     /// Current settings, re-read so file edits apply immediately.
     pub fn settings(&self) -> AppResult<Settings> {
         settings::load(&self.config)
+    }
+
+    /// Turns any files agents dropped in `inbox/` into urgent items.
+    pub fn take_inbox(&self) -> AppResult<()> {
+        let raised = inbox::take(&self.config)?;
+        self.db.with(|conn| {
+            for r in raised {
+                urgent::raise(conn, &r.into_urgent(Utc::now()))?;
+            }
+            Ok(())
+        })
     }
 
     /// Deletes stored output that has outlived its TTL.

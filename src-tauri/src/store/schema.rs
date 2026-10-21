@@ -41,7 +41,15 @@ CREATE TABLE IF NOT EXISTS runs (
     node TEXT NOT NULL,
     started_at TEXT NOT NULL,
     finished_at TEXT,
+    outcome TEXT,
     summary TEXT
+);
+CREATE TABLE IF NOT EXISTS urgent (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    raised_at TEXT NOT NULL,
+    schedule_id TEXT
 );
 ";
 

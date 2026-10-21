@@ -1,34 +1,28 @@
 {
   "app.machines": "Both machines",
   "app.loadFailed": "Couldn't load this view: {error}",
-
   "view.today": "Today",
   "view.priorities": "Priorities",
   "view.board": "Board",
   "view.inflight": "In flight",
   "view.agent": "Agent",
-
   "status.decision": "Your decision",
   "status.review": "Review",
   "status.ci": "CI",
   "status.dependency": "Dependency",
   "status.proceeding": "Proceeding",
   "status.queued": "Queued",
-
   "stage.up_next": "Up next",
   "stage.in_progress": "In progress",
   "stage.in_review": "In review",
   "stage.done": "Done",
-
   "age.minutes": "{n}m",
   "age.hours": "{n}h",
   "age.days": "{n}d",
-
   "time.now": "now",
   "time.inMinutes": "in {n} min",
   "time.inHours": "in {h}h {m}m",
   "time.today": "today {time}",
-
   "today.next": "Next",
   "today.in": "· {when}",
   "today.where": "on {location}",
@@ -41,20 +35,17 @@
   "today.unblocks": "unblocks {id}",
   "today.fromClaude": "From Claude",
   "today.working": "Working on {n} things now",
-
   "priorities.title": "Priorities",
   "priorities.hint": "Everything in play, most important first. Drag to reorder. Today shows what needs you on the work at the top of this list, and Claude works from the top down.",
   "priorities.moveUp": "Move {title} up",
   "priorities.moveDown": "Move {title} down",
   "priorities.saveFailed": "Couldn't save the new order: {error}",
-
   "inflight.title": "{n} in flight",
   "inflight.oldest": "Oldest has been open {age}.",
   "inflight.empty": "Nothing in flight.",
   "inflight.you": "Waiting on you",
   "inflight.claude": "Claude is on it",
   "inflight.others": "Waiting on others",
-
   "agent.working": "Claude is working on {n} things",
   "agent.idle": "Claude isn't working on anything right now",
   "agent.live": "Live across both machines.",
@@ -75,20 +66,16 @@
   "deleteSchedule.confirm": "Delete",
   "deleteSchedule.failed": "Couldn't delete: {error}",
   "agent.problems": "Some schedule files couldn't be read:",
-
   "event.ci_failed": "Whenever CI fails on one of my PRs",
   "event.pr_new_comments": "Whenever one of my PRs gets new review comments",
-
   "scope.each_pr": "Each open PR",
   "scope.each_item": "Each item in flight",
   "scope.one": "One item",
   "scope.nothing": "Nothing specific",
-
   "autonomy.ask": "Ask me first",
   "autonomy.askHint": "Raises a priority for you",
   "autonomy.act": "Go ahead",
   "autonomy.actHint": "Acts, then tells you",
-
   "newSchedule.title": "New schedule",
   "newSchedule.hint": "Tell Claude what to do and when. It works out the timing, machine and permissions.",
   "newSchedule.placeholder": "e.g. Every weekday at 8:30, check my PRs for new review comments and reply the way we did yesterday. Ask me about anything that needs a product decision.",
@@ -99,7 +86,6 @@
   "newSchedule.create": "Create",
   "newSchedule.working": "Claude is setting it up…",
   "newSchedule.failed": "Claude couldn't set that up: {error}",
-
   "schedule.blankName": "New schedule",
   "schedule.from": "Made from “{request}”",
   "schedule.byHand": "Set up by hand",
@@ -122,13 +108,11 @@
   "schedule.cancel": "Cancel",
   "schedule.save": "Save",
   "schedule.saveFailed": "Couldn't save: {error}",
-
   "unit.minute": "minute",
   "unit.hour": "hour",
   "unit.day": "day",
   "unit.month": "month",
   "unit.weekday": "weekday",
-
   "chat.open": "Ask Claude about this page",
   "chat.title": "Ask Claude",
   "chat.close": "Close",
@@ -147,6 +131,35 @@
   "chat.suggest.inflight.2": "What can I unblock in 10 minutes?",
   "chat.suggest.agent.1": "Check my PRs every morning at 08:30",
   "chat.suggest.agent.2": "Which schedules could be events instead?",
-
-  "modal.close": "Close"
+  "modal.close": "Close",
+  "urgent.pill": "Urgent · {n}",
+  "urgent.title": "Urgent",
+  "urgent.hint": "Things that went wrong or can’t wait. Dismiss them, or tell Claude what to do.",
+  "urgent.runNow": "Run now",
+  "urgent.tell": "Tell Claude",
+  "urgent.dismiss": "Dismiss",
+  "urgent.dismissAll": "Dismiss all",
+  "urgent.allClear": "All clear.",
+  "urgent.messageLabel": "Message to Claude",
+  "urgent.messagePlaceholder": "e.g. skip it today, or find who broke it and ask them",
+  "urgent.send": "Send",
+  "urgent.working": "Claude is on it…",
+  "urgent.failed": "That didn’t work: {error}",
+  "agent.pauseAll": "Pause all",
+  "agent.missed": "Missed {time} · {reason}",
+  "agent.failed": "Failed {time} · {reason}",
+  "schedule.runNow": "Run now",
+  "pause.title": "Pause all schedules",
+  "pause.hint": "Nothing runs while paused, and missed runs aren’t flagged as urgent. Each schedule keeps its own on/off setting for when you’re back.",
+  "pause.howLong": "How long",
+  "pause.today": "For the rest of today",
+  "pause.untilDate": "Until",
+  "pause.untilResume": "Until I resume",
+  "pause.cancel": "Cancel",
+  "pause.confirm": "Pause",
+  "pause.bannerUntil": "Everything is paused until {when}",
+  "pause.bannerIndefinite": "Everything is paused until you resume",
+  "pause.bannerHint": "Nothing runs, and missed runs aren’t flagged as urgent.",
+  "pause.resume": "Resume now",
+  "pause.failed": "Couldn’t change the pause: {error}"
 }

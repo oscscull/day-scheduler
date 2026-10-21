@@ -43,13 +43,24 @@ export interface Activity {
   unread: boolean;
 }
 
+export interface Urgent {
+  id: number;
+  title: string;
+  detail: string;
+  raisedAt: string;
+  scheduleId: string | null;
+}
+
 export interface TodayView {
+  urgent: Urgent[];
   upcoming: Commitment[];
   priorities: Priority[];
   activity: Activity[];
   running: number;
   inFlight: number;
 }
+
+export type Outcome = "ok" | "failed" | "missed";
 
 export interface Run {
   id: number;
@@ -59,6 +70,7 @@ export interface Run {
   node: string;
   startedAt: string;
   finishedAt: string | null;
+  outcome: Outcome | null;
   summary: string | null;
 }
 
@@ -102,4 +114,6 @@ export interface AgentView {
   live: Run[];
   schedules: ScheduleView[];
   problems: string[];
+  /** Set while every schedule is paused. `until: null` means until resumed. */
+  pause: { until: string | null } | null;
 }

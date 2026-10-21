@@ -27,6 +27,11 @@
   --chip-queued-bg: #eceae4;
   --chip-queued-fg: #4a4843;
 
+  --urgent-bg: #fbe3e1;
+  --urgent-fg: #a3261b;
+  --urgent-dot: #c8352a;
+  --paused-bg: #eceae4;
+
   --font: "Geist", system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, monospace;
   --radius: 10px;

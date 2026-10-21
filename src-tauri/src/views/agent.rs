@@ -2,6 +2,7 @@ use chrono::Local;
 use rusqlite::Connection;
 use serde::Serialize;
 
+use crate::config::pause::Pause;
 use crate::config::schedules::Loaded;
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::run::Run;
@@ -30,9 +31,10 @@ pub struct AgentView {
     pub live: Vec<Run>,
     pub schedules: Vec<ScheduleView>,
     pub problems: Vec<String>,
+    pub pause: Option<Pause>,
 }
 
-pub fn build(conn: &Connection, loaded: Loaded) -> AppResult<AgentView> {
+pub fn build(conn: &Connection, loaded: Loaded, pause: Option<Pause>) -> AppResult<AgentView> {
     let mut problems = loaded.problems;
     let mut schedules = Vec::with_capacity(loaded.schedules.len());
     for schedule in loaded.schedules {
@@ -53,5 +55,6 @@ pub fn build(conn: &Connection, loaded: Loaded) -> AppResult<AgentView> {
         live: runs::live(conn)?,
         schedules,
         problems,
+        pause,
     })
 }

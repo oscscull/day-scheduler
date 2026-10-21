@@ -1,9 +1,13 @@
+use chrono::Utc;
 use rusqlite::{Connection, Row, params};
 
-use crate::domain::run::Run;
+use super::codec::{column, encode};
+
+use crate::domain::run::{Outcome, Run};
 use crate::error::AppResult;
 
-const COLUMNS: &str = "id, schedule_id, what, target, node, started_at, finished_at, summary";
+const COLUMNS: &str =
+    "id, schedule_id, what, target, node, started_at, finished_at, outcome, summary";
 
 fn from_row(row: &Row<'_>) -> rusqlite::Result<Run> {
     Ok(Run {
@@ -14,7 +18,8 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Run> {
         node: row.get(4)?,
         started_at: row.get(5)?,
         finished_at: row.get(6)?,
-        summary: row.get(7)?,
+        outcome: column(row, 7)?,
+        summary: row.get(8)?,
     })
 }
 
@@ -49,7 +54,7 @@ pub fn delete_for(conn: &Connection, schedule_id: &str) -> AppResult<()> {
 }
 
 pub fn insert(conn: &Connection, run: &Run) -> AppResult<()> {
-    let sql = format!("INSERT INTO runs ({COLUMNS}) VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7)");
+    let sql = format!("INSERT INTO runs ({COLUMNS}) VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)");
     conn.execute(
         &sql,
         params![
@@ -59,8 +64,24 @@ pub fn insert(conn: &Connection, run: &Run) -> AppResult<()> {
             run.node,
             run.started_at,
             run.finished_at,
+            run.outcome.map(|o| encode(&o)).transpose()?,
             run.summary
         ],
+    )?;
+    Ok(())
+}
+
+/// Records that a run has started and returns its id.
+pub fn start(conn: &Connection, run: &Run) -> AppResult<i64> {
+    insert(conn, run)?;
+    Ok(conn.last_insert_rowid())
+}
+
+/// Marks a run finished now.
+pub fn finish(conn: &Connection, id: i64, outcome: Outcome, summary: &str) -> AppResult<()> {
+    conn.execute(
+        "UPDATE runs SET finished_at = ?1, outcome = ?2, summary = ?3 WHERE id = ?4",
+        params![Utc::now(), encode(&outcome)?, summary, id],
     )?;
     Ok(())
 }

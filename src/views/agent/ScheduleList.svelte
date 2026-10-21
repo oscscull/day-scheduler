@@ -8,17 +8,27 @@
   interface Props {
     schedules: ScheduleView[];
     now: Date;
+    /** Every schedule is paused; individual switches are kept as they are. */
+    paused: boolean;
     onOpen: (schedule: ScheduleView) => void;
     onToggle: (id: string, enabled: boolean) => void;
     onDelete: (schedule: ScheduleView) => void;
   }
 
-  let { schedules, now, onOpen, onToggle, onDelete }: Props = $props();
+  let { schedules, now, paused, onOpen, onToggle, onDelete }: Props = $props();
 
   function nextText(s: ScheduleView): string {
-    if (!s.enabled) return t("agent.paused");
+    if (!s.enabled || paused) return t("agent.paused");
     const next = s.explanation?.nextRuns[0];
     return next ? dayClock(next, now) : t("agent.onEvent");
+  }
+
+  /** "Missed 09:00 · machine asleep" when the last run didn't happen or went wrong. */
+  function problemText(s: ScheduleView): string {
+    const last = s.runs[0];
+    if (paused || !last || (last.outcome !== "missed" && last.outcome !== "failed")) return "";
+    const vars = { time: dayClock(last.startedAt, now), reason: last.summary ?? "" };
+    return t(last.outcome === "missed" ? "agent.missed" : "agent.failed", vars);
   }
 
   const lastText = (s: ScheduleView): string =>
@@ -27,7 +37,7 @@
 
 <ul>
   {#each schedules as s (s.id)}
-    <li class="row" class:paused={!s.enabled}>
+    <li class="row" class:paused={!s.enabled || paused}>
       <button type="button" class="open" onclick={() => onOpen(s)}>
         <span class="body">
           <span class="name">{s.name}</span>
@@ -35,6 +45,7 @@
             {whenText(s.trigger, s.explanation)} · {s.node} · {t(s.autonomy === "act" ? "agent.acts" : "agent.asks")}
           </span>
           <span class="hint meta">{lastText(s)}</span>
+          {#if problemText(s)}<span class="problem">{problemText(s)}</span>{/if}
         </span>
         <span class="mono next">{nextText(s)}</span>
       </button>
@@ -85,6 +96,17 @@
 
   .meta {
     font-size: 13px;
+  }
+
+  .problem {
+    align-self: flex-start;
+    margin-top: 3px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--urgent-bg);
+    color: var(--urgent-fg);
+    font-size: 12px;
+    font-weight: 500;
   }
 
   .delete {

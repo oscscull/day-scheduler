@@ -5,10 +5,11 @@ use chrono::{DateTime, Duration, Utc};
 use rusqlite::Connection;
 use serde::Deserialize;
 
-use super::{activity, asks, commitments, items, runs};
+use super::{activity, asks, commitments, items, runs, urgent};
 use crate::domain::commitment::Commitment;
 use crate::domain::item::{Stage, Status, WorkItem};
-use crate::domain::run::Run;
+use crate::domain::run::{Outcome, Run};
+use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 
 const SEED: &str = include_str!("../../defaults/seed.json");
@@ -20,6 +21,16 @@ struct Seed {
     commitments: Vec<SeedCommitment>,
     activity: Vec<SeedActivity>,
     runs: Vec<SeedRun>,
+    urgent: Vec<SeedUrgent>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SeedUrgent {
+    title: String,
+    detail: String,
+    mins_ago: i64,
+    schedule_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +80,7 @@ struct SeedRun {
     node: String,
     started_mins_ago: i64,
     finished_mins_ago: Option<i64>,
+    outcome: Option<Outcome>,
     summary: Option<String>,
 }
 
@@ -89,6 +101,16 @@ pub fn seed_if_empty(conn: &Connection, now: DateTime<Utc>) -> AppResult<()> {
     seed_commitments(conn, seed.commitments, now)?;
     for a in seed.activity {
         activity::insert(conn, &a.text, ago(now, a.mins_ago), a.unread)?;
+    }
+    for u in seed.urgent {
+        let item = Urgent {
+            id: 0,
+            title: u.title,
+            detail: u.detail,
+            raised_at: ago(now, u.mins_ago),
+            schedule_id: u.schedule_id,
+        };
+        urgent::raise(conn, &item)?;
     }
     seed_runs(conn, seed.runs, now)
 }
@@ -140,6 +162,7 @@ fn seed_runs(conn: &Connection, list: Vec<SeedRun>, now: DateTime<Utc>) -> AppRe
             node: s.node,
             started_at: ago(now, s.started_mins_ago),
             finished_at: s.finished_mins_ago.map(|m| ago(now, m)),
+            outcome: s.outcome,
             summary: s.summary,
         };
         runs::insert(conn, &run)?;
