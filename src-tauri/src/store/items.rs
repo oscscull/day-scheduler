@@ -86,6 +86,11 @@ pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
     if find(conn, id)?.is_some_and(|i| i.source != MANUAL) {
         return hide(conn, id);
     }
+    purge(conn, id)
+}
+
+/// Deletes an item along with its asks and history, whatever made it.
+pub fn purge(conn: &Connection, id: &str) -> AppResult<()> {
     conn.execute("DELETE FROM asks WHERE item_id = ?1", [id])?;
     conn.execute("DELETE FROM item_events WHERE item_id = ?1", [id])?;
     conn.execute("DELETE FROM watch WHERE item_id = ?1", [id])?;

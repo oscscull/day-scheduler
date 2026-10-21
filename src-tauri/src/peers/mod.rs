@@ -23,9 +23,10 @@ pub fn new_token() -> AppResult<String> {
     std::fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
     // The list has exactly 1024 words, so masking to 10 bits picks one without bias.
     let picked: Vec<&str> = bytes
-        .chunks_exact(2)
-        .filter_map(|pair| {
-            let [hi, lo] = [*pair.first()?, *pair.get(1)?];
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .filter_map(|&[hi, lo]| {
             words
                 .get(usize::from(u16::from_be_bytes([hi, lo]) & 0x03ff))
                 .copied()

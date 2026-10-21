@@ -64,10 +64,18 @@ fix_ci = true
 fix_ci_tools = ["Bash(gh pr checks:*)", "Bash(gh pr view:*)", "Bash(gh run view:*)", "Bash(gh run rerun:*)"]
 
 # Where repos are checked out on this machine. Work Quarterdeck starts on their PRs (fixing CI, acting
-# on your answers) runs there, in a worktree per item, with the project's own Claude settings.
+# on your answers), or on items linking their issues, runs there, in a worktree per item, with the
+# project's own Claude settings.
 # [[projects]]
 # repo = "me/webapp"
 # path = "~/code/webapp"
+
+# Items Claude works on one at a time, in this order (set_queue). The first not yet in review or done
+# starts when it's up next (prompts/queue.md, delivered like "Tell Claude"); the next waits until it's
+# in review or done. An item linking a GitHub issue in a repo above gets a branch of its own, and
+# Quarterdeck pushes it and opens the PR when Claude finishes.
+[queue]
+items = []
 
 # Checks that only inform (e.g. a visual-diff report). Their failures don't count as CI failing;
 # they're noted on the item instead.

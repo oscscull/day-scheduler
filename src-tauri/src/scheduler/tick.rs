@@ -58,6 +58,7 @@ pub fn tick(handle: &AppHandle) -> AppResult<()> {
         return Ok(());
     }
     crate::watchdog::check(handle, &settings)?;
+    super::queue::advance(handle, &settings)?;
     for schedule in schedules::list(&app.config)?.schedules {
         if schedule.enabled && settings.node_for(&schedule.area) == settings.node {
             consider(handle, &settings, &schedule, Window { last, now })?;

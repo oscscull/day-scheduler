@@ -252,6 +252,14 @@ pub fn set_informational_checks(
     })
 }
 
+/// Sets the items Claude works on one at a time, in order.
+pub fn set_queue(config: &Config, items: &[String]) -> AppResult<()> {
+    edit(config, |doc| {
+        table(doc, "queue")?.insert("items", strings(items));
+        Ok(())
+    })
+}
+
 pub fn set_github_ignores(config: &Config, ignore: &[String]) -> AppResult<()> {
     edit(config, |doc| {
         table(doc, "github")?.insert("ignore", strings(ignore));

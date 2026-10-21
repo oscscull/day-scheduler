@@ -17,6 +17,7 @@ mod notify;
 mod paths;
 mod peers;
 mod priorities;
+mod queue;
 mod rename;
 mod scheduler;
 mod store;
