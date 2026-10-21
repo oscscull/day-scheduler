@@ -230,3 +230,11 @@ export interface Calendar {
   name: string;
   area: string;
 }
+
+/** A to-do as the edit form saves it. `due: null` clears the date. */
+export interface TodoEdit {
+  id: number;
+  title: string;
+  area: string;
+  due: string | null;
+}

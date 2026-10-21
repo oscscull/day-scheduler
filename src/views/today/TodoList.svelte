@@ -7,6 +7,7 @@
   import { t } from "../../lib/copy";
   import { dueText, isOverdue } from "../../lib/time";
   import type { Todo } from "../../lib/types";
+  import TodoForm, { type TodoFields } from "./TodoForm.svelte";
 
   interface Props {
     todos: Todo[];
@@ -17,23 +18,33 @@
   let { todos, now, onChanged }: Props = $props();
 
   let adding = $state(false);
-  let title = $state("");
-  let area = $state("");
-  let due = $state("");
+  /** The to-do open for editing, by its list key. */
+  let editing = $state<string | null>(null);
   let error = $state("");
 
+  const keyOf = (todo: Todo): string => `${todo.node ?? ""}${todo.id}`;
+
   function startAdding(): void {
-    area = areas.current !== ALL ? areas.current : (areas.list[0]?.id ?? "");
+    editing = null;
     adding = true;
   }
 
-  async function add(): Promise<void> {
-    if (!title.trim()) return;
+  function startEditing(todo: Todo): void {
+    adding = false;
+    editing = keyOf(todo);
+  }
+
+  const newFields = (): TodoFields => ({
+    title: "",
+    area: areas.current !== ALL ? areas.current : (areas.list[0]?.id ?? ""),
+    due: "",
+  });
+
+  async function run(work: () => Promise<unknown>): Promise<void> {
     try {
-      await route.addTodo(ownerOf(area), title.trim(), area, due || null);
-      title = "";
-      due = "";
+      await work();
       adding = false;
+      editing = null;
       error = "";
       onChanged();
     } catch (e) {
@@ -41,14 +52,13 @@
     }
   }
 
-  async function toggle(todo: Todo): Promise<void> {
-    try {
-      await route.setTodoDone(todo.node, todo.id, todo.doneAt === null);
-      onChanged();
-    } catch (e) {
-      error = t("todo.failed", { error: errorText(e) });
-    }
-  }
+  const add = (f: TodoFields): Promise<void> =>
+    run(() => route.addTodo(ownerOf(f.area), f.title, f.area, f.due || null));
+
+  const save = (todo: Todo, f: TodoFields): Promise<void> =>
+    run(() => route.updateTodo(todo.node, { id: todo.id, title: f.title, area: f.area, due: f.due || null }));
+
+  const toggle = (todo: Todo): Promise<void> => run(() => route.setTodoDone(todo.node, todo.id, todo.doneAt === null));
 
   const late = (todo: Todo): boolean => todo.doneAt === null && todo.due !== null && isOverdue(todo.due, now);
 </script>
@@ -61,39 +71,38 @@
   <p class="hint sub">{t("todo.hint")}</p>
 
   {#if adding}
-    <form onsubmit={(e) => { e.preventDefault(); void add(); }}>
-      <label class="field what">
-        {t("todo.what")}
-        <input class="input" bind:value={title} placeholder={t("todo.placeholder")} />
-      </label>
-      <label class="field">
-        {t("todo.area")}
-        <select class="input" bind:value={area}>
-          {#each areas.list as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
-        </select>
-      </label>
-      <label class="field">
-        {t("todo.due")}
-        <input class="input" type="date" bind:value={due} />
-      </label>
-      <div class="buttons">
-        <button type="button" class="button-secondary" onclick={() => (adding = false)}>{t("todo.cancel")}</button>
-        <button type="submit" class="button-primary" disabled={!title.trim()}>{t("todo.save")}</button>
-      </div>
-    </form>
+    <TodoForm start={newFields()} saveLabel={t("todo.save")} onSave={add} onCancel={() => (adding = false)} />
   {/if}
   {#if error}<p class="error">{error}</p>{/if}
 
   <ul>
-    {#each todos as todo (`${todo.node ?? ""}${todo.id}`)}
-      <li class="row" class:done={todo.doneAt !== null}>
-        <label class="check">
-          <input type="checkbox" checked={todo.doneAt !== null} onchange={() => toggle(todo)} />
-          <span class="title">{todo.title}</span>
-        </label>
-        <AreaDot area={todo.area} />
-        <span class="due" class:late={late(todo)}>{todo.due ? dueText(todo.due, now) : ""}</span>
-      </li>
+    {#each todos as todo (keyOf(todo))}
+      {#if editing === keyOf(todo)}
+        <li>
+          <TodoForm
+            start={{ title: todo.title, area: todo.area, due: todo.due ?? "" }}
+            saveLabel={t("todo.update")}
+            onSave={(f) => save(todo, f)}
+            onCancel={() => (editing = null)}
+            onDelete={() => run(() => route.deleteTodo(todo.node, todo.id))}
+          />
+        </li>
+      {:else}
+        <li class="row" class:done={todo.doneAt !== null}>
+          <input
+            type="checkbox"
+            class="check"
+            checked={todo.doneAt !== null}
+            onchange={() => toggle(todo)}
+            aria-label={todo.title}
+          />
+          <button type="button" class="open" onclick={() => startEditing(todo)} aria-label={t("todo.edit", { title: todo.title })}>
+            <span class="title">{todo.title}</span>
+            <AreaDot area={todo.area} />
+            <span class="due" class:late={late(todo)}>{todo.due ? dueText(todo.due, now) : ""}</span>
+          </button>
+        </li>
+      {/if}
     {:else}
       <li class="row hint empty">{t("todo.empty")}</li>
     {/each}
@@ -130,27 +139,6 @@
     font-size: 13px;
   }
 
-  form {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px 12px;
-    margin-bottom: 16px;
-    padding: 14px;
-    border-radius: var(--radius);
-    background: var(--surface);
-    border: 1px solid var(--line);
-  }
-
-  .what {
-    grid-column: 1 / -1;
-  }
-
-  .buttons {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
 
   li {
     display: flex;
@@ -160,27 +148,47 @@
   }
 
   .check {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    margin: 7px 0;
+    accent-color: var(--ink);
+    cursor: pointer;
+  }
+
+  .open {
     flex: 1 1 0;
     min-width: 0;
     display: flex;
     align-items: center;
     gap: 12px;
     min-height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
     cursor: pointer;
   }
 
-  .check input {
-    width: 18px;
-    height: 18px;
-    flex: none;
-    accent-color: var(--ink);
+  .open .title {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .open:hover .title {
+    text-decoration: underline;
+    text-decoration-color: var(--line);
+    text-underline-offset: 3px;
   }
 
   .done {
     opacity: 0.5;
   }
 
-  .done .title {
+  .done .title,
+  .done .open:hover .title {
     text-decoration: line-through;
   }
 

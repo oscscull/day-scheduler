@@ -41,6 +41,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         commitments::hide_commitment,
         todos::add_todo,
         todos::set_todo_done,
+        todos::update_todo,
+        todos::delete_todo,
         screens::work_items,
         screens::agent,
         items::reorder_items,
