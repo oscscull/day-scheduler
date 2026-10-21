@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentView,
   Area,
+  Commitment,
   CommitmentInput,
   Explanation,
   ItemDetail,
@@ -15,6 +16,9 @@ import type {
 /** Typed wrappers around the backend's Tauri commands. */
 export const api = {
   mcpConnectCommand: () => invoke<string>("mcp_connect_command"),
+  dueAlert: () => invoke<Commitment | null>("due_alert"),
+  alertDone: (id: number) => invoke<undefined>("alert_done", { id }),
+  alertSnooze: (id: number) => invoke<undefined>("alert_snooze", { id }),
   areas: () => invoke<Area[]>("areas"),
   addTodo: (title: string, area: string, due: string | null) =>
     invoke<undefined>("add_todo", { title, area, due }),

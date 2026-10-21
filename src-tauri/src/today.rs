@@ -109,6 +109,7 @@ mod tests {
             starts_at: now + Duration::minutes(start),
             ends_at: now + Duration::minutes(start + 30),
             location: None,
+            join_url: None,
             source: String::new(),
             external_id: None,
             hidden: false,

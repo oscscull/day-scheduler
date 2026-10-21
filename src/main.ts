@@ -1,8 +1,8 @@
 import { mount } from "svelte";
 
-import App from "./App.svelte";
+import Root from "./Root.svelte";
 import "./styles/tokens.css";
 import "./styles/base.css";
 
 const target = document.getElementById("app");
-if (target) mount(App, { target });
+if (target) mount(Root, { target });

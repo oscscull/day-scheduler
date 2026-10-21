@@ -4,6 +4,7 @@
 mod defaults;
 mod frontmatter;
 
+pub mod alerts;
 pub mod calendar;
 pub mod edit;
 pub mod github;

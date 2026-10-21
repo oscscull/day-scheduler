@@ -59,6 +59,8 @@ struct AddArgs {
     /// RFC 3339
     ends_at: String,
     location: Option<String>,
+    /// Video call link, for the alert's Join button.
+    join_url: Option<String>,
 }
 
 fn add(ctx: &Ctx, args: AddArgs) -> AppResult<()> {
@@ -69,6 +71,7 @@ fn add(ctx: &Ctx, args: AddArgs) -> AppResult<()> {
         starts_at: time(&args.starts_at)?,
         ends_at: time(&args.ends_at)?,
         location: args.location,
+        join_url: args.join_url,
         source: "manual".to_owned(),
         external_id: None,
         hidden: false,

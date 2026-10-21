@@ -5,6 +5,7 @@ mod codec;
 pub mod schema;
 
 pub mod activity;
+pub mod alert_state;
 pub mod asks;
 pub mod commitments;
 pub mod events;

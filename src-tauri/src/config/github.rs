@@ -16,6 +16,8 @@ pub struct GithubSettings {
     pub areas: BTreeMap<String, String>,
     /// Owners or repos whose PRs are skipped entirely.
     pub ignore: Vec<String>,
+    /// Owners or repos where the user reviews their own PRs, so review waits on them.
+    pub self_review: Vec<String>,
 }
 
 impl Default for GithubSettings {
@@ -26,12 +28,17 @@ impl Default for GithubSettings {
             default_area: "work".to_owned(),
             areas: BTreeMap::new(),
             ignore: Vec::new(),
+            self_review: Vec::new(),
         }
     }
 }
 
 fn owner(repo: &str) -> &str {
     repo.split_once('/').map_or(repo, |(o, _)| o)
+}
+
+fn listed(list: &[String], repo: &str) -> bool {
+    list.iter().any(|i| i == repo || i == owner(repo))
 }
 
 impl GithubSettings {
@@ -43,7 +50,11 @@ impl GithubSettings {
     }
 
     pub fn ignores(&self, repo: &str) -> bool {
-        self.ignore.iter().any(|i| i == repo || i == owner(repo))
+        listed(&self.ignore, repo)
+    }
+
+    pub fn self_reviews(&self, repo: &str) -> bool {
+        listed(&self.self_review, repo)
     }
 }
 

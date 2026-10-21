@@ -126,6 +126,13 @@ pub fn map_github(config: &Config, owner_or_repo: &str, area: &str) -> AppResult
     })
 }
 
+pub fn set_github_self_review(config: &Config, list: &[String]) -> AppResult<()> {
+    edit(config, |doc| {
+        table(doc, "github")?.insert("self_review", strings(list));
+        Ok(())
+    })
+}
+
 pub fn set_github_ignores(config: &Config, ignore: &[String]) -> AppResult<()> {
     edit(config, |doc| {
         table(doc, "github")?.insert("ignore", strings(ignore));

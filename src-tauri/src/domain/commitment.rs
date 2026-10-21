@@ -11,6 +11,8 @@ pub struct Commitment {
     pub starts_at: DateTime<Utc>,
     pub ends_at: DateTime<Utc>,
     pub location: Option<String>,
+    /// The video call link, e.g. Google Meet or Zoom, for the alert's Join button.
+    pub join_url: Option<String>,
     /// Where it came from, e.g. `manual` or `calendar:work`. Synced entries keep user overrides.
     pub source: String,
     /// The connector's own id for it, so a re-sync updates instead of duplicating.
@@ -28,4 +30,6 @@ pub struct CommitmentInput {
     pub starts_at: DateTime<Utc>,
     pub ends_at: DateTime<Utc>,
     pub location: Option<String>,
+    #[serde(default)]
+    pub join_url: Option<String>,
 }

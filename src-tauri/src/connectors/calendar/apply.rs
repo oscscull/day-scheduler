@@ -23,6 +23,8 @@ struct Snapshot {
     start: DateTime<Utc>,
     end: DateTime<Utc>,
     location: Option<String>,
+    #[serde(default)]
+    join_url: Option<String>,
 }
 
 fn snapshot(o: &Occurrence) -> Snapshot {
@@ -31,6 +33,7 @@ fn snapshot(o: &Occurrence) -> Snapshot {
         start: o.start,
         end: o.end,
         location: o.location.clone(),
+        join_url: o.join_url.clone(),
     }
 }
 
@@ -48,6 +51,7 @@ fn upsert(conn: &Connection, src: &str, feed: &Feed, o: &Occurrence) -> AppResul
                 starts_at: new.start,
                 ends_at: new.end,
                 location: new.location.clone(),
+                join_url: new.join_url.clone(),
                 source: src.to_owned(),
                 external_id: Some(o.id.clone()),
                 hidden: false,
@@ -60,6 +64,7 @@ fn upsert(conn: &Connection, src: &str, feed: &Feed, o: &Occurrence) -> AppResul
                 starts_at: new.start,
                 ends_at: new.end,
                 location: new.location.clone(),
+                join_url: new.join_url.clone(),
                 ..c
             },
         )?,
@@ -105,6 +110,7 @@ mod tests {
             start,
             end: start + Duration::minutes(30),
             location: None,
+            join_url: None,
             all_day: false,
         }
     }

@@ -244,5 +244,11 @@
   "connections.failed": "last sync failed: {error}",
   "item.synced": "From {source}. Bridge updates it when it changes there; your edits stick until then.",
   "today.hide": "Hide",
-  "today.hideHint": "Hide {title}. It stays hidden after calendar syncs."
+  "today.hideHint": "Hide {title}. It stays hidden after calendar syncs.",
+  "alert.startingIn": "Starting in",
+  "alert.started": "Started",
+  "alert.join": "Join now",
+  "alert.snooze": "1 min",
+  "alert.snoozeLabel": "Remind me again in a minute",
+  "alert.skip": "Skip"
 }

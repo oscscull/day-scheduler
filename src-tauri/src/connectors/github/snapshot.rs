@@ -28,6 +28,13 @@ fn failing(pr: &Pr) -> bool {
     matches!(pr.ci.as_deref(), Some("FAILURE" | "ERROR"))
 }
 
+/// Not failing, not a draft, and not yet reviewed either way.
+fn waiting_on_review(pr: &Pr) -> bool {
+    !failing(pr)
+        && !pr.draft
+        && !matches!(pr.review.as_deref(), Some("CHANGES_REQUESTED" | "APPROVED"))
+}
+
 /// (status, label, holder) for a PR, most pressing first.
 fn state(pr: &Pr) -> (Option<Status>, &'static str, &'static str) {
     if failing(pr) {
@@ -44,7 +51,11 @@ fn state(pr: &Pr) -> (Option<Status>, &'static str, &'static str) {
 }
 
 pub fn of(pr: &Pr) -> Snapshot {
-    let (status, label, holder) = state(pr);
+    let (status, label, holder) = if pr.self_review && waiting_on_review(pr) {
+        (Some(Status::Decision), "ready for your review", "you")
+    } else {
+        state(pr)
+    };
     Snapshot {
         owned: Owned {
             title: pr.title.clone(),
@@ -89,6 +100,7 @@ mod tests {
             review: review.map(str::to_owned),
             ci: ci.map(str::to_owned),
             comments,
+            self_review: false,
         }
     }
 
@@ -96,6 +108,20 @@ mod tests {
     fn failing_ci_wins_over_review_state() {
         let s = of(&pr(Some("FAILURE"), Some("APPROVED"), 0));
         assert_eq!(s.owned.status, Some(Status::Ci));
+    }
+
+    #[test]
+    fn solo_reviews_wait_on_you() {
+        let solo = Pr {
+            self_review: true,
+            ..pr(Some("SUCCESS"), None, 0)
+        };
+        assert_eq!(of(&solo).owned.status, Some(Status::Decision));
+        let failing = Pr {
+            self_review: true,
+            ..pr(Some("FAILURE"), None, 0)
+        };
+        assert_eq!(of(&failing).owned.status, Some(Status::Ci));
     }
 
     #[test]

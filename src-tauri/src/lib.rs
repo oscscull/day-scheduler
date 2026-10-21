@@ -1,5 +1,6 @@
 //! Bridge: tracks work in flight and runs recurring Claude jobs.
 
+mod alerts;
 mod app;
 mod claude;
 mod cli;
@@ -52,6 +53,9 @@ pub fn run() -> tauri::Result<()> {
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             commands::areas::areas,
+            commands::alerts::due_alert,
+            commands::alerts::alert_done,
+            commands::alerts::alert_snooze,
             commands::connect::mcp_connect_command,
             commands::screens::today,
             commands::commitments::add_commitment,

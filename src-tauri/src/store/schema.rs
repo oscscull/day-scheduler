@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS commitments (
     starts_at TEXT NOT NULL,
     ends_at TEXT NOT NULL,
     location TEXT,
+    join_url TEXT,
     source TEXT NOT NULL,
     external_id TEXT,
     hidden INTEGER NOT NULL DEFAULT 0
@@ -78,6 +79,11 @@ CREATE TABLE IF NOT EXISTS sync_state (
     snapshot TEXT NOT NULL,
     PRIMARY KEY (source, external_id)
 );
+CREATE TABLE IF NOT EXISTS alert_state (
+    commitment_id INTEGER PRIMARY KEY,
+    done INTEGER NOT NULL DEFAULT 0,
+    snoozed_until TEXT
+);
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -91,7 +97,56 @@ CREATE TABLE IF NOT EXISTS todos (
 );
 ";
 
-pub fn migrate(conn: &Connection) -> AppResult<()> {
-    conn.execute_batch(SCHEMA)?;
+/// Changes to databases made before the current schema, in order. Append only: each runs once,
+/// tracked by `SQLite`'s `user_version`. A fresh database starts from `SCHEMA` and skips them all.
+const MIGRATIONS: [&str; 1] = ["ALTER TABLE commitments ADD COLUMN join_url TEXT"];
+
+fn version(conn: &Connection) -> AppResult<usize> {
+    let v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    Ok(usize::try_from(v).unwrap_or(0))
+}
+
+fn set_version(conn: &Connection, v: usize) -> AppResult<()> {
+    conn.pragma_update(None, "user_version", i64::try_from(v).unwrap_or(i64::MAX))?;
     Ok(())
+}
+
+pub fn migrate(conn: &Connection) -> AppResult<()> {
+    let fresh: bool = conn.query_row(
+        "SELECT COUNT(*) = 0 FROM sqlite_master WHERE type = 'table' AND name = 'items'",
+        [],
+        |r| r.get(0),
+    )?;
+    conn.execute_batch(SCHEMA)?;
+    if fresh {
+        return set_version(conn, MIGRATIONS.len());
+    }
+    for (done, sql) in MIGRATIONS.iter().enumerate().skip(version(conn)?) {
+        conn.execute_batch(sql)?;
+        set_version(conn, done + 1)?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn old_databases_catch_up_and_fresh_ones_start_current() {
+        let fresh = Connection::open_in_memory().unwrap();
+        migrate(&fresh).unwrap();
+        migrate(&fresh).unwrap();
+        assert_eq!(version(&fresh).unwrap(), MIGRATIONS.len());
+        let old = Connection::open_in_memory().unwrap();
+        old.execute_batch(&SCHEMA.replace(
+            "    location TEXT,\n    join_url TEXT,",
+            "    location TEXT,",
+        ))
+        .unwrap();
+        migrate(&old).unwrap();
+        old.execute("UPDATE commitments SET join_url = 'x'", [])
+            .unwrap();
+        assert_eq!(version(&old).unwrap(), MIGRATIONS.len());
+    }
 }

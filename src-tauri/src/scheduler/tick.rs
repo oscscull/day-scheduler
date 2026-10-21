@@ -39,6 +39,7 @@ pub fn tick(handle: &AppHandle) -> AppResult<()> {
         ));
     }
     start_requested(handle)?;
+    crate::alerts::check(handle)?;
     super::connectors::sync_if_due(handle, &settings)?;
     let now = Utc::now();
     let last = app.db.with(|c| meta::time(c, LAST_TICK))?;

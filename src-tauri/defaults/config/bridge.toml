@@ -44,6 +44,8 @@ poll_minutes = 5
 default_area = "work"
 # Skip PRs from these owners or repos.
 ignore = []
+# Owners or repos where you review your own PRs. PRs with no requested reviewers already count.
+self_review = []
 
 # Owner or owner/repo to area id. A repo entry beats its owner's.
 [github.areas]
@@ -65,3 +67,9 @@ ignore_titles = []
 # url = "https://calendar.google.com/calendar/ical/.../basic.ics"
 # area = "work"
 # ignore_titles = ["Lunch"]
+
+# The on-top countdown before each meeting, with a chime.
+[alerts]
+enabled = true
+lead_minutes = 5
+linger_minutes = 3

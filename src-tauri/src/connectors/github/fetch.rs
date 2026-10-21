@@ -8,6 +8,7 @@ use crate::error::{AppError, AppResult};
 
 const QUERY: &str = "query($q: String!) { search(query: $q, type: ISSUE, first: 50) { nodes { \
     ... on PullRequest { number title url isDraft repository { nameWithOwner } reviewDecision \
+    reviewRequests { totalCount } \
     comments { totalCount } reviews { totalCount } \
     reviewThreads(first: 100) { nodes { comments { totalCount } } } \
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } } }";
@@ -26,6 +27,8 @@ pub struct Pr {
     pub ci: Option<String>,
     /// Comments, reviews and review-thread replies together.
     pub comments: u64,
+    /// Nobody else was asked to review it, so the review is the author's own.
+    pub self_review: bool,
 }
 
 async fn gh(args: &[&str]) -> AppResult<String> {
@@ -78,6 +81,7 @@ struct Node {
     is_draft: bool,
     repository: Option<Repo>,
     review_decision: Option<String>,
+    review_requests: Count,
     comments: Count,
     reviews: Count,
     review_threads: Nodes<Thread>,
@@ -156,6 +160,7 @@ impl Node {
             review: self.review_decision,
             ci,
             comments: self.comments.total_count + self.reviews.total_count + threads,
+            self_review: self.review_requests.total_count == 0,
         })
     }
 }

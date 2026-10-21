@@ -18,6 +18,7 @@ pub struct Occurrence {
     pub start: DateTime<Utc>,
     pub end: DateTime<Utc>,
     pub location: Option<String>,
+    pub join_url: Option<String>,
     pub all_day: bool,
 }
 
@@ -50,6 +51,37 @@ fn line(p: &Property, keep_tzid: bool) -> String {
         p.name,
         p.value.as_deref().unwrap_or_default()
     )
+}
+
+/// Video call hosts whose links make a Join button.
+const CALL_HOSTS: [&str; 4] = [
+    "meet.google.com",
+    "zoom.us",
+    "teams.microsoft.com",
+    "whereby.com",
+];
+
+fn first_call_link(text: &str) -> Option<String> {
+    text.split(|c: char| c.is_whitespace() || matches!(c, '<' | '>' | '"' | '\\'))
+        .filter(|w| w.starts_with("https://"))
+        .find(|w| CALL_HOSTS.iter().any(|h| w.contains(h)))
+        .map(|w| w.trim_end_matches(['.', ',', ')']).to_owned())
+}
+
+/// The event's video call link, from conference fields first, then the location and notes.
+fn join_url(event: &IcalEvent) -> Option<String> {
+    ["X-GOOGLE-CONFERENCE", "CONFERENCE"]
+        .iter()
+        .find_map(|name| {
+            value(event, name)
+                .filter(|v| v.starts_with("https://"))
+                .map(str::to_owned)
+        })
+        .or_else(|| {
+            ["LOCATION", "DESCRIPTION", "URL"]
+                .iter()
+                .find_map(|name| value(event, name).and_then(first_call_link))
+        })
 }
 
 fn is_all_day(p: &Property) -> bool {
@@ -161,6 +193,7 @@ fn expand(
     let all_day = is_all_day(dtstart);
     let length = duration(event, dtstart, all_day);
     let title = value(event, "SUMMARY").unwrap_or_default().to_owned();
+    let join = join_url(event);
     let location = value(event, "LOCATION")
         .filter(|l| !l.is_empty())
         .map(str::to_owned);
@@ -172,6 +205,7 @@ fn expand(
             start,
             end: start + length,
             location: location.clone(),
+            join_url: join.clone(),
             all_day,
         })
         .collect()
@@ -207,7 +241,7 @@ DTEND;TZID=Europe/London:20261019T094500\r\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,
 EXDATE;TZID=Europe/London:20261022T093000\r\nEND:VEVENT\r\n\
 BEGIN:VEVENT\r\nUID:standup\r\nRECURRENCE-ID;TZID=Europe/London:20261021T093000\r\nSUMMARY:Standup (moved)\r\n\
 DTSTART;TZID=Europe/London:20261021T100000\r\nDTEND;TZID=Europe/London:20261021T101500\r\nEND:VEVENT\r\n\
-BEGIN:VEVENT\r\nUID:dentist\r\nSUMMARY:Dentist\r\nLOCATION:Smile Dental\r\nDTSTART:20261021T171500Z\r\n\
+BEGIN:VEVENT\r\nUID:dentist\r\nSUMMARY:Dentist\r\nLOCATION:Smile Dental\r\nDESCRIPTION:Join: https://meet.google.com/abc-defg-hij.\r\nDTSTART:20261021T171500Z\r\n\
 DTEND:20261021T180000Z\r\nEND:VEVENT\r\n\
 BEGIN:VEVENT\r\nUID:holiday\r\nSUMMARY:Bank holiday\r\nDTSTART;VALUE=DATE:20261023\r\nEND:VEVENT\r\n\
 BEGIN:VEVENT\r\nUID:gone\r\nSUMMARY:Cancelled\r\nSTATUS:CANCELLED\r\nDTSTART:20261021T120000Z\r\nEND:VEVENT\r\n\
@@ -239,6 +273,17 @@ END:VCALENDAR\r\n";
         let holiday = all.iter().find(|o| o.title == "Bank holiday").unwrap();
         assert!(holiday.all_day);
         assert!(!all.iter().any(|o| o.title == "Cancelled"));
+    }
+
+    #[test]
+    fn finds_call_links_in_notes() {
+        let from = Utc.with_ymd_and_hms(2026, 10, 21, 0, 0, 0).unwrap();
+        let all = occurrences(FEED, from, from + Duration::days(1));
+        let dentist = all.iter().find(|o| o.title == "Dentist").unwrap();
+        assert_eq!(
+            dentist.join_url.as_deref(),
+            Some("https://meet.google.com/abc-defg-hij")
+        );
     }
 
     #[test]

@@ -81,6 +81,7 @@ export interface Commitment {
   startsAt: string;
   endsAt: string;
   location: string | null;
+  joinUrl: string | null;
   source: string;
   externalId: string | null;
   hidden: boolean;

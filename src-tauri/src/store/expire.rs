@@ -38,6 +38,10 @@ pub fn expire(conn: &Connection, now: DateTime<Utc>, ttl: Ttl) -> AppResult<()> 
         params![now - PAST_MEETINGS],
     )?;
     conn.execute(
+        "DELETE FROM alert_state WHERE commitment_id NOT IN (SELECT id FROM commitments)",
+        [],
+    )?;
+    conn.execute(
         "DELETE FROM sync_state WHERE source LIKE 'calendar:%' AND NOT EXISTS (
              SELECT 1 FROM commitments c
              WHERE c.source = sync_state.source AND c.external_id = sync_state.external_id)",

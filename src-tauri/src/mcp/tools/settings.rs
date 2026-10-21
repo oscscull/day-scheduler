@@ -18,6 +18,9 @@ update_meeting with hidden instead.";
 const MAP_GITHUB: &str = "Files PRs from a GitHub owner (e.g. \"my-org\") or repo (\"me/app\") under an area. \
 A repo entry beats its owner's.";
 const IGNORE_GITHUB: &str = "Sets the GitHub owners or repos whose PRs Bridge skips entirely.";
+const SELF_REVIEW: &str = "Sets the GitHub owners or repos where the user reviews their own PRs, so an unreviewed PR \
+shows as waiting on their decision rather than on reviewers. PRs with no requested reviewers are \
+treated that way already.";
 
 pub fn tools() -> Vec<Tool> {
     vec![
@@ -31,6 +34,7 @@ pub fn tools() -> Vec<Tool> {
         tool("set_calendar_rules", CALENDAR_RULES, calendar_rules),
         tool("map_github_area", MAP_GITHUB, map_github),
         tool("set_github_ignores", IGNORE_GITHUB, github_ignores),
+        tool("set_github_self_review", SELF_REVIEW, self_review),
     ]
 }
 
@@ -85,4 +89,13 @@ struct IgnoreArgs {
 
 fn github_ignores(ctx: &Ctx, args: IgnoreArgs) -> AppResult<()> {
     edit::set_github_ignores(&ctx.config, &args.ignore)
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct SelfReviewArgs {
+    owners_or_repos: Vec<String>,
+}
+
+fn self_review(ctx: &Ctx, args: SelfReviewArgs) -> AppResult<()> {
+    edit::set_github_self_review(&ctx.config, &args.owners_or_repos)
 }

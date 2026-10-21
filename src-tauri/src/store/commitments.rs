@@ -3,7 +3,8 @@ use rusqlite::{Connection, OptionalExtension as _, Row, params};
 use crate::domain::commitment::Commitment;
 use crate::error::{AppError, AppResult};
 
-const COLUMNS: &str = "id, title, area, starts_at, ends_at, location, source, external_id, hidden";
+const COLUMNS: &str =
+    "id, title, area, starts_at, ends_at, location, join_url, source, external_id, hidden";
 
 fn from_row(row: &Row<'_>) -> rusqlite::Result<Commitment> {
     Ok(Commitment {
@@ -13,9 +14,10 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Commitment> {
         starts_at: row.get(3)?,
         ends_at: row.get(4)?,
         location: row.get(5)?,
-        source: row.get(6)?,
-        external_id: row.get(7)?,
-        hidden: row.get(8)?,
+        join_url: row.get(6)?,
+        source: row.get(7)?,
+        external_id: row.get(8)?,
+        hidden: row.get(9)?,
     })
 }
 
@@ -67,9 +69,9 @@ pub fn get(conn: &Connection, id: i64) -> AppResult<Commitment> {
 /// Stores a new commitment; its `id` is ignored and assigned by the database.
 pub fn insert(conn: &Connection, c: &Commitment) -> AppResult<()> {
     conn.execute(
-        "INSERT INTO commitments (title, area, starts_at, ends_at, location, source, external_id, hidden)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![c.title, c.area, c.starts_at, c.ends_at, c.location, c.source, c.external_id, c.hidden],
+        "INSERT INTO commitments (title, area, starts_at, ends_at, location, join_url, source, external_id, hidden)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![c.title, c.area, c.starts_at, c.ends_at, c.location, c.join_url, c.source, c.external_id, c.hidden],
     )?;
     Ok(())
 }
@@ -77,13 +79,14 @@ pub fn insert(conn: &Connection, c: &Commitment) -> AppResult<()> {
 pub fn update(conn: &Connection, c: &Commitment) -> AppResult<()> {
     conn.execute(
         "UPDATE commitments SET title = ?1, area = ?2, starts_at = ?3, ends_at = ?4, location = ?5,
-         hidden = ?6 WHERE id = ?7",
+         join_url = ?6, hidden = ?7 WHERE id = ?8",
         params![
             c.title,
             c.area,
             c.starts_at,
             c.ends_at,
             c.location,
+            c.join_url,
             c.hidden,
             c.id
         ],

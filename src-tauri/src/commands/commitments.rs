@@ -15,6 +15,7 @@ pub fn add_commitment(app: State<'_, App>, commitment: CommitmentInput) -> AppRe
         starts_at: commitment.starts_at,
         ends_at: commitment.ends_at,
         location: commitment.location,
+        join_url: commitment.join_url,
         source: "manual".to_owned(),
         external_id: None,
         hidden: false,

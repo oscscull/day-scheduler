@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::Config;
+use super::alerts::AlertSettings;
 use super::calendar::CalendarSettings;
 use super::github::GithubSettings;
 use crate::error::AppResult;
@@ -31,6 +32,7 @@ pub struct Settings {
     pub areas: Vec<Area>,
     pub github: GithubSettings,
     pub calendar: CalendarSettings,
+    pub alerts: AlertSettings,
 }
 
 impl Default for Settings {
@@ -46,6 +48,7 @@ impl Default for Settings {
             areas: Vec::new(),
             github: GithubSettings::default(),
             calendar: CalendarSettings::default(),
+            alerts: AlertSettings::default(),
         }
     }
 }
@@ -100,6 +103,7 @@ mod tests {
             areas: vec![area("work", "work-mac"), area("life", "home-mac")],
             github: GithubSettings::default(),
             calendar: CalendarSettings::default(),
+            alerts: AlertSettings::default(),
         }
     }
 
