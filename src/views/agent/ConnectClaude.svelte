@@ -1,12 +1,22 @@
 <script lang="ts">
   import { api } from "../../lib/api";
   import { t } from "../../lib/copy";
+  import type { ClaudeConnection } from "../../lib/types";
 
-  let command = $state("");
+  /** Reading Claude Code's config is cheap, so the card goes away soon after the command is run. */
+  const CHECK_MS = 3_000;
+
+  let connection = $state<ClaudeConnection | null>(null);
   let copied = $state(false);
+  const command = $derived(connection && connection.state !== "connected" ? connection.command : "");
 
   $effect(() => {
-    api.mcpConnectCommand().then((c) => (command = c)).catch(() => (command = ""));
+    const check = (): void => {
+      api.claudeConnection().then((c) => (connection = c)).catch(() => (connection = null));
+    };
+    check();
+    const timer = setInterval(check, CHECK_MS);
+    return () => clearInterval(timer);
   });
 
   async function copy(): Promise<void> {
@@ -22,7 +32,7 @@
 {#if command}
   <section aria-label={t("connect.title")}>
     <h2 class="section-label">{t("connect.title")}</h2>
-    <p class="hint">{t("connect.hint")}</p>
+    <p class="hint">{connection?.state === "elsewhere" ? t("connect.elsewhere") : t("connect.hint")}</p>
     <div class="box">
       <code class="mono">{command}</code>
       <button type="button" class="button-secondary" onclick={copy}>{copied ? t("connect.copied") : t("connect.copy")}</button>

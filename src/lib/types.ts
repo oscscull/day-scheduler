@@ -218,3 +218,9 @@ export interface Connection {
   lastSync: string | null;
   error: string | null;
 }
+
+/** Whether the user's own Claude Code sessions can reach Bridge. */
+export type ClaudeConnection =
+  | { state: "connected" }
+  | { state: "missing"; command: string }
+  | { state: "elsewhere"; command: string };

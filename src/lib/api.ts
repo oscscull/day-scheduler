@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  ClaudeConnection,
   AgentView,
   Area,
   Commitment,
@@ -19,7 +20,7 @@ export const api = {
   peers: () => invoke<{ name: string; error: string | null }[]>("peers"),
   peerCall: <T = unknown>(node: string, tool: string, args: object) =>
     invoke<T>("peer_call", { node, tool, args }),
-  mcpConnectCommand: () => invoke<string>("mcp_connect_command"),
+  claudeConnection: () => invoke<ClaudeConnection>("claude_connection"),
   dueAlert: () => invoke<Commitment | null>("due_alert"),
   alertDone: (id: number) => invoke<undefined>("alert_done", { id }),
   alertSnooze: (id: number) => invoke<undefined>("alert_snooze", { id }),

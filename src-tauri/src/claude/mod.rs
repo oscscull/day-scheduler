@@ -1,5 +1,6 @@
 //! Runs headless Claude Code (`claude -p`) on the user's own subscription.
 
+pub mod connect;
 pub mod draft;
 pub mod runner;
 
@@ -69,13 +70,4 @@ pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<
 /// Sends one prompt with only the Bridge tools.
 pub async fn ask(command: &str, prompt: &str) -> AppResult<String> {
     ask_with(command, prompt, &Ask::default()).await
-}
-
-/// The command a user runs once so their own Claude Code sessions can use Bridge.
-pub fn connect_command() -> AppResult<String> {
-    let exe = std::env::current_exe()?;
-    Ok(format!(
-        "claude mcp add --scope user bridge -- \"{}\" mcp",
-        exe.display()
-    ))
 }

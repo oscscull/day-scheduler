@@ -22,3 +22,8 @@ pub fn data_dir() -> AppResult<PathBuf> {
 pub fn config_dir() -> AppResult<PathBuf> {
     Ok(home()?.join(".config/bridge"))
 }
+
+/// Claude Code's user config, where `claude mcp add --scope user` registers servers.
+pub fn claude_config() -> AppResult<PathBuf> {
+    Ok(home()?.join(".claude.json"))
+}

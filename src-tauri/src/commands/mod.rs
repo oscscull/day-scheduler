@@ -30,7 +30,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         alerts::due_alert,
         alerts::alert_done,
         alerts::alert_snooze,
-        connect::mcp_connect_command,
+        connect::claude_connection,
         screens::today,
         commitments::add_commitment,
         commitments::delete_commitment,
