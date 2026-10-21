@@ -56,7 +56,7 @@ Each node has a config directory (default `~/.config/bridge/`), watched for chan
 
 ```
 ~/.config/bridge/
-  bridge.toml            # node name, peers, poll intervals, WIP cap: mechanical settings only
+  bridge.toml            # node name, peers, poll intervals: mechanical settings only
   policies/
     intake.md            # what becomes a work item (Jira assigned to me? my open PRs? starred Slack?)
     autonomy.md          # when a routine may act alone vs. must raise an Ask
@@ -131,7 +131,7 @@ clicking. Computer use against the UI stays available as a fallback.
 ## Views
 
 1. **Board.** Items grouped by status. Each card shows title, state label, time in state, node.
-   Aging is visible: stale items stand out. A soft WIP cap warns when too much is in progress.
+   Aging is visible: stale items stand out.
 2. **Item detail.** Links, condensed history, PR comments and CI, related runs, open asks.
 3. **Today.** Calendar, the day's routine schedule, new mentions and review requests.
 4. **Needs you.** Every open Ask across all nodes, answerable inline.
