@@ -55,14 +55,14 @@ fn priority(item: &WorkItem, reason: Reason) -> Priority {
     }
 }
 
-/// Asks on the item, or the item itself when it waits on the user's decision.
+/// Asks on the item, or the item itself when it waits on the user: a decision, or a merge.
 fn needs_you(item: &WorkItem, asks: &[Ask]) -> Vec<Priority> {
     let mine: Vec<Priority> = asks
         .iter()
         .filter(|a| a.item_id == item.id)
         .map(|a| priority(item, Reason::Ask { ask: a.clone() }))
         .collect();
-    if mine.is_empty() && item.status == Some(Status::Decision) {
+    if mine.is_empty() && matches!(item.status, Some(Status::Decision | Status::Approved)) {
         return vec![priority(item, Reason::Decision)];
     }
     mine
@@ -139,11 +139,12 @@ mod tests {
             item("asked", None, 1),
             item("fresh", Some(Status::Review), 2),
             item("broken", Some(Status::CiFailed), 1),
+            item("ready", Some(Status::Approved), 1),
         ];
         let asks = [ask(7, "asked")];
         assert_eq!(
             kinds(&priorities(&items, &asks, RULES())),
-            ["decide mine", "ask7", "nudge stale"]
+            ["decide mine", "ask7", "decide ready", "nudge stale"]
         );
     }
 

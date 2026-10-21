@@ -10,31 +10,39 @@ use std::io::Read as _;
 
 use crate::error::AppResult;
 
-const HEX: &[u8; 16] = b"0123456789abcdef";
+/// 1024 short, common English words: each one picked is 10 bits.
+const WORDS: &str = include_str!("words.txt");
+/// Five words, about 50 bits: plenty for a token that only works on this network.
+const TOKEN_WORDS: usize = 5;
 
-/// A random token for `[sync] token`, from the system's random source.
+/// A random token for `[sync] token` that a person can read off one screen and type on another,
+/// e.g. `maple-river-copper-lantern-swift`.
 pub fn new_token() -> AppResult<String> {
-    let mut bytes = [0_u8; 24];
+    let words: Vec<&str> = WORDS.lines().filter(|w| !w.is_empty()).collect();
+    let mut bytes = [0_u8; TOKEN_WORDS * 2];
     std::fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
-    let hex = bytes.iter().fold(String::with_capacity(48), |mut out, b| {
-        out.extend(
-            [HEX.get(usize::from(b >> 4)), HEX.get(usize::from(b & 0xf))]
-                .into_iter()
-                .flatten()
-                .map(|&c| char::from(c)),
-        );
-        out
-    });
-    Ok(hex)
+    // The list has exactly 1024 words, so masking to 10 bits picks one without bias.
+    let picked: Vec<&str> = bytes
+        .chunks_exact(2)
+        .filter_map(|pair| {
+            let [hi, lo] = [*pair.first()?, *pair.get(1)?];
+            words
+                .get(usize::from(u16::from_be_bytes([hi, lo]) & 0x03ff))
+                .copied()
+        })
+        .collect();
+    Ok(picked.join("-"))
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
-    fn tokens_are_long_hex_and_differ() {
+    fn tokens_are_five_listed_words_and_differ() {
+        let words: Vec<&str> = super::WORDS.lines().collect();
+        assert_eq!(words.len(), 1024);
         let (a, b) = (super::new_token().unwrap(), super::new_token().unwrap());
-        assert_eq!(a.len(), 48);
-        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(a.split('-').count(), 5);
+        assert!(a.split('-').all(|w| words.contains(&w)));
         assert_ne!(a, b);
     }
 }

@@ -23,6 +23,8 @@ pub enum Status {
     /// CI failed: an agent should be fixing it.
     CiFailed,
     Dependency,
+    /// Approved with CI passing: the user can merge it.
+    Approved,
     Proceeding,
     Queued,
 }

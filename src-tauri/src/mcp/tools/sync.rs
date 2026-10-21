@@ -25,6 +25,12 @@ pub fn tools() -> Vec<Tool> {
         tool("set_sync", ENABLE, set_sync),
         tool("add_peer", ADD, add_peer),
         tool(
+            "new_sync_token",
+            "Replaces this machine's sync token with five fresh random words and returns them. Peers \
+             using the old token stop working until they're given the new one (add_peer again).",
+            new_token,
+        ),
+        tool(
             "remove_peer",
             "Forgets another machine, by name.",
             remove_peer,
@@ -80,4 +86,10 @@ struct NameArgs {
 
 fn remove_peer(ctx: &Ctx, args: NameArgs) -> AppResult<()> {
     edit::remove_peer(&ctx.config, &args.name)
+}
+
+fn new_token(ctx: &Ctx, _: NoArgs) -> AppResult<String> {
+    let token = crate::peers::new_token()?;
+    edit::set_sync_token(&ctx.config, &token)?;
+    Ok(token)
 }

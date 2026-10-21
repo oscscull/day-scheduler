@@ -9,6 +9,7 @@
   "status.review": "Review",
   "status.ci": "CI running",
   "status.dependency": "Dependency",
+  "status.approved": "Ready to merge",
   "status.proceeding": "Proceeding",
   "status.queued": "Queued",
   "stage.up_next": "Up next",

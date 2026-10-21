@@ -53,7 +53,7 @@ fn state(pr: &Pr) -> (Option<Status>, &'static str, &'static str) {
     }
     match pr.review.as_deref() {
         Some("CHANGES_REQUESTED") => (None, "changes requested", "you"),
-        Some("APPROVED") => (None, "approved, ready to merge", "you"),
+        Some("APPROVED") => (Some(Status::Approved), "approved, ready to merge", "you"),
         _ => (Some(Status::Review), "waiting on review", "reviewers"),
     }
 }

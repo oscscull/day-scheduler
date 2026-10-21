@@ -1,7 +1,7 @@
 // Mirrors the Rust types the backend sends. Keep in step with src-tauri/src/domain and views.
 
 export type Stage = "up_next" | "in_progress" | "in_review" | "done";
-export type Status = "decision" | "review" | "ci" | "ci_failed" | "dependency" | "proceeding" | "queued";
+export type Status = "decision" | "review" | "ci" | "ci_failed" | "dependency" | "approved" | "proceeding" | "queued";
 
 export interface WorkItem {
   /** Set when it lives on another machine; edits go back there. */

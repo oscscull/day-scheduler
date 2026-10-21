@@ -30,23 +30,20 @@ use tauri::Manager as _;
 
 /// Starts serving peers when `[sync]` is enabled, making a token the first time.
 fn start_sync(config: &config::Config) -> error::AppResult<()> {
-    let mut sync = config::settings::load(config)?.sync;
+    let sync = config::settings::load(config)?.sync;
     if !sync.enabled {
         return Ok(());
     }
-    sync.token = start_token(config)?;
-    peers::server::spawn(sync.listen(), sync.token)
+    start_token(config)?;
+    peers::server::spawn(sync.listen())
 }
 
-/// The sync token, made and saved the first time it's needed.
-fn start_token(config: &config::Config) -> error::AppResult<String> {
-    let token = config::settings::load(config)?.sync.token;
-    if !token.is_empty() {
-        return Ok(token);
+/// Makes and saves the sync token the first time it's needed.
+fn start_token(config: &config::Config) -> error::AppResult<()> {
+    if config::settings::load(config)?.sync.token.is_empty() {
+        config::edit::set_sync_token(config, &peers::new_token()?)?;
     }
-    let fresh = peers::new_token()?;
-    config::edit::set_sync_token(config, &fresh)?;
-    Ok(fresh)
+    Ok(())
 }
 
 fn settings_for_login(config: &config::Config) -> bool {
@@ -91,9 +88,8 @@ pub fn serve_peers() -> std::process::ExitCode {
     let started = paths::config_dir()
         .and_then(config::Config::open)
         .and_then(|config| {
-            let token = start_token(&config)?;
-            let listen = config::settings::load(&config)?.sync.listen();
-            peers::server::run(listen, &token)
+            start_token(&config)?;
+            peers::server::run(config::settings::load(&config)?.sync.listen())
         });
     if started.is_ok() {
         std::process::ExitCode::SUCCESS

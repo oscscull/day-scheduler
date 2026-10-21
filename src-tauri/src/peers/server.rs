@@ -19,27 +19,29 @@ fn bind(listen: Listen) -> AppResult<Server> {
 }
 
 /// Starts the server on its own thread for as long as the app runs.
-pub fn spawn(listen: Listen, token: String) -> AppResult<()> {
+pub fn spawn(listen: Listen) -> AppResult<()> {
     let server = bind(listen)?;
     std::thread::spawn(move || {
         if let Ok(ctx) = Ctx::open() {
-            serve(&server, &ctx, &token);
+            serve(&server, &ctx);
         }
     });
     Ok(())
 }
 
 /// Serves in the foreground until the process ends, for `<binary> serve` on a headless machine.
-pub fn run(listen: Listen, token: &str) -> AppResult<()> {
+pub fn run(listen: Listen) -> AppResult<()> {
     let server = bind(listen)?;
-    serve(&server, &Ctx::open()?, token);
+    serve(&server, &Ctx::open()?);
     Ok(())
 }
 
-fn serve(server: &Server, ctx: &Ctx, token: &str) {
+fn serve(server: &Server, ctx: &Ctx) {
     let tools = mcp::registry();
     for mut request in server.incoming_requests() {
-        let reply = respond(ctx, &tools, token, &mut request);
+        // Read fresh each time, so a new token (`new_sync_token`) works without a restart.
+        let token = ctx.settings().map(|s| s.sync.token).unwrap_or_default();
+        let reply = respond(ctx, &tools, &token, &mut request);
         // A peer that hung up doesn't need its answer.
         drop(request.respond(reply));
     }
@@ -138,9 +140,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("quarterdeck-peer-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
         let ctx = Ctx::at(&dir.join("data"), dir.join("config")).unwrap();
+        crate::config::edit::set_sync_token(&ctx.config, "secret").unwrap();
         let server = Server::http("127.0.0.1:0").unwrap();
         let port = server.server_addr().to_ip().unwrap().port();
-        std::thread::spawn(move || serve(&server, &ctx, "secret"));
+        std::thread::spawn(move || serve(&server, &ctx));
         let good = peer_on(port, "secret");
         client::call(
             &good,
