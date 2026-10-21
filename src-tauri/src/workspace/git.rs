@@ -1,14 +1,14 @@
-//! Creating and removing worktrees with `git`, and finding a PR's branch with `gh`.
+//! Creating worktrees with `git`, and finding a PR's branch or a repo's default branch with `gh`.
 
 use std::path::Path;
 
 use tokio::process::Command;
 
-use super::Workspace;
+use super::{Kind, Workspace};
 use crate::cli;
 use crate::error::{AppError, AppResult};
 
-async fn run(program: &str, dir: &Path, args: &[&str]) -> AppResult<String> {
+pub(super) async fn run(program: &str, dir: &Path, args: &[&str]) -> AppResult<String> {
     let out = Command::new(cli::resolve(program))
         .current_dir(dir)
         .args(args)
@@ -25,35 +25,79 @@ async fn run(program: &str, dir: &Path, args: &[&str]) -> AppResult<String> {
     }
 }
 
-/// Makes the item's worktree at the PR's latest commit, unless it exists. The head is detached so
-/// the branch can stay checked out in the user's own checkout; Claude pushes with `HEAD:<branch>`.
-pub async fn prepare(ws: &Workspace) -> AppResult<()> {
-    if ws.dir.exists() {
-        return Ok(());
-    }
+/// The PR's head branch.
+pub(super) async fn pr_branch(ws: &Workspace) -> AppResult<String> {
     let number = ws.number.to_string();
+    let repo = ws.repo.as_str();
     let view = [
         "pr",
         "view",
         number.as_str(),
         "--repo",
-        ws.repo.as_str(),
+        repo,
         "--json",
         "headRefName",
         "--jq",
         ".headRefName",
     ];
-    let branch = run("gh", &ws.project, &view).await?;
+    run("gh", &ws.project, &view).await
+}
+
+pub(super) async fn default_branch(ws: &Workspace) -> AppResult<String> {
+    let jq = ".defaultBranchRef.name";
+    let view = [
+        "repo",
+        "view",
+        ws.repo.as_str(),
+        "--json",
+        "defaultBranchRef",
+        "--jq",
+        jq,
+    ];
+    run("gh", &ws.project, &view).await
+}
+
+/// Makes the item's worktree, unless it exists.
+pub async fn prepare(ws: &Workspace) -> AppResult<()> {
+    if ws.dir.exists() {
+        return Ok(());
+    }
+    match ws.kind {
+        Kind::Pr => prepare_pr(ws).await?,
+        Kind::Issue => prepare_issue(ws).await?,
+    }
+    copy_local_settings(ws)
+}
+
+/// At the PR's latest commit. The head is detached so the branch can stay checked out in the
+/// user's own checkout; pushes go to `HEAD:<branch>`.
+async fn prepare_pr(ws: &Workspace) -> AppResult<()> {
+    let branch = pr_branch(ws).await?;
     run("git", &ws.project, &["fetch", "origin", branch.as_str()]).await?;
     let dir = ws.dir.display().to_string();
     let start = format!("origin/{branch}");
-    run(
-        "git",
-        &ws.project,
-        &["worktree", "add", "--detach", dir.as_str(), start.as_str()],
-    )
-    .await?;
-    copy_local_settings(ws)
+    let add = ["worktree", "add", "--detach", dir.as_str(), start.as_str()];
+    run("git", &ws.project, &add).await.map(drop)
+}
+
+/// On the issue's own branch: reused if an earlier worktree left it, otherwise new from the latest
+/// default branch, with no upstream so nothing pushes to the default branch by accident.
+async fn prepare_issue(ws: &Workspace) -> AppResult<()> {
+    let base = default_branch(ws).await?;
+    run("git", &ws.project, &["fetch", "origin", base.as_str()]).await?;
+    let dir = ws.dir.display().to_string();
+    let branch = ws.issue_branch();
+    let local = format!("refs/heads/{branch}");
+    let verify = ["rev-parse", "--verify", "--quiet", local.as_str()];
+    let exists = run("git", &ws.project, &verify).await.is_ok();
+    let start = format!("origin/{base}");
+    let (dir, branch, start) = (dir.as_str(), branch.as_str(), start.as_str());
+    let add = if exists {
+        vec!["worktree", "add", dir, branch]
+    } else {
+        vec!["worktree", "add", "--no-track", "-b", branch, dir, start]
+    };
+    run("git", &ws.project, &add).await.map(drop)
 }
 
 /// The user's personal Claude permissions for the project aren't in git, so bring them along.

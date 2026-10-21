@@ -1,20 +1,25 @@
-//! Work Quarterdeck starts on a PR runs in that repo's project, in a git worktree of its own per item.
-//! The user's checkout is never touched, and the project's own Claude settings apply. A worktree
-//! lives while its item is open.
+//! Work Quarterdeck starts on a PR, or on an item linking a GitHub issue, runs in that repo's project,
+//! in a git worktree of its own per item. The user's checkout is never touched, and the project's
+//! own Claude settings apply. A worktree lives while its item is open.
 
 mod git;
+mod issue;
+mod publish;
 mod sweep;
+mod target;
 
 use std::path::PathBuf;
 
 pub use git::prepare;
+pub use issue::text as issue_text;
+pub use publish::{Published, publish};
 pub use sweep::sweep;
+pub use target::Kind;
 
 use crate::config::Config;
 use crate::config::projects;
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
-use crate::connectors::github;
 use crate::domain::item::WorkItem;
 use crate::domain::session::SessionRef;
 use crate::error::AppResult;
@@ -26,7 +31,9 @@ pub struct Workspace {
     /// The user's checkout of the repo.
     pub project: PathBuf,
     pub repo: String,
+    /// The PR's or the issue's number.
     pub number: u64,
+    pub kind: Kind,
     /// The item's own worktree.
     pub dir: PathBuf,
 }
@@ -43,6 +50,11 @@ impl Workspace {
     pub fn holds(&self, session: &SessionRef) -> bool {
         session.cwd.as_deref().map(PathBuf::from) == Some(self.dir.clone())
     }
+
+    /// The branch Quarterdeck makes to fix an issue.
+    pub fn issue_branch(&self) -> String {
+        format!("issue-{}", self.number)
+    }
 }
 
 fn root() -> AppResult<PathBuf> {
@@ -57,27 +69,20 @@ fn folder(item_id: &str) -> String {
         .collect()
 }
 
-/// `owner/repo` and the PR number from a GitHub item's external id, `owner/repo#12`.
-fn pr_of(item: &WorkItem) -> Option<(&str, u64)> {
-    if item.source != github::SOURCE {
-        return None;
-    }
-    let (repo, number) = item.external_id.as_deref()?.split_once('#')?;
-    Some((repo, number.parse().ok()?))
-}
-
-/// The workspace for an item, if it's a PR in a repo with a project on this machine.
+/// The workspace for an item, if it's a PR, or links an issue, in a repo with a project on this
+/// machine.
 pub fn for_item(settings: &Settings, item: &WorkItem) -> AppResult<Option<Workspace>> {
-    let Some((repo, number)) = pr_of(item) else {
+    let Some(t) = target::of(item) else {
         return Ok(None);
     };
-    let Some(project) = projects::find(&settings.projects, repo) else {
+    let Some(project) = projects::find(&settings.projects, &t.repo) else {
         return Ok(None);
     };
     Ok(Some(Workspace {
         project: project.dir(),
-        repo: repo.to_owned(),
-        number,
+        repo: t.repo,
+        number: t.number,
+        kind: t.kind,
         dir: root()?.join(folder(&item.id)),
     }))
 }
@@ -88,8 +93,17 @@ pub fn describe(config: &Config, ws: Option<&Workspace>) -> AppResult<String> {
         || render(config, Prompt::NoWorkspace, &[]),
         |ws| {
             let number = ws.number.to_string();
-            let vars = [("repo", ws.repo.as_str()), ("number", number.as_str())];
-            render(config, Prompt::Workspace, &vars)
+            let branch = ws.issue_branch();
+            let vars = [
+                ("repo", ws.repo.as_str()),
+                ("number", number.as_str()),
+                ("branch", branch.as_str()),
+            ];
+            let prompt = match ws.kind {
+                Kind::Pr => Prompt::Workspace,
+                Kind::Issue => Prompt::IssueWorkspace,
+            };
+            render(config, prompt, &vars)
         },
     )
 }
@@ -98,8 +112,51 @@ pub fn describe(config: &Config, ws: Option<&Workspace>) -> AppResult<String> {
 mod tests {
     use super::*;
 
+    use crate::config::projects::Project;
+    use crate::domain::item::Stage;
+
     #[test]
     fn folders_are_safe_names() {
         assert_eq!(folder("labbase-webapp#1928"), "labbase-webapp-1928");
+    }
+
+    fn issue_item(link: &str) -> WorkItem {
+        WorkItem {
+            id: "baseddsl#178".to_owned(),
+            title: "t".to_owned(),
+            state_label: String::new(),
+            stage: Stage::UpNext,
+            status: None,
+            holder: String::new(),
+            area: "projects".to_owned(),
+            link: Some(link.to_owned()),
+            source: "manual".to_owned(),
+            external_id: None,
+            opened_at: chrono::Utc::now(),
+            state_since: chrono::Utc::now(),
+            rank: 0,
+        }
+    }
+
+    #[test]
+    fn issues_in_known_projects_get_a_branch_of_their_own() {
+        let settings = Settings {
+            projects: vec![Project {
+                repo: "OscScull/BasedDSL".to_owned(),
+                path: "/code/baseddsl".to_owned(),
+            }],
+            ..Settings::default()
+        };
+        let item = issue_item("https://github.com/oscscull/baseddsl/issues/178");
+        let ws = for_item(&settings, &item).unwrap().unwrap();
+        assert_eq!(
+            (ws.kind, ws.number, ws.issue_branch()),
+            (Kind::Issue, 178, "issue-178".to_owned())
+        );
+        assert_eq!(ws.project, PathBuf::from("/code/baseddsl"));
+        assert!(ws.dir.ends_with("worktrees/baseddsl-178"));
+
+        let elsewhere = issue_item("https://github.com/someone/else/issues/1");
+        assert!(for_item(&settings, &elsewhere).unwrap().is_none());
     }
 }

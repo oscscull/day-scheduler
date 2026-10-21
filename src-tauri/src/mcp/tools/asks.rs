@@ -38,7 +38,8 @@ pub fn tools() -> Vec<Tool> {
         tool(
             "tell_claude",
             "Passes the user's instruction about an item to Claude, e.g. \"merge develop in\". Quarterdeck \
-             resumes the session working on it, or starts one in the repo's project. Use when the \
+             resumes the session working on it, or starts one in the repo's project (for an item \
+             linking a GitHub issue: on a new branch, ending in a PR Quarterdeck opens). Use when the \
              user tells you what should happen to an item that you won't do yourself in this session.",
             tell,
         ),

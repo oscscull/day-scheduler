@@ -1,5 +1,6 @@
 //! GitHub: the user's open PRs become items, and changes on them fire event schedules.
 
+mod adopt;
 mod apply;
 mod checks;
 mod fetch;
@@ -15,6 +16,7 @@ use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
 use crate::store::items;
 
+pub use adopt::{OpenedPr, adopt};
 pub use apply::SOURCE;
 
 /// One event on one PR, for starting event schedules.
