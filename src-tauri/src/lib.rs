@@ -23,6 +23,7 @@ mod today;
 mod views;
 mod watchdog;
 mod work;
+mod workspace;
 
 use tauri::Manager as _;
 

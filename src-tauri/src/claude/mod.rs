@@ -29,6 +29,9 @@ pub struct Ask<'a> {
     pub session: Session<'a>,
     /// The folder to run in. A resumed session must run where it started.
     pub cwd: Option<&'a str>,
+    /// Claude Code's `--permission-mode`, e.g. `acceptEdits`. Commands still need the project's
+    /// own permission rules.
+    pub permission_mode: Option<&'a str>,
 }
 
 /// Which Claude Code session a run belongs to.
@@ -56,6 +59,9 @@ pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<
         .arg(allowed.join(","));
     if let Some(dir) = opts.cwd {
         cmd.current_dir(dir);
+    }
+    if let Some(mode) = opts.permission_mode {
+        cmd.arg("--permission-mode").arg(mode);
     }
     match opts.session {
         Session::Fresh => {}

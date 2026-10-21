@@ -5,6 +5,7 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use super::Config;
 use super::calendar::Feed;
+use super::projects::Project;
 use super::settings::{self, Area};
 use super::sync::Peer;
 use crate::error::{AppError, AppResult};
@@ -74,6 +75,26 @@ pub fn upsert_area(config: &Config, area: &Area) -> AppResult<()> {
         t.insert("color", value(&area.color));
         t.insert("node", value(&area.node));
         replace_or_push(list, "id", &area.id, t);
+        Ok(())
+    })
+}
+
+/// Adds a project, or changes the folder of the one for the same repo.
+pub fn upsert_project(config: &Config, project: &Project) -> AppResult<()> {
+    edit(config, |doc| {
+        let list = tables(doc.as_table_mut(), "projects")?;
+        let mut t = Table::new();
+        t.insert("repo", value(&project.repo));
+        t.insert("path", value(&project.path));
+        replace_or_push(list, "repo", &project.repo, t);
+        Ok(())
+    })
+}
+
+pub fn remove_project(config: &Config, repo: &str) -> AppResult<()> {
+    edit(config, |doc| {
+        tables(doc.as_table_mut(), "projects")?
+            .retain(|p| p.get("repo").and_then(Item::as_str) != Some(repo));
         Ok(())
     })
 }

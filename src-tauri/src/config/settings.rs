@@ -1,3 +1,4 @@
+use super::projects::Project;
 use serde::{Deserialize, Serialize};
 
 use super::Config;
@@ -41,6 +42,7 @@ pub struct Settings {
     pub launch_at_login: bool,
     pub sync: SyncSettings,
     pub watchdog: WatchdogSettings,
+    pub projects: Vec<Project>,
 }
 
 impl Default for Settings {
@@ -61,6 +63,7 @@ impl Default for Settings {
             launch_at_login: true,
             sync: SyncSettings::default(),
             watchdog: WatchdogSettings::default(),
+            projects: Vec::new(),
         }
     }
 }
@@ -126,6 +129,7 @@ mod tests {
             launch_at_login: true,
             sync: SyncSettings::default(),
             watchdog: WatchdogSettings::default(),
+            projects: Vec::new(),
         }
     }
 

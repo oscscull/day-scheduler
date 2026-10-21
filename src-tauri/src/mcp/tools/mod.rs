@@ -8,6 +8,7 @@ mod asks;
 mod commitments;
 mod items;
 mod overview;
+mod projects;
 mod schedules;
 mod settings;
 mod sync;
@@ -34,6 +35,7 @@ pub fn all() -> Vec<Tool> {
         settings::tools(),
         sync::tools(),
         watch::tools(),
+        projects::tools(),
     ]
     .into_iter()
     .flatten()

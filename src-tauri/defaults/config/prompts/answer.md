@@ -1,8 +1,11 @@
-Bridge here. The user answered your question on {{item}}.
+Bridge here. The user answered a question on {{item}} ("{{title}}", {{link}}).
 
-You asked: {{question}}
-They answered: {{answer}}
+Question: {{question}}
+Background: {{context}}
+Answer: {{answer}}
 
-Carry on accordingly, posting progress with add_note and update_item. If this run can't do the
-work (missing tools or repo access), say what's needed with add_ask rather than stopping silently.
-Reply with one short sentence.
+{{workspace}}
+
+Act on the answer, posting progress with add_note and keeping update_item's state label current.
+If you can't do the work here, say what's needed with add_ask rather than stopping silently.
+Don't poll CI: Bridge resumes this session when it finishes. Reply with one short sentence.

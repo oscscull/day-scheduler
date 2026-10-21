@@ -78,6 +78,16 @@ on Today or the item. The answer goes on the item's history, and the scheduler r
 that asked (or the one holding the item) with it (`prompts/answer.md`). Sessions are stored with
 their working directory, since Claude only resumes a session from the folder it ran in.
 
+Work Bridge starts on a PR (fixing CI, acting on an answer) runs in that repo's project when
+`[[projects]]` maps it to a checkout (`set_project`): in a git worktree per item under the data
+folder, detached at the PR's head so the user's checkout is untouched, with edits allowed and
+commands limited to the project's own Claude permissions (`.claude/settings.local.json` is copied
+in). Worktrees are removed once their item is done. Repos with no project get a run that can read
+CI but not change code.
+
+Default prompt files Bridge wrote and nobody has edited follow newer defaults
+(`.bridge-defaults` records what it wrote); edited ones, and `bridge.toml`, are left alone.
+
 ## Not built yet
 
 - A database layer on baseddsl, once it can adopt existing databases.

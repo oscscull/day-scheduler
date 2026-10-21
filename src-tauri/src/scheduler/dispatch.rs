@@ -10,6 +10,7 @@ use crate::domain::run::{Outcome, Run};
 use crate::domain::session::SessionRef;
 use crate::error::AppResult;
 use crate::store::runs;
+use crate::workspace::{self, Workspace};
 
 /// Whether a run continues a session or starts one Bridge can come back to.
 #[derive(Debug, Clone)]
@@ -35,6 +36,32 @@ pub struct Job {
     pub thread: Thread,
     /// Claude Code tools it may use besides the Bridge tools.
     pub tools: Vec<String>,
+    /// The worktree to make first, for work in a project. Edits are allowed there.
+    pub workspace: Option<Workspace>,
+}
+
+impl Job {
+    pub const fn new(what: &'static str, item_id: String, prompt: String, thread: Thread) -> Self {
+        Self {
+            what,
+            item_id,
+            prompt,
+            thread,
+            tools: Vec::new(),
+            workspace: None,
+        }
+    }
+
+    pub fn with_tools(self, tools: &[String]) -> Self {
+        Self {
+            tools: tools.to_vec(),
+            ..self
+        }
+    }
+
+    pub fn in_workspace(self, workspace: Option<Workspace>) -> Self {
+        Self { workspace, ..self }
+    }
 }
 
 fn start_record(handle: &AppHandle, settings: &Settings, job: &Job) -> AppResult<i64> {
@@ -62,6 +89,11 @@ fn first_line(text: &str) -> String {
 }
 
 async fn ask(command: &str, job: &Job) -> String {
+    if let Some(ws) = &job.workspace
+        && let Err(e) = workspace::prepare(ws).await
+    {
+        return format!("failed: couldn't make the worktree: {e}");
+    }
     let s = job.thread.session();
     let session = match job.thread {
         Thread::Start(_) => Session::Start(&s.id),
@@ -71,6 +103,7 @@ async fn ask(command: &str, job: &Job) -> String {
         tools: &job.tools,
         session,
         cwd: s.cwd.as_deref(),
+        permission_mode: job.workspace.as_ref().map(|_| "acceptEdits"),
     };
     match claude::ask_with(command, &job.prompt, &opts).await {
         Ok(text) => first_line(&text),

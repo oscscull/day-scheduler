@@ -1,6 +1,7 @@
-//! Default config files, embedded in the binary and written on first run.
-//! Existing files are never overwritten, so user and agent edits survive updates.
+//! Default config files, embedded in the binary and written on first run. A file Bridge wrote and
+//! nobody has edited since follows newer defaults; once edited, it is never overwritten.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::error::AppResult;
@@ -14,7 +15,7 @@ macro_rules! default_file {
     };
 }
 
-const FILES: [(&str, &str); 10] = [
+const FILES: [(&str, &str); 12] = [
     default_file!("README.md"),
     default_file!("bridge.toml"),
     default_file!("prompts/chat.md"),
@@ -25,24 +26,96 @@ const FILES: [(&str, &str); 10] = [
     default_file!("prompts/fix-ci.md"),
     default_file!("prompts/ci-done.md"),
     default_file!("prompts/answer.md"),
+    default_file!("prompts/workspace.md"),
+    default_file!("prompts/no-workspace.md"),
 ];
 
 /// Folders that must exist even when empty.
 const DIRS: [&str; 2] = ["schedules", "inbox"];
 
+/// Bridge's record of what it last wrote to each default file, as content fingerprints.
+const LEDGER: &str = ".bridge-defaults";
+
+/// Rewritten freely by people and agents, so never replaced once it exists.
+const NEVER_REPLACED: &str = "bridge.toml";
+
+/// FNV-1a: stable across builds, unlike the standard library's hasher.
+fn fingerprint(text: &str) -> String {
+    let hash = text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    });
+    format!("{hash:016x}")
+}
+
+fn read_ledger(root: &Path) -> BTreeMap<String, String> {
+    let text = std::fs::read_to_string(root.join(LEDGER)).unwrap_or_default();
+    text.lines()
+        .filter_map(|l| l.split_once(' '))
+        .map(|(path, hash)| (path.to_owned(), hash.to_owned()))
+        .collect()
+}
+
+fn write_ledger(root: &Path, ledger: &BTreeMap<String, String>) -> AppResult<()> {
+    let header =
+        "# Written by Bridge: which default files it wrote, so it can update the unedited ones.\n";
+    let text = ledger.iter().fold(header.to_owned(), |acc, (path, hash)| {
+        acc + path + " " + hash + "\n"
+    });
+    Ok(std::fs::write(root.join(LEDGER), text)?)
+}
+
+/// Whether to (re)write a default: missing, or unedited since Bridge wrote an older version.
+fn should_write(current: Option<&str>, recorded: Option<&String>, relative: &str) -> bool {
+    match current {
+        None => true,
+        Some(_) if relative == NEVER_REPLACED => false,
+        Some(text) => recorded == Some(&fingerprint(text)),
+    }
+}
+
 pub fn write_missing(root: &Path) -> AppResult<()> {
     for dir in DIRS {
         std::fs::create_dir_all(root.join(dir))?;
     }
+    let mut ledger = read_ledger(root);
     for (relative, contents) in FILES {
         let path = root.join(relative);
-        if path.exists() {
+        let current = std::fs::read_to_string(&path).ok();
+        if current.as_deref() == Some(contents) {
+            ledger.insert(relative.to_owned(), fingerprint(contents));
+            continue;
+        }
+        if !should_write(current.as_deref(), ledger.get(relative), relative) {
             continue;
         }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(path, contents)?;
+        ledger.insert(relative.to_owned(), fingerprint(contents));
     }
-    Ok(())
+    write_ledger(root, &ledger)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_unedited_defaults_follow_updates() {
+        let old = fingerprint("old default");
+        assert!(should_write(None, None, "prompts/a.md"));
+        assert!(should_write(
+            Some("old default"),
+            Some(&old),
+            "prompts/a.md"
+        ));
+        assert!(!should_write(Some("my edit"), Some(&old), "prompts/a.md"));
+        assert!(!should_write(Some("unknown"), None, "prompts/a.md"));
+        assert!(!should_write(
+            Some("old default"),
+            Some(&old),
+            "bridge.toml"
+        ));
+    }
 }

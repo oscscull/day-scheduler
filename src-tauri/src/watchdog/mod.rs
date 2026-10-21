@@ -109,6 +109,7 @@ fn nudge(handle: &AppHandle, item: &WorkItem, w: &Watch, quiet: Duration) -> App
                         .as_ref()
                         .map_or(Session::Fresh, |s| Session::Resume(&s.id)),
                     cwd: session.as_ref().and_then(|s| s.cwd.as_deref()),
+                    permission_mode: None,
                 },
             )
             .await,
