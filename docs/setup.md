@@ -25,9 +25,12 @@ connectors and schedules only run for areas whose `node` is this machine.
 1. Give each machine a different `node`, and the same `[[areas]]` list on both.
 2. On each machine, turn sharing on: `[sync] enabled = true` (or Claude: `set_sync`), then restart
    Quarterdeck. A token is written to `[sync] token`; `get_sync_info` shows it.
-3. Expose each machine's port (default 4791, localhost only) with a tunnel. For example
-   `tailscale serve --bg 4791` (then use `https://<machine>.<tailnet>.ts.net`), or
-   `ssh -N -L 4792:localhost:4791 other-mac` (then use `http://localhost:4792`).
+3. Expose each machine's port (default 4791, localhost only) with a tunnel. With Tailscale, enable
+   Serve for the tailnet once (the command prints the link), then on each machine run
+   `tailscale serve --bg --tcp 4791 tcp://localhost:4791` and use
+   `http://<machine>.<tailnet>.ts.net:4791`. (The HTTPS form, `tailscale serve --bg 4791`, also
+   works but needs Tailscale's certificate service reachable; it fails on some networks.) Or use
+   `ssh -N -L 4792:localhost:4791 other-mac` (then `http://localhost:4792`).
 4. On each machine, add the other as a peer: Claude `add_peer` with its `node` name, URL and token,
    or a `[[sync.peers]]` entry in `quarterdeck.toml`.
 5. The Agent tab's Connections list shows whether each peer answers.
