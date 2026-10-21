@@ -101,8 +101,9 @@ struct AnswerArgs {
 }
 
 fn answer(ctx: &Ctx, args: AnswerArgs) -> AppResult<()> {
+    let settings = ctx.settings()?;
     ctx.db
-        .with(|c| crate::answer::give(c, args.ask_id, &args.answer, Utc::now()))
+        .with(|c| crate::answer::give(c, &settings, args.ask_id, &args.answer))
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -121,6 +122,7 @@ struct TellArgs {
 }
 
 fn tell(ctx: &Ctx, args: TellArgs) -> AppResult<()> {
+    let settings = ctx.settings()?;
     ctx.db
-        .with(|c| crate::answer::tell(c, &args.item_id, &args.text, Utc::now()))
+        .with(|c| crate::answer::tell(c, &settings, &args.item_id, &args.text))
 }

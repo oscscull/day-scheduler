@@ -3,8 +3,6 @@
 //! starts there with the question and answer. Elsewhere the session that asked, or the one holding
 //! the item, is resumed. With nobody to tell, the answer just stays on the item's history.
 
-use chrono::Utc;
-use rusqlite::Connection;
 use tauri::{AppHandle, Manager as _};
 
 use super::dispatch::{self, Job, Thread};
@@ -12,11 +10,10 @@ use crate::app::App;
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
 use crate::domain::ask::Answered;
-use crate::domain::item::{ItemInput, Status, WorkItem};
+use crate::domain::item::WorkItem;
 use crate::domain::session::SessionRef;
 use crate::error::AppResult;
 use crate::store::{asks, items, watch};
-use crate::work;
 use crate::workspace::{self, Workspace};
 
 pub fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
@@ -30,8 +27,7 @@ pub fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         }
         let known = known_session(&app, &answered, &item)?;
         let ws = workspace::for_item(settings, &item)?;
-        let thread = thread_for(known, ws.as_ref());
-        if let Some(thread) = thread.clone() {
+        if let Some(thread) = thread_for(known, ws.as_ref()) {
             if let Thread::Start(session) = &thread {
                 app.db.with(|c| watch::claim(c, &item.id, Some(session)))?;
             }
@@ -39,45 +35,9 @@ pub fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
             let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
             dispatch::run(handle, settings, job)?;
         }
-        app.db.with(|c| {
-            asks::remove(c, answered.ask.id)?;
-            settle(c, &item, thread.is_some(), &answered.answer)
-        })?;
+        app.db.with(|c| asks::remove(c, answered.ask.id))?;
     }
     Ok(())
-}
-
-/// Once nothing else on the item waits on the user, it stops showing as their decision: Claude has
-/// it if the answer went to a session, otherwise the answer stands as its state.
-fn settle(conn: &Connection, item: &WorkItem, delivered: bool, answer: &str) -> AppResult<()> {
-    let waiting = !asks::for_item(conn, &item.id)?.is_empty();
-    if waiting || item.status != Some(Status::Decision) {
-        return Ok(());
-    }
-    let (status, holder, label) = if delivered {
-        (
-            Some(Status::Proceeding),
-            "Claude",
-            "acting on your answer".to_owned(),
-        )
-    } else {
-        (
-            None,
-            item.holder.as_str(),
-            format!("you answered: {answer}"),
-        )
-    };
-    let input = ItemInput {
-        id: item.id.clone(),
-        title: item.title.clone(),
-        state_label: label,
-        stage: item.stage,
-        status,
-        holder: holder.to_owned(),
-        area: item.area.clone(),
-        link: item.link.clone(),
-    };
-    work::save(conn, input, Utc::now()).map(drop)
 }
 
 /// The session that asked, else the one holding the item.

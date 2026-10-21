@@ -53,11 +53,11 @@ pub enum Response {
 
 #[tauri::command]
 pub fn respond(app: State<'_, App>, response: Response) -> AppResult<()> {
-    let now = Utc::now();
+    let settings = app.settings()?;
     app.db.with(|conn| match response {
-        Response::Answer { ask_id, text } => crate::answer::give(conn, ask_id, &text, now),
+        Response::Answer { ask_id, text } => crate::answer::give(conn, &settings, ask_id, &text),
         Response::Dismiss { ask_id } => asks::remove(conn, ask_id),
-        Response::Tell { item_id, text } => crate::answer::tell(conn, &item_id, &text, now),
+        Response::Tell { item_id, text } => crate::answer::tell(conn, &settings, &item_id, &text),
     })
 }
 
