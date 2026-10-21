@@ -11,8 +11,10 @@ pub struct Listen {
 }
 
 impl Listen {
+    /// On the network, both IPv4 and IPv6 (macOS's `::` takes both). IPv6 matters: link-local
+    /// `fe80::` addresses usually stay on the home network even when a VPN claims its IPv4 range.
     pub const fn host(self) -> &'static str {
-        if self.lan { "0.0.0.0" } else { "127.0.0.1" }
+        if self.lan { "::" } else { "127.0.0.1" }
     }
 }
 
@@ -35,7 +37,7 @@ const fn local(ip: IpAddr) -> bool {
 
 /// Whether a request from `from` may be answered at all.
 pub fn allowed(from: Option<&SocketAddr>) -> bool {
-    from.is_some_and(|a| local(a.ip()))
+    from.is_some_and(|a| local(a.ip().to_canonical()))
 }
 
 #[cfg(test)]
@@ -52,6 +54,7 @@ mod tests {
             "127.0.0.1",
             "192.168.1.20",
             "10.0.0.5",
+            "::ffff:10.32.1.53",
             "172.20.1.1",
             "100.96.0.3",
             "fe80::1",
@@ -60,7 +63,7 @@ mod tests {
         ] {
             assert!(allowed(Some(&at(ip))), "{ip}");
         }
-        for ip in ["8.8.8.8", "104.30.160.44", "2606:4700::1"] {
+        for ip in ["8.8.8.8", "104.30.160.44", "::ffff:8.8.8.8", "2606:4700::1"] {
             assert!(!allowed(Some(&at(ip))), "{ip}");
         }
         assert!(!allowed(None));

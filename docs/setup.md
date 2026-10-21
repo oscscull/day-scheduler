@@ -28,8 +28,9 @@ connectors and schedules only run for areas whose `node` is this machine.
 3. Make each machine reachable. On the same network (simplest): `[sync] lan = true` (or Claude:
    `set_sync` with `lan`), and use `http://<LocalHostName>.local:4791`, where `<LocalHostName>` is
    `scutil --get LocalHostName` on that Mac. Only private addresses may connect, and macOS may ask
-   once to allow incoming connections. Company VPNs usually leave the local network alone, so
-   this works even with one running. Across networks, expose the port with a tunnel. With Tailscale, enable
+   once to allow incoming connections. Use the `.local` name, not an IP: if a company VPN claims your
+   home network's IPv4 range (common when it's `10.x`), the name still reaches the other Mac over
+   IPv6 link-local (`fe80::`), which VPNs leave on the local network. Across networks, expose the port with a tunnel. With Tailscale, enable
    Serve for the tailnet once (the command prints the link), then on each machine run
    `tailscale serve --bg --tcp 4791 tcp://localhost:4791` and use
    `http://<machine>.<tailnet>.ts.net:4791`. (The HTTPS form, `tailscale serve --bg 4791`, also
