@@ -3,6 +3,7 @@
   import { machine } from "../../lib/peers.svelte";
   import { age } from "../../lib/time";
   import type { Connection } from "../../lib/types";
+  import Calendars from "./Calendars.svelte";
 
   interface Props {
     connections: Connection[];
@@ -27,7 +28,11 @@
   <h2 class="section-label">{t("connections.title")}</h2>
   <ul>
     {#each connections as c (c.name)}
-      <li><span class="name">{nameOf(c)}</span> <span class:error={c.error} class="hint">{stateOf(c)}</span></li>
+      {#if c.name === "calendar"}
+        <Calendars syncText={stateOf(c)} failed={Boolean(c.error)} />
+      {:else}
+        <li><span class="name">{nameOf(c)}</span> <span class:error={c.error} class="hint">{stateOf(c)}</span></li>
+      {/if}
     {/each}
     {#each machine.peers as p (p.name)}
       <li>

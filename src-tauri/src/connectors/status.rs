@@ -31,3 +31,9 @@ pub fn read(conn: &Connection, name: &str) -> AppResult<Status> {
         error: meta::text(conn, &key(name, "error"))?.filter(|e| !e.is_empty()),
     })
 }
+
+/// Clears the last sync so the connector runs on the next tick, e.g. after its settings change.
+pub fn sync_soon(conn: &Connection, name: &str) -> AppResult<()> {
+    meta::forget(conn, &key(name, "last_sync"))?;
+    meta::forget(conn, &key(name, "error"))
+}

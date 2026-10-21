@@ -10,6 +10,7 @@
 
 pub mod alerts;
 pub mod areas;
+pub mod calendars;
 pub mod chat;
 pub mod commitments;
 pub mod connect;
@@ -31,6 +32,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         alerts::alert_done,
         alerts::alert_snooze,
         connect::claude_connection,
+        calendars::calendars,
+        calendars::add_calendar,
+        calendars::remove_calendar,
         screens::today,
         commitments::add_commitment,
         commitments::delete_commitment,

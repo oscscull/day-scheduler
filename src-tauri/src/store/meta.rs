@@ -34,3 +34,8 @@ pub fn set_text(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
     )?;
     Ok(())
 }
+
+pub fn forget(conn: &Connection, key: &str) -> AppResult<()> {
+    conn.execute("DELETE FROM meta WHERE key = ?1", [key])?;
+    Ok(())
+}

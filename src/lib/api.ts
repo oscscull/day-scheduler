@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  Calendar,
   ClaudeConnection,
   AgentView,
   Area,
@@ -21,6 +22,9 @@ export const api = {
   peerCall: <T = unknown>(node: string, tool: string, args: object) =>
     invoke<T>("peer_call", { node, tool, args }),
   claudeConnection: () => invoke<ClaudeConnection>("claude_connection"),
+  calendars: () => invoke<Calendar[]>("calendars"),
+  addCalendar: (url: string, area: string) => invoke<undefined>("add_calendar", { url, area }),
+  removeCalendar: (name: string) => invoke<undefined>("remove_calendar", { name }),
   dueAlert: () => invoke<Commitment | null>("due_alert"),
   alertDone: (id: number) => invoke<undefined>("alert_done", { id }),
   alertSnooze: (id: number) => invoke<undefined>("alert_snooze", { id }),

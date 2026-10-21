@@ -224,3 +224,9 @@ export type ClaudeConnection =
   | { state: "connected" }
   | { state: "missing"; command: string }
   | { state: "elsewhere"; command: string };
+
+/** A synced calendar. Its private link stays in bridge.toml. */
+export interface Calendar {
+  name: string;
+  area: string;
+}
