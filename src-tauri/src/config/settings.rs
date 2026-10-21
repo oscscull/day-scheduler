@@ -43,6 +43,9 @@ pub struct Settings {
     pub sync: SyncSettings,
     pub watchdog: WatchdogSettings,
     pub projects: Vec<Project>,
+    /// Claude Code's `--permission-mode` for work in a project, e.g. `auto` (Claude decides what's
+    /// safe, as in the user's own sessions) or `acceptEdits` (only the project's allow rules).
+    pub project_permission_mode: String,
 }
 
 impl Default for Settings {
@@ -64,6 +67,7 @@ impl Default for Settings {
             sync: SyncSettings::default(),
             watchdog: WatchdogSettings::default(),
             projects: Vec::new(),
+            project_permission_mode: "auto".to_owned(),
         }
     }
 }
@@ -130,6 +134,7 @@ mod tests {
             sync: SyncSettings::default(),
             watchdog: WatchdogSettings::default(),
             projects: Vec::new(),
+            project_permission_mode: "auto".to_owned(),
         }
     }
 

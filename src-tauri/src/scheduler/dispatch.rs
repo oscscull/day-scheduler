@@ -88,7 +88,8 @@ fn first_line(text: &str) -> String {
         .collect()
 }
 
-async fn ask(command: &str, job: &Job) -> String {
+/// `mode` applies to work in a project's worktree.
+async fn ask(command: &str, job: &Job, mode: &str) -> String {
     if let Some(ws) = &job.workspace
         && let Err(e) = workspace::prepare(ws).await
     {
@@ -103,7 +104,7 @@ async fn ask(command: &str, job: &Job) -> String {
         tools: &job.tools,
         session,
         cwd: s.cwd.as_deref(),
-        permission_mode: job.workspace.as_ref().map(|_| "acceptEdits"),
+        permission_mode: job.workspace.as_ref().map(|_| mode),
     };
     match claude::ask_with(command, &job.prompt, &opts).await {
         Ok(text) => first_line(&text),
@@ -114,9 +115,10 @@ async fn ask(command: &str, job: &Job) -> String {
 pub fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult<()> {
     let id = start_record(handle, settings, &job)?;
     let command = settings.claude_command.clone();
+    let mode = settings.project_permission_mode.clone();
     let handle = handle.clone();
     tauri::async_runtime::spawn(async move {
-        let summary = ask(&command, &job).await;
+        let summary = ask(&command, &job, &mode).await;
         let outcome = if summary.starts_with("failed: ") {
             Outcome::Failed
         } else {

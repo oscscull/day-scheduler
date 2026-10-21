@@ -85,9 +85,9 @@ their working directory, since Claude only resumes a session from the folder it 
 
 Work Bridge starts on a PR (fixing CI, acting on an answer) runs in that repo's project when
 `[[projects]]` maps it to a checkout (`set_project`): in a git worktree per item under the data
-folder, detached at the PR's head so the user's checkout is untouched, with edits allowed and
-commands limited to the project's own Claude permissions (`.claude/settings.local.json` is copied
-in). Worktrees are removed once their item is done. Repos with no project get a run that can read
+folder, detached at the PR's head so the user's checkout is untouched, in the permission mode
+`project_permission_mode` sets (default `auto`, as in the user's own sessions), with the
+project's `.claude/settings.local.json` copied in. Worktrees are removed once their item is done. Repos with no project get a run that can read
 CI but not change code.
 
 Default prompt files Bridge wrote and nobody has edited follow newer defaults

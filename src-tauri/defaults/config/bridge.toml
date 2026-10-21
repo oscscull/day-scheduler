@@ -13,6 +13,10 @@ priority_limit = 3
 # How long something waits on reviewers before Today suggests nudging them.
 nudge_after_hours = 24
 
+# How Claude may act in a project's worktree: "auto" lets Claude judge what's safe, as in your own
+# sessions; "acceptEdits" allows edits but only the commands the project's allow rules list.
+project_permission_mode = "auto"
+
 # Command used to run Claude headlessly (`<command> -p "<prompt>"`).
 claude_command = "claude"
 
@@ -60,7 +64,7 @@ fix_ci = true
 fix_ci_tools = ["Bash(gh pr checks:*)", "Bash(gh pr view:*)", "Bash(gh run view:*)", "Bash(gh run rerun:*)"]
 
 # Where repos are checked out on this machine. Work Bridge starts on their PRs (fixing CI, acting
-# on your answers) runs there, in a worktree per item, with the project's own Claude permissions.
+# on your answers) runs there, in a worktree per item, with the project's own Claude settings.
 # [[projects]]
 # repo = "me/webapp"
 # path = "~/code/webapp"
