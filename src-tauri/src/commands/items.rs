@@ -28,14 +28,36 @@ pub fn delete_item(app: State<'_, App>, id: String) -> AppResult<()> {
     app.db.with(|conn| items::delete(conn, &id))
 }
 
-/// Answers an ask, or with no answer drops one that no longer matters.
+/// What the user does about something that needs them.
+#[derive(Debug, serde::Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum Response {
+    Answer {
+        ask_id: i64,
+        text: String,
+    },
+    /// Drops a question that no longer matters.
+    Dismiss {
+        ask_id: i64,
+    },
+    /// Tells Claude what to do about an item, with no question behind it.
+    Tell {
+        item_id: String,
+        text: String,
+    },
+}
+
 #[tauri::command]
-pub fn settle_ask(app: State<'_, App>, id: i64, answer: Option<String>) -> AppResult<()> {
-    app.db.with(|conn| {
-        answer.map_or_else(
-            || asks::remove(conn, id),
-            |text| crate::answer::give(conn, id, &text, Utc::now()),
-        )
+pub fn respond(app: State<'_, App>, response: Response) -> AppResult<()> {
+    let now = Utc::now();
+    app.db.with(|conn| match response {
+        Response::Answer { ask_id, text } => crate::answer::give(conn, ask_id, &text, now),
+        Response::Dismiss { ask_id } => asks::remove(conn, ask_id),
+        Response::Tell { item_id, text } => crate::answer::tell(conn, &item_id, &text, now),
     })
 }
 

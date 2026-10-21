@@ -36,6 +36,13 @@ pub fn tools() -> Vec<Tool> {
             answer,
         ),
         tool(
+            "tell_claude",
+            "Passes the user's instruction about an item to Claude, e.g. \"merge develop in\". Bridge \
+             resumes the session working on it, or starts one in the repo's project. Use when the \
+             user tells you what should happen to an item that you won't do yourself in this session.",
+            tell,
+        ),
+        tool(
             "dismiss_ask",
             "Removes an ask that no longer matters, without answering it.",
             dismiss,
@@ -83,7 +90,7 @@ fn add(ctx: &Ctx, args: AddArgs) -> AppResult<()> {
     };
     ctx.db.with(|c| {
         items::get(c, &ask.item_id)?;
-        asks::insert(c, &ask)
+        asks::insert(c, &ask).map(drop)
     })
 }
 
@@ -105,4 +112,15 @@ struct AskIdArgs {
 
 fn dismiss(ctx: &Ctx, args: AskIdArgs) -> AppResult<()> {
     ctx.db.with(|c| asks::remove(c, args.ask_id))
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct TellArgs {
+    item_id: String,
+    text: String,
+}
+
+fn tell(ctx: &Ctx, args: TellArgs) -> AppResult<()> {
+    ctx.db
+        .with(|c| crate::answer::tell(c, &args.item_id, &args.text, Utc::now()))
 }

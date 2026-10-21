@@ -67,7 +67,8 @@ pub fn get(conn: &Connection, id: i64) -> AppResult<Ask> {
     Ok(stmt.query_row([id], from_row)?.0)
 }
 
-pub fn insert(conn: &Connection, ask: &Ask) -> AppResult<()> {
+/// Returns the new ask's id.
+pub fn insert(conn: &Connection, ask: &Ask) -> AppResult<i64> {
     let asker = ask.asker.as_ref();
     conn.execute(
         "INSERT INTO asks (item_id, question, context, options, session, cwd)
@@ -81,7 +82,7 @@ pub fn insert(conn: &Connection, ask: &Ask) -> AppResult<()> {
             asker.and_then(|s| s.cwd.as_deref()),
         ],
     )?;
-    Ok(())
+    Ok(conn.last_insert_rowid())
 }
 
 pub fn answer(conn: &Connection, id: i64, answer: &str) -> AppResult<()> {

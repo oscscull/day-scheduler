@@ -1,6 +1,7 @@
 <script lang="ts">
   import AnswerBox from "../components/AnswerBox.svelte";
   import AreaDot from "../components/AreaDot.svelte";
+  import TellClaude from "../components/TellClaude.svelte";
   import LoadError from "../components/LoadError.svelte";
   import { api, errorText } from "../lib/api";
   import { areas, inArea } from "../lib/areas.svelte";
@@ -107,6 +108,8 @@
           </li>
           {#if p.kind === "ask"}
             <li class="answer-row"><AnswerBox ask={p.ask} node={p.node} /></li>
+          {:else if p.kind === "decision"}
+            <li class="answer-row"><TellClaude itemId={p.itemId} node={p.node} /></li>
           {/if}
         {:else}
           <li class="hint">{t("today.noPriorities")}</li>

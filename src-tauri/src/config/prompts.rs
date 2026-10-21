@@ -12,6 +12,7 @@ pub enum Prompt {
     FixCi,
     CiDone,
     Answer,
+    Message,
     Workspace,
     NoWorkspace,
 }
@@ -27,6 +28,7 @@ impl Prompt {
             Self::FixCi => "fix-ci.md",
             Self::CiDone => "ci-done.md",
             Self::Answer => "answer.md",
+            Self::Message => "message.md",
             Self::Workspace => "workspace.md",
             Self::NoWorkspace => "no-workspace.md",
         }

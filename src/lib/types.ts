@@ -240,3 +240,9 @@ export interface TodoEdit {
   area: string;
   due: string | null;
 }
+
+/** What the user does about something that needs them. */
+export type Response =
+  | { kind: "answer"; askId: number; text: string }
+  | { kind: "dismiss"; askId: number }
+  | { kind: "tell"; itemId: string; text: string };

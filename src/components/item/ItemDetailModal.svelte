@@ -12,6 +12,7 @@
   import Chip from "../Chip.svelte";
   import Modal from "../Modal.svelte";
   import AskList from "./AskList.svelte";
+  import TellClaude from "../TellClaude.svelte";
   import History from "./History.svelte";
   import Links from "./Links.svelte";
 
@@ -68,6 +69,12 @@
     {#if item.link}<Links link={item.link} />{/if}
     {#if item.source !== "manual"}<p class="hint small">{t("item.synced", { source: item.source })}</p>{/if}
     <AskList {node} asks={detail.asks} />
+    {#if item.stage !== "done"}
+      <section class="tell" aria-label={t("tell.label")}>
+        <h3 class="section-label">{t("tell.label")}</h3>
+        <TellClaude itemId={item.id} {node} />
+      </section>
+    {/if}
     <History events={detail.history} {now} />
     {#if confirming}
       <p class="error">{t("item.confirmDelete", { id: item.id })}</p>
@@ -130,5 +137,10 @@
     background: transparent;
     color: var(--muted);
     font-size: 13px;
+  }
+  .tell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 </style>

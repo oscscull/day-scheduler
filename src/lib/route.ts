@@ -5,10 +5,12 @@ import type { CommitmentInput, ItemDetail, ItemInput, Schedule, TodoEdit } from 
 const peer = <T = unknown>(node: string, tool: string, args: object): Promise<T> => api.peerCall<T>(node, tool, args);
 
 export const route = {
-  answerAsk: (node: string | undefined, id: number, answer: string) =>
-    node ? peer(node, "answer_ask", { ask_id: id, answer }) : api.settleAsk(id, answer),
+  answerAsk: (node: string | undefined, id: number, text: string) =>
+    node ? peer(node, "answer_ask", { ask_id: id, answer: text }) : api.respond({ kind: "answer", askId: id, text }),
   dismissAsk: (node: string | undefined, id: number) =>
-    node ? peer(node, "dismiss_ask", { ask_id: id }) : api.settleAsk(id, null),
+    node ? peer(node, "dismiss_ask", { ask_id: id }) : api.respond({ kind: "dismiss", askId: id }),
+  tellClaude: (node: string | undefined, itemId: string, text: string) =>
+    node ? peer(node, "tell_claude", { item_id: itemId, text }) : api.respond({ kind: "tell", itemId, text }),
   setTodoDone: (node: string | undefined, id: number, done: boolean) =>
     node ? peer(node, "complete_todo", { id, done }) : api.setTodoDone(id, done),
   addTodo: (node: string | undefined, title: string, area: string, due: string | null) =>

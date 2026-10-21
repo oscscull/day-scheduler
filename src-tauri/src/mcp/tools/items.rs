@@ -18,7 +18,8 @@ const CREATE_ITEM: &str = "Adds a work item to the bottom of the priorities. Use
              is one (e.g. JD-104). Returns the item's id.";
 const UPDATE_ITEM: &str = "Changes an item. Only the fields you pass change. Keep `state_label` short and current, \
              e.g. \"waiting on review from Sam\". Set `status` to what it's waiting on, or \
-             `clear_status` when it's moving again.";
+             `clear_status` when it's moving again. Only set `decision` alongside an add_ask \
+             saying what the user should decide (with options), so they have something to act on.";
 const DELETE_ITEM: &str = "Deletes an item with its asks and history.";
 const MOVE_ITEM: &str = "Moves an item to a position in the priorities, 1 being the top.";
 const ADD_NOTE: &str = "Adds a line to an item's history, e.g. \"opened PR #821\". Use for progress worth \

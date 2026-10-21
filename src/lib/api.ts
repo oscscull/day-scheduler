@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  Response,
   TodoEdit,
   Calendar,
   ClaudeConnection,
@@ -41,8 +42,7 @@ export const api = {
   saveItem: (item: ItemInput) => invoke<string>("save_item", { item }),
   deleteItem: (id: string) => invoke<undefined>("delete_item", { id }),
   itemDetail: (id: string) => invoke<ItemDetail>("item_detail", { id }),
-  /** Answers an ask; `null` dismisses it. */
-  settleAsk: (id: number, answer: string | null) => invoke<undefined>("settle_ask", { id, answer }),
+  respond: (response: Response) => invoke<undefined>("respond", { response }),
   addCommitment: (commitment: CommitmentInput) => invoke<undefined>("add_commitment", { commitment }),
   hideCommitment: (id: number) => invoke<undefined>("hide_commitment", { id }),
   deleteCommitment: (id: number) => invoke<undefined>("delete_commitment", { id }),

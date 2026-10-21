@@ -74,7 +74,9 @@ carrying that stays quiet past `[watchdog] quiet_minutes` gets a check-in (`prom
 at most `max_nudges` times before the user is told. Waiting on CI or reviewers isn't silence.
 
 Questions (`add_ask`) are answered, not ticked off: with one of the agent's `options` or in writing,
-on Today or the item. The answer goes on the item's history, and the scheduler resumes the session
+on Today or the item. Any open item, and every decision on Today, also takes a plain instruction
+("Tell Claude what to do", `tell_claude`), delivered the same way (`prompts/message.md`). Once
+nothing on an item waits on the user, it stops showing as their decision. The answer goes on the item's history, and the scheduler resumes the session
 that asked (or the one holding the item) with it (`prompts/answer.md`). Sessions are stored with
 their working directory, since Claude only resumes a session from the folder it ran in.
 
