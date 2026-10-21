@@ -1,4 +1,4 @@
-//! Work Bridge starts on a PR runs in that repo's project, in a git worktree of its own per item.
+//! Work Quarterdeck starts on a PR runs in that repo's project, in a git worktree of its own per item.
 //! The user's checkout is never touched, and the project's own Claude settings apply. A worktree
 //! lives while its item is open.
 

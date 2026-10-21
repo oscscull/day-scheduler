@@ -1,4 +1,4 @@
-//! Bridge: tracks work in flight and runs recurring Claude jobs.
+//! Quarterdeck: tracks work in flight and runs recurring Claude jobs.
 
 mod alerts;
 mod answer;
@@ -17,6 +17,7 @@ mod notify;
 mod paths;
 mod peers;
 mod priorities;
+mod rename;
 mod scheduler;
 mod store;
 mod today;
@@ -55,6 +56,8 @@ fn settings_for_login(config: &config::Config) -> bool {
 /// Opens the database and config folder, then hands both to every command.
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let db = store::Db::open(&paths::data_dir()?)?;
+    // Only the app runs Claude, so anything still marked running is from before this start.
+    db.with(|c| store::runs::close_interrupted(c, chrono::Utc::now()))?;
     let config = config::Config::open(paths::config_dir()?)?;
     let launch_at_login = settings_for_login(&config);
     // Serving peers is optional; a busy port must not stop the app opening.
@@ -67,14 +70,21 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Gets the machine ready before any entry point runs: moves an install from the old name.
+/// False if that failed, in which case nothing should open the config or database.
+#[must_use]
+pub fn prepare() -> bool {
+    rename::migrate().is_ok()
+}
+
 /// Serves the Model Context Protocol over stdio instead of opening the app. Started as
-/// `<binary> mcp`, so any Claude session can read and change Bridge.
+/// `<binary> mcp`, so any Claude session can read and change Quarterdeck.
 #[must_use]
 pub fn serve_mcp() -> std::process::ExitCode {
     mcp::serve()
 }
 
-/// Serves this machine's Bridge to peers in the foreground, without the app window. Started as
+/// Serves this machine's Quarterdeck to peers in the foreground, without the app window. Started as
 /// `<binary> serve`, e.g. on a machine without a screen.
 #[must_use]
 pub fn serve_peers() -> std::process::ExitCode {

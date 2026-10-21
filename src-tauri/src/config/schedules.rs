@@ -151,8 +151,8 @@ mod tests {
 
     #[test]
     fn refuses_ids_that_are_not_slugs() {
-        let config = Config::open(std::env::temp_dir().join("bridge-test-config")).unwrap();
-        assert!(checked_path(&config, "../bridge.toml").is_err());
+        let config = Config::open(std::env::temp_dir().join("quarterdeck-test-config")).unwrap();
+        assert!(checked_path(&config, "../quarterdeck.toml").is_err());
         assert!(checked_path(&config, "").is_err());
         assert!(checked_path(&config, "morning-brief").is_ok());
     }

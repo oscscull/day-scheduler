@@ -110,7 +110,7 @@ mod tests {
         schema::migrate(&conn).unwrap();
         conn.execute(
             "INSERT INTO items (id, title, state_label, stage, holder, area, rank, state_since, opened_at, source)
-             VALUES ('a', 't', '', 'in_progress', '', 'work', 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'bridge')",
+             VALUES ('a', 't', '', 'in_progress', '', 'work', 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'quarterdeck')",
             [],
         )
         .unwrap();

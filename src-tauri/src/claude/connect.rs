@@ -1,4 +1,4 @@
-//! Whether the user's own Claude Code sessions can reach Bridge, and the command that connects them.
+//! Whether the user's own Claude Code sessions can reach Quarterdeck, and the command that connects them.
 
 use std::path::Path;
 
@@ -7,7 +7,7 @@ use serde::Serialize;
 use crate::error::AppResult;
 use crate::paths;
 
-/// Bridge's registration in Claude Code's user config.
+/// Quarterdeck's registration in Claude Code's user config.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum Connection {
@@ -22,27 +22,42 @@ pub enum Connection {
     },
 }
 
-/// The `command` Claude Code runs for the `bridge` server, if registered at user scope.
-fn registered(config: &str) -> Option<String> {
-    let json: serde_json::Value = serde_json::from_str(config).ok()?;
-    let command = json.get("mcpServers")?.get("bridge")?.get("command")?;
+/// The server name Quarterdeck registers under, and the name it had before (Bridge).
+const NAME: &str = "quarterdeck";
+const OLD_NAME: &str = "bridge";
+
+/// The `command` Claude Code runs for the server called `name`, if registered at user scope.
+fn registered(config: &serde_json::Value, name: &str) -> Option<String> {
+    let command = config.get("mcpServers")?.get(name)?.get("command")?;
     command.as_str().map(str::to_owned)
 }
 
 fn add(exe: &Path) -> String {
     format!(
-        "claude mcp add --scope user bridge -- \"{}\" mcp",
+        "claude mcp add --scope user {NAME} -- \"{}\" mcp",
         exe.display()
     )
 }
 
 fn classify(config: Option<&str>, exe: &Path) -> Connection {
-    match config.and_then(registered) {
-        Some(command) if Path::new(&command) == exe => Connection::Connected,
-        Some(_) => Connection::Elsewhere {
-            command: format!("claude mcp remove --scope user bridge && {}", add(exe)),
-        },
-        None => Connection::Missing { command: add(exe) },
+    let json: serde_json::Value = config
+        .and_then(|c| serde_json::from_str(c).ok())
+        .unwrap_or_default();
+    let current = registered(&json, NAME);
+    let old = registered(&json, OLD_NAME);
+    if current.as_deref().is_some_and(|c| Path::new(c) == exe) && old.is_none() {
+        return Connection::Connected;
+    }
+    let stale: Vec<String> = [(NAME, &current), (OLD_NAME, &old)]
+        .iter()
+        .filter(|(_, command)| command.is_some())
+        .map(|(name, _)| format!("claude mcp remove --scope user {name} && "))
+        .collect();
+    if stale.is_empty() {
+        return Connection::Missing { command: add(exe) };
+    }
+    Connection::Elsewhere {
+        command: format!("{}{}", stale.concat(), add(exe)),
     }
 }
 
@@ -59,9 +74,11 @@ mod tests {
 
     #[test]
     fn connected_only_when_registered_for_this_binary() {
-        let exe = Path::new("/apps/bridge");
-        let this = r#"{"mcpServers":{"bridge":{"command":"/apps/bridge","args":["mcp"]}}}"#;
-        let other = r#"{"mcpServers":{"bridge":{"command":"/old/bridge"}}}"#;
+        let exe = Path::new("/apps/quarterdeck");
+        let this =
+            r#"{"mcpServers":{"quarterdeck":{"command":"/apps/quarterdeck","args":["mcp"]}}}"#;
+        let renamed = r#"{"mcpServers":{"bridge":{"command":"/apps/day-scheduler"}}}"#;
+        let other = r#"{"mcpServers":{"quarterdeck":{"command":"/old/quarterdeck"}}}"#;
         assert_eq!(classify(Some(this), exe), Connection::Connected);
         assert!(matches!(
             classify(Some(other), exe),
@@ -72,5 +89,9 @@ mod tests {
             Connection::Missing { .. }
         ));
         assert!(matches!(classify(None, exe), Connection::Missing { .. }));
+        let Connection::Elsewhere { command } = classify(Some(renamed), exe) else {
+            panic!("an old Bridge registration should be replaced");
+        };
+        assert!(command.starts_with("claude mcp remove --scope user bridge && claude mcp add"));
     }
 }

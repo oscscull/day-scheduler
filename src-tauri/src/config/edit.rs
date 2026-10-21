@@ -1,4 +1,4 @@
-//! Changes `bridge.toml` in place, keeping the user's comments and layout. Every edit is checked
+//! Changes `quarterdeck.toml` in place, keeping the user's comments and layout. Every edit is checked
 //! by loading the result; a change that would break the file is undone.
 
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
@@ -11,7 +11,7 @@ use super::sync::Peer;
 use crate::error::{AppError, AppResult};
 
 fn path(config: &Config) -> std::path::PathBuf {
-    config.root().join("bridge.toml")
+    config.root().join("quarterdeck.toml")
 }
 
 /// Applies `change` to the settings file, keeping it only if the result still loads.
@@ -19,13 +19,13 @@ fn edit(config: &Config, change: impl FnOnce(&mut DocumentMut) -> AppResult<()>)
     let before = std::fs::read_to_string(path(config))?;
     let mut doc: DocumentMut = before
         .parse()
-        .map_err(|e| AppError::BadInput(format!("bridge.toml: {e}")))?;
+        .map_err(|e| AppError::BadInput(format!("quarterdeck.toml: {e}")))?;
     change(&mut doc)?;
     std::fs::write(path(config), doc.to_string())?;
     if let Err(e) = settings::load(config) {
         std::fs::write(path(config), before)?;
         return Err(AppError::BadInput(format!(
-            "that change would break bridge.toml: {e}"
+            "that change would break quarterdeck.toml: {e}"
         )));
     }
     Ok(())
@@ -35,7 +35,7 @@ fn table<'a>(doc: &'a mut DocumentMut, name: &str) -> AppResult<&'a mut Table> {
     doc.entry(name)
         .or_insert_with(|| Item::Table(Table::new()))
         .as_table_mut()
-        .ok_or_else(|| AppError::BadInput(format!("[{name}] in bridge.toml isn't a table")))
+        .ok_or_else(|| AppError::BadInput(format!("[{name}] in quarterdeck.toml isn't a table")))
 }
 
 fn tables<'a>(parent: &'a mut Table, name: &str) -> AppResult<&'a mut ArrayOfTables> {
@@ -43,7 +43,9 @@ fn tables<'a>(parent: &'a mut Table, name: &str) -> AppResult<&'a mut ArrayOfTab
         .entry(name)
         .or_insert_with(|| Item::ArrayOfTables(ArrayOfTables::new()))
         .as_array_of_tables_mut()
-        .ok_or_else(|| AppError::BadInput(format!("{name} in bridge.toml isn't a list of tables")))
+        .ok_or_else(|| {
+            AppError::BadInput(format!("{name} in quarterdeck.toml isn't a list of tables"))
+        })
 }
 
 /// Replaces the table whose `key` equals `id`, or adds `t` at the end.
@@ -252,7 +254,7 @@ mod tests {
 
     #[test]
     fn edits_keep_comments_and_refuse_breakage() {
-        let dir = std::env::temp_dir().join(format!("bridge-edit-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("quarterdeck-edit-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
         let config = Config::open(dir).unwrap();
         map_github(&config, "acme", "work").unwrap();

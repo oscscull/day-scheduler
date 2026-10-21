@@ -41,7 +41,7 @@ pub fn check(handle: &AppHandle) -> AppResult<()> {
 
 fn open(handle: &AppHandle) -> AppResult<()> {
     WebviewWindowBuilder::new(handle, WINDOW, WebviewUrl::App("index.html".into()))
-        .title("Bridge")
+        .title("Quarterdeck")
         .inner_size(440.0, 280.0)
         .resizable(false)
         .decorations(false)

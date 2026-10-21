@@ -1,4 +1,4 @@
-//! Default config files, embedded in the binary and written on first run. A file Bridge wrote and
+//! Default config files, embedded in the binary and written on first run. A file Quarterdeck wrote and
 //! nobody has edited since follows newer defaults; once edited, it is never overwritten.
 
 use std::collections::BTreeMap;
@@ -17,7 +17,7 @@ macro_rules! default_file {
 
 const FILES: [(&str, &str); 13] = [
     default_file!("README.md"),
-    default_file!("bridge.toml"),
+    default_file!("quarterdeck.toml"),
     default_file!("prompts/chat.md"),
     default_file!("prompts/draft-schedule.md"),
     default_file!("prompts/resolve-urgent.md"),
@@ -34,11 +34,11 @@ const FILES: [(&str, &str); 13] = [
 /// Folders that must exist even when empty.
 const DIRS: [&str; 2] = ["schedules", "inbox"];
 
-/// Bridge's record of what it last wrote to each default file, as content fingerprints.
-const LEDGER: &str = ".bridge-defaults";
+/// Quarterdeck's record of what it last wrote to each default file, as content fingerprints.
+const LEDGER: &str = ".quarterdeck-defaults";
 
 /// Rewritten freely by people and agents, so never replaced once it exists.
-const NEVER_REPLACED: &str = "bridge.toml";
+const NEVER_REPLACED: &str = "quarterdeck.toml";
 
 /// FNV-1a: stable across builds, unlike the standard library's hasher.
 fn fingerprint(text: &str) -> String {
@@ -57,15 +57,14 @@ fn read_ledger(root: &Path) -> BTreeMap<String, String> {
 }
 
 fn write_ledger(root: &Path, ledger: &BTreeMap<String, String>) -> AppResult<()> {
-    let header =
-        "# Written by Bridge: which default files it wrote, so it can update the unedited ones.\n";
+    let header = "# Written by Quarterdeck: which default files it wrote, so it can update the unedited ones.\n";
     let text = ledger.iter().fold(header.to_owned(), |acc, (path, hash)| {
         acc + path + " " + hash + "\n"
     });
     Ok(std::fs::write(root.join(LEDGER), text)?)
 }
 
-/// Whether to (re)write a default: missing, or unedited since Bridge wrote an older version.
+/// Whether to (re)write a default: missing, or unedited since Quarterdeck wrote an older version.
 fn should_write(current: Option<&str>, recorded: Option<&String>, relative: &str) -> bool {
     match current {
         None => true,
@@ -116,7 +115,7 @@ mod tests {
         assert!(!should_write(
             Some("old default"),
             Some(&old),
-            "bridge.toml"
+            "quarterdeck.toml"
         ));
     }
 }

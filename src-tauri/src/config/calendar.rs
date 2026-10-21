@@ -1,4 +1,4 @@
-//! The `[calendar]` section of `bridge.toml`.
+//! The `[calendar]` section of `quarterdeck.toml`.
 
 use serde::Deserialize;
 

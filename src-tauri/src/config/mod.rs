@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::AppResult;
 
-/// Location of the config folder, e.g. `~/.config/bridge`.
+/// Location of the config folder, e.g. `~/.config/quarterdeck`.
 #[derive(Debug, Clone)]
 pub struct Config {
     root: PathBuf,

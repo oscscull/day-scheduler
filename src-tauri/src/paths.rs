@@ -1,13 +1,13 @@
-//! Where Bridge keeps things. Shared by the app and the MCP server so both see the same data.
+//! Where Quarterdeck keeps things. Shared by the app and the MCP server so both see the same data.
 
 use std::path::PathBuf;
 
 use crate::error::{AppError, AppResult};
 
 /// Must match `identifier` in `tauri.conf.json`.
-const APP_ID: &str = "com.oscscull.dayscheduler";
+const APP_ID: &str = "com.oscscull.quarterdeck";
 
-fn home() -> AppResult<PathBuf> {
+pub fn home() -> AppResult<PathBuf> {
     std::env::var_os("HOME")
         .map(PathBuf::from)
         .ok_or_else(|| AppError::NotFound("the HOME folder".to_owned()))
@@ -20,7 +20,7 @@ pub fn data_dir() -> AppResult<PathBuf> {
 
 /// Behaviour the user and agents edit: settings, prompts, schedules, inbox.
 pub fn config_dir() -> AppResult<PathBuf> {
-    Ok(home()?.join(".config/bridge"))
+    Ok(home()?.join(".config/quarterdeck"))
 }
 
 /// Claude Code's user config, where `claude mcp add --scope user` registers servers.

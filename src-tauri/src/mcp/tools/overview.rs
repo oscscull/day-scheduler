@@ -25,8 +25,8 @@ pub fn tools() -> Vec<Tool> {
         ),
         tool(
             "get_config_info",
-            "Where Bridge's editable files live, for changes the tools don't cover: renaming or \
-             adding areas, TTLs, prompts used by Bridge's own Claude.",
+            "Where Quarterdeck's editable files live, for changes the tools don't cover: renaming or \
+             adding areas, TTLs, prompts used by Quarterdeck's own Claude.",
             config_info,
         ),
     ]
@@ -81,9 +81,9 @@ fn config_info(ctx: &Ctx, _: NoArgs) -> AppResult<ConfigInfo> {
     Ok(ConfigInfo {
         folder: ctx.config.root().display().to_string(),
         files: [
-            "bridge.toml: this machine's name, areas ([[areas]] with id, name, color, node), limits and TTLs",
+            "quarterdeck.toml: this machine's name, areas ([[areas]] with id, name, color, node), limits and TTLs",
             "schedules/<id>.md: one per recurring job (prefer the schedule tools)",
-            "prompts/*.md: prompts Bridge's built-in Claude uses",
+            "prompts/*.md: prompts Quarterdeck's built-in Claude uses",
             "inbox/<name>.toml: drop title/detail/area to raise an urgent item (or use raise_urgent)",
             "pause.toml: present while all schedules are paused (prefer pause_all/resume_all)",
         ],

@@ -20,7 +20,7 @@ export async function loadPeers(): Promise<void> {
 
 const reachable = (): string[] => machine.peers.filter((p) => !p.error).map((p) => p.name);
 
-/** Calls a Bridge tool on every reachable peer; peers that fail are left out. */
+/** Calls a Quarterdeck tool on every reachable peer; peers that fail are left out. */
 export async function fromPeers<T>(tool: string, args: object = {}): Promise<{ node: string; value: T }[]> {
   const nodes = reachable();
   const results = await Promise.allSettled(nodes.map((node) => api.peerCall<T>(node, tool, args)));

@@ -1,13 +1,13 @@
-# Bridge spec
+# Quarterdeck spec
 
-Reader: anyone (human or agent) changing Bridge. Rewrite this when the design changes. Setup lives
+Reader: anyone (human or agent) changing Quarterdeck. Rewrite this when the design changes. Setup lives
 in [setup.md](setup.md).
 
 ## What it is
 
 A calm desktop app that holds the state and the clock for work and life done with Claude. Claude
-does the judgement work; Bridge shows what's in flight, runs recurring jobs, and interrupts only
-when needed. Natural language is the main way in: the MCP server and Bridge's own chat change
+does the judgement work; Quarterdeck shows what's in flight, runs recurring jobs, and interrupts only
+when needed. Natural language is the main way in: the MCP server and Quarterdeck's own chat change
 anything the UI shows.
 
 ## Hierarchy of attention
@@ -21,7 +21,7 @@ Urgent items (something went wrong or can't wait) show as a red pill next to the
 
 ## Areas and machines
 
-Everything belongs to an area (Work, Projects, Life by default), defined in `bridge.toml` with the
+Everything belongs to an area (Work, Projects, Life by default), defined in `quarterdeck.toml` with the
 machine (`node`) that runs it. The switcher filters every view. Each machine keeps its own records
 and serves them to peers; the UI merges peers' data and sends edits back to the record's machine.
 Connectors and schedules only act for areas this machine runs.
@@ -35,14 +35,14 @@ Connectors and schedules only act for areas this machine runs.
 - **Board**: items by stage. **In flight**: open items by who they wait on.
 - **Agent**: what's running, every schedule (toggle, edit, delete, run now, create by describing
   it), missed or failed runs, Pause all, connector and peer status, and the MCP connect command.
-- **Ask Claude** bubble on every view, given that view's data and the Bridge tools.
+- **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools.
 
 ## Where things live
 
-- **Config folder** `~/.config/bridge/`, editable by people and agents, re-read on each refresh:
-  `bridge.toml` (settings, areas, connectors, sync), `prompts/*.md` (Bridge's own Claude jobs),
+- **Config folder** `~/.config/quarterdeck/`, editable by people and agents, re-read on each refresh:
+  `quarterdeck.toml` (settings, areas, connectors, sync), `prompts/*.md` (Quarterdeck's own Claude jobs),
   `schedules/<id>.md` (TOML front matter + instructions), `inbox/` (agent-raised urgent items,
-  ingested and deleted), `pause.toml` (only while paused). Tools edit `bridge.toml` in place,
+  ingested and deleted), `pause.toml` (only while paused). Tools edit `quarterdeck.toml` in place,
   keeping comments, and roll back edits that would break it.
 - **Database** (SQLite, WAL, versioned migrations): live state only. Activity, finished runs, done
   to-dos, done items with their history, and past meetings all expire.
@@ -61,13 +61,13 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
 
 ## Running Claude
 
-`claude -p` on the user's subscription, with the Bridge MCP tools always allowed. Schedules can use
+`claude -p` on the user's subscription, with the Quarterdeck MCP tools always allowed. Schedules can use
 other tools only when their file lists them in `allowed_tools`. The scheduler ticks every 30s:
 cron runs fire on time, runs missed while asleep are recorded and raised as urgent, and Pause all
 stops everything. Event triggers cost nothing until they fire.
 
-CI is Bridge's to watch, never an agent's. When CI finishes on an item a Claude session claimed
-(`claim_item`), Bridge resumes that session with the result (`prompts/ci-done.md`). A failure
+CI is Quarterdeck's to watch, never an agent's. When CI finishes on an item a Claude session claimed
+(`claim_item`), Quarterdeck resumes that session with the result (`prompts/ci-done.md`). A failure
 nobody is on, and no `ci_failed` schedule covers, goes to a new claimed session
 (`prompts/fix-ci.md`, `[github] fix_ci`).
 
@@ -83,15 +83,15 @@ get the answer, otherwise the answer stands as its state. Delivery itself follow
 that asked (or the one holding the item) with it (`prompts/answer.md`). Sessions are stored with
 their working directory, since Claude only resumes a session from the folder it ran in.
 
-Work Bridge starts on a PR (fixing CI, acting on an answer) runs in that repo's project when
+Work Quarterdeck starts on a PR (fixing CI, acting on an answer) runs in that repo's project when
 `[[projects]]` maps it to a checkout (`set_project`): in a git worktree per item under the data
 folder, detached at the PR's head so the user's checkout is untouched, in the permission mode
 `project_permission_mode` sets (default `auto`, as in the user's own sessions), with the
 project's `.claude/settings.local.json` copied in. Worktrees are removed once their item is done. Repos with no project get a run that can read
 CI but not change code.
 
-Default prompt files Bridge wrote and nobody has edited follow newer defaults
-(`.bridge-defaults` records what it wrote); edited ones, and `bridge.toml`, are left alone.
+Default prompt files Quarterdeck wrote and nobody has edited follow newer defaults
+(`.quarterdeck-defaults` records what it wrote); edited ones, and `quarterdeck.toml`, are left alone.
 
 ## Not built yet
 

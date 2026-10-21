@@ -34,7 +34,7 @@ pub async fn peers(app: State<'_, App>) -> AppResult<Vec<PeerStatus>> {
     .map_err(|e| AppError::Desktop(e.to_string()))
 }
 
-/// Runs a Bridge tool on a peer: how the UI reads and edits another machine's records.
+/// Runs a Quarterdeck tool on a peer: how the UI reads and edits another machine's records.
 #[tauri::command]
 pub async fn peer_call(
     app: State<'_, App>,

@@ -1,4 +1,4 @@
-//! Other machines' Bridges. Each machine serves its own data and tools over HTTP (the same tools
+//! Other machines' Quarterdecks. Each machine serves its own data and tools over HTTP (the same tools
 //! as the MCP server); the UI merges what peers serve, and edits to their records go back to them.
 
 pub mod client;

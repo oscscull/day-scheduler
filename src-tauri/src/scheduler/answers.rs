@@ -3,6 +3,8 @@
 //! starts there with the question and answer. Elsewhere the session that asked, or the one holding
 //! the item, is resumed. With nobody to tell, the answer just stays on the item's history.
 
+use std::collections::HashSet;
+
 use tauri::{AppHandle, Manager as _};
 
 use super::dispatch::{self, Job, Thread};
@@ -13,13 +15,23 @@ use crate::domain::ask::Answered;
 use crate::domain::item::WorkItem;
 use crate::domain::session::SessionRef;
 use crate::error::AppResult;
-use crate::store::{asks, items, watch};
+use crate::store::{asks, items, runs, watch};
 use crate::workspace::{self, Workspace};
 
 pub fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     let app = handle.state::<App>();
     let waiting = app.db.with(asks::answered)?;
+    // One run per item at a time: a second answer waits for the first run, then resumes its session.
+    let mut busy: HashSet<String> = app
+        .db
+        .with(runs::live)?
+        .into_iter()
+        .map(|r| r.target)
+        .collect();
     for answered in waiting {
+        if busy.contains(&answered.ask.item_id) {
+            continue;
+        }
         let item = app.db.with(|c| items::get(c, &answered.ask.item_id))?;
         // Another machine runs this area's agents and delivers there.
         if settings.node_for(&item.area) != settings.node {
@@ -34,6 +46,7 @@ pub fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
             let prompt = prompt_for(&app, &answered, &item, ws.as_ref())?;
             let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
             dispatch::run(handle, settings, job)?;
+            busy.insert(item.id.clone());
         }
         app.db.with(|c| asks::remove(c, answered.ask.id))?;
     }

@@ -738,31 +738,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "day-scheduler"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "croner",
- "ical",
- "rrule",
- "rusqlite",
- "schemars 0.8.22",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "thiserror 2.0.21",
- "tiny_http",
- "tokio",
- "toml 1.1.8+spec-1.1.0",
- "toml_edit 0.25.17+spec-1.1.0",
- "uuid",
-]
-
-[[package]]
 name = "dbus"
 version = "0.9.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2971,6 +2946,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "quarterdeck"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "croner",
+ "ical",
+ "rrule",
+ "rusqlite",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "thiserror 2.0.21",
+ "tiny_http",
+ "tokio",
+ "toml 1.1.8+spec-1.1.0",
+ "toml_edit 0.25.17+spec-1.1.0",
+ "uuid",
 ]
 
 [[package]]

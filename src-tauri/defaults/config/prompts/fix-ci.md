@@ -1,4 +1,4 @@
-CI is failing on {{item}}: "{{title}}" ({{link}}). Nobody was on it, so Bridge has handed it to you.
+CI is failing on {{item}}: "{{title}}" ({{link}}). Nobody was on it, so Quarterdeck has handed it to you.
 
 {{workspace}}
 
@@ -9,4 +9,4 @@ CI is failing on {{item}}: "{{title}}" ({{link}}). Nobody was on it, so Bridge h
    update_item, and raise an ask with add_ask (offering options where it's a choice) only if a
    human decision is needed.
 
-Don't poll CI: Bridge resumes this session when it finishes. Reply with one short sentence.
+Don't poll CI: Quarterdeck resumes this session when it finishes. Reply with one short sentence.

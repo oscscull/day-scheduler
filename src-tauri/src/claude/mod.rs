@@ -9,14 +9,14 @@ use tokio::process::Command;
 use crate::cli;
 use crate::error::{AppError, AppResult};
 
-/// Lets a headless run use every Bridge tool without asking.
-const BRIDGE_TOOLS: &str = "mcp__bridge";
+/// Lets a headless run use every Quarterdeck tool without asking.
+const QUARTERDECK_TOOLS: &str = "mcp__quarterdeck";
 
-/// The Bridge MCP server for a headless run: this same binary, started with `mcp`.
-fn bridge_server() -> AppResult<String> {
+/// The Quarterdeck MCP server for a headless run: this same binary, started with `mcp`.
+fn quarterdeck_server() -> AppResult<String> {
     let exe = std::env::current_exe()?;
     let config = serde_json::json!({
-        "mcpServers": { "bridge": { "command": exe, "args": ["mcp"] } }
+        "mcpServers": { "quarterdeck": { "command": exe, "args": ["mcp"] } }
     });
     Ok(config.to_string())
 }
@@ -24,7 +24,7 @@ fn bridge_server() -> AppResult<String> {
 /// How to run one headless Claude call.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Ask<'a> {
-    /// Claude Code tools it may use without asking, besides the Bridge tools.
+    /// Claude Code tools it may use without asking, besides the Quarterdeck tools.
     pub tools: &'a [String],
     pub session: Session<'a>,
     /// The folder to run in. A resumed session must run where it started.
@@ -40,21 +40,21 @@ pub enum Session<'a> {
     /// A throwaway session.
     #[default]
     Fresh,
-    /// A new session with this id, so Bridge can come back to it later.
+    /// A new session with this id, so Quarterdeck can come back to it later.
     Start(&'a str),
     /// Continue an existing session with its own context.
     Resume(&'a str),
 }
 
-/// Sends one prompt and returns Claude's reply text. The Bridge tools are always available.
+/// Sends one prompt and returns Claude's reply text. The Quarterdeck tools are always available.
 pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<String> {
-    let mut allowed = vec![BRIDGE_TOOLS.to_owned()];
+    let mut allowed = vec![QUARTERDECK_TOOLS.to_owned()];
     allowed.extend_from_slice(opts.tools);
     let mut cmd = Command::new(cli::resolve(command));
     cmd.arg("-p")
         .arg(prompt)
         .arg("--mcp-config")
-        .arg(bridge_server()?)
+        .arg(quarterdeck_server()?)
         .arg("--allowedTools")
         .arg(allowed.join(","));
     if let Some(dir) = opts.cwd {
@@ -78,7 +78,7 @@ pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<
     }
 }
 
-/// Sends one prompt with only the Bridge tools.
+/// Sends one prompt with only the Quarterdeck tools.
 pub async fn ask(command: &str, prompt: &str) -> AppResult<String> {
     ask_with(command, prompt, &Ask::default()).await
 }

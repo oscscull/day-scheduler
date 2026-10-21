@@ -7,12 +7,12 @@ use crate::config::edit;
 use crate::config::sync::Peer;
 use crate::error::AppResult;
 
-const INFO: &str = "How this machine shares Bridge with others: its name, whether it serves peers, the \
+const INFO: &str = "How this machine shares Quarterdeck with others: its name, whether it serves peers, the \
 local port and token another machine needs, and the peers it knows. Give another machine this \
 machine's tunnel URL and token so it can add it with add_peer.";
-const ENABLE: &str = "Turns serving this machine's Bridge to peers on or off. It listens on localhost only; the \
-user exposes it with a tunnel (Tailscale, ngrok, ssh -L). Takes effect when Bridge restarts.";
-const ADD: &str = "Adds another machine's Bridge, by its machine name (as used by areas' `node`), the URL its \
+const ENABLE: &str = "Turns serving this machine's Quarterdeck to peers on or off. It listens on localhost only; the \
+user exposes it with a tunnel (Tailscale, ngrok, ssh -L). Takes effect when Quarterdeck restarts.";
+const ADD: &str = "Adds another machine's Quarterdeck, by its machine name (as used by areas' `node`), the URL its \
 tunnel serves, and its sync token. Its data then shows here, and edits to it go back to it.";
 
 pub fn tools() -> Vec<Tool> {

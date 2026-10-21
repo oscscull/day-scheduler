@@ -1,7 +1,7 @@
 import { api } from "./api";
 import type { Area } from "./types";
 
-const STORAGE_KEY = "bridge.area";
+const STORAGE_KEY = "quarterdeck.area";
 export const ALL = "all";
 
 function remembered(): string {

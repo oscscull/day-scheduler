@@ -10,7 +10,7 @@ use crate::app::App;
 use crate::config::pause;
 use crate::error::AppResult;
 
-const ID: &str = "bridge";
+const ID: &str = "quarterdeck";
 const OPEN: &str = "open";
 const PAUSE_TODAY: &str = "pause-today";
 const RESUME: &str = "resume";
@@ -20,7 +20,7 @@ pub fn build(handle: &AppHandle) -> AppResult<TrayIcon> {
     let menu = Menu::with_items(
         handle,
         &[
-            &MenuItem::with_id(handle, OPEN, "Open Bridge", true, None::<&str>)?,
+            &MenuItem::with_id(handle, OPEN, "Open Quarterdeck", true, None::<&str>)?,
             &PredefinedMenuItem::separator(handle)?,
             &MenuItem::with_id(
                 handle,
@@ -31,12 +31,12 @@ pub fn build(handle: &AppHandle) -> AppResult<TrayIcon> {
             )?,
             &MenuItem::with_id(handle, RESUME, "Resume all", true, None::<&str>)?,
             &PredefinedMenuItem::separator(handle)?,
-            &MenuItem::with_id(handle, QUIT, "Quit Bridge", true, None::<&str>)?,
+            &MenuItem::with_id(handle, QUIT, "Quit Quarterdeck", true, None::<&str>)?,
         ],
     )?;
     let mut builder = TrayIconBuilder::with_id(ID)
         .menu(&menu)
-        .tooltip("Bridge")
+        .tooltip("Quarterdeck")
         .on_menu_event(|h, e| on_menu(h, &e));
     if let Some(icon) = handle.default_window_icon() {
         builder = builder.icon(icon.clone());

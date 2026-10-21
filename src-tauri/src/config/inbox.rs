@@ -5,7 +5,7 @@
 //! detail = "Blocks 3 PRs."
 //! ```
 //!
-//! Bridge takes each file once and deletes it, so the folder never fills up.
+//! Quarterdeck takes each file once and deletes it, so the folder never fills up.
 
 use std::path::{Path, PathBuf};
 

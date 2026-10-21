@@ -1,11 +1,11 @@
 [package]
-name = "day-scheduler"
+name = "quarterdeck"
 version = "0.1.0"
-description = "A day scheduler desktop app"
+description = "A calm command deck for work and life done with Claude"
 authors = ["Oscar Scull"]
 license = "GPL-3.0-or-later"
 edition = "2024"
-repository = "https://github.com/oscscull/day-scheduler"
+repository = "https://github.com/oscscull/quarterdeck"
 readme = "../README.md"
 keywords = ["scheduler", "tauri", "claude", "productivity"]
 categories = ["gui"]
@@ -16,7 +16,7 @@ categories = ["gui"]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "day_scheduler_lib"
+name = "quarterdeck_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

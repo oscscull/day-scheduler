@@ -4,12 +4,16 @@
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
+    // Every entry point shares the config and database, so move an old install first.
+    if !quarterdeck_lib::prepare() {
+        return ExitCode::FAILURE;
+    }
     match std::env::args().nth(1).as_deref() {
-        Some("mcp") => return day_scheduler_lib::serve_mcp(),
-        Some("serve") => return day_scheduler_lib::serve_peers(),
+        Some("mcp") => return quarterdeck_lib::serve_mcp(),
+        Some("serve") => return quarterdeck_lib::serve_peers(),
         _ => {}
     }
-    match day_scheduler_lib::run() {
+    match quarterdeck_lib::run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(_) => ExitCode::FAILURE,
     }

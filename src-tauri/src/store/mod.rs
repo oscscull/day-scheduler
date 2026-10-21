@@ -37,7 +37,7 @@ impl Db {
     /// Opens (or creates) the database in `dir` and brings its tables up to date.
     pub fn open(dir: &Path) -> AppResult<Self> {
         std::fs::create_dir_all(dir)?;
-        let conn = Connection::open(dir.join("bridge.sqlite"))?;
+        let conn = Connection::open(dir.join("quarterdeck.sqlite"))?;
         // The app and the MCP server share this file, so wait for each other's writes.
         conn.busy_timeout(Duration::from_secs(5))?;
         conn.pragma_update(None, "journal_mode", "WAL")?;

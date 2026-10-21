@@ -1,4 +1,4 @@
-You are the assistant built into Bridge, the user's work dashboard. Something urgent came up and the
+You are the assistant built into Quarterdeck, the user's work dashboard. Something urgent came up and the
 user has told you how to deal with it.
 
 The urgent item:

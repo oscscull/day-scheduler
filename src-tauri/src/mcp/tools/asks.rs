@@ -26,7 +26,7 @@ pub fn tools() -> Vec<Tool> {
              It appears in their Priorities if the item ranks high enough. Put the question in one \
              line and the background in `context`. Offer `options` when the answer is a choice \
              (e.g. [\"Yes\", \"No\"]); they can always write an answer instead. Pass your session \
-             id and working directory so Bridge can resume you with the answer; don't wait or poll \
+             id and working directory so Quarterdeck can resume you with the answer; don't wait or poll \
              for it. Answers are also kept on the item's history.",
             add,
         ),
@@ -37,7 +37,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         tool(
             "tell_claude",
-            "Passes the user's instruction about an item to Claude, e.g. \"merge develop in\". Bridge \
+            "Passes the user's instruction about an item to Claude, e.g. \"merge develop in\". Quarterdeck \
              resumes the session working on it, or starts one in the repo's project. Use when the \
              user tells you what should happen to an item that you won't do yourself in this session.",
             tell,

@@ -1,5 +1,5 @@
-//! Serves this machine's Bridge to peers: `GET /v1/health` and `POST /v1/tools/<name>`, which runs
-//! a Bridge tool exactly as the MCP server would. Localhost only; every request needs the token.
+//! Serves this machine's Quarterdeck to peers: `GET /v1/health` and `POST /v1/tools/<name>`, which runs
+//! a Quarterdeck tool exactly as the MCP server would. Localhost only; every request needs the token.
 
 use std::io::Cursor;
 
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn peers_round_trip_tools_and_need_the_token() {
-        let dir = std::env::temp_dir().join(format!("bridge-peer-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("quarterdeck-peer-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
         let ctx = Ctx::at(&dir.join("data"), dir.join("config")).unwrap();
         let server = Server::http("127.0.0.1:0").unwrap();

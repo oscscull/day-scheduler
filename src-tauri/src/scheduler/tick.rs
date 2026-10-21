@@ -34,7 +34,7 @@ pub fn tick(handle: &AppHandle) -> AppResult<()> {
         // Notifications are a courtesy; a failure must not stop the scheduler.
         drop(notify::send(
             handle,
-            "Bridge",
+            "Quarterdeck",
             &format!("{raised} new urgent item(s)"),
         ));
     }
@@ -118,7 +118,7 @@ pub fn start(handle: &AppHandle, schedule: Schedule, trigger: Option<String>) {
 fn record_missed(handle: &AppHandle, schedule: &Schedule, node: &str, p: &Plan) -> AppResult<()> {
     let Some(at) = p.missed else { return Ok(()) };
     let count = p.missed_count;
-    let reason = "Bridge wasn't running, or the machine was asleep".to_owned();
+    let reason = "Quarterdeck wasn't running, or the machine was asleep".to_owned();
     let run = Run {
         id: 0,
         schedule_id: Some(schedule.id.clone()),

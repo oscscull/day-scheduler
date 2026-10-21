@@ -34,7 +34,7 @@ pub fn current(config: &Config, now: DateTime<Utc>) -> AppResult<Option<Pause>> 
 }
 
 pub fn pause(config: &Config, until: Option<DateTime<Utc>>) -> AppResult<()> {
-    let header = "# Written by Bridge. Delete this file to resume all schedules.\n";
+    let header = "# Written by Quarterdeck. Delete this file to resume all schedules.\n";
     let body = toml::to_string(&Pause { until })?;
     std::fs::write(path(config), format!("{header}{body}"))?;
     Ok(())

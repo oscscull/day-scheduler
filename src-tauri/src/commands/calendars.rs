@@ -1,4 +1,4 @@
-//! Calendar feeds from the Agent tab. Links are secret, so they go into `bridge.toml` but never
+//! Calendar feeds from the Agent tab. Links are secret, so they go into `quarterdeck.toml` but never
 //! back out to the screen.
 
 use serde::Serialize;

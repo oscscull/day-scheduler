@@ -112,7 +112,7 @@ export interface Activity {
   unread: boolean;
 }
 
-/** A part of life from bridge.toml, e.g. Work or Life. */
+/** A part of life from quarterdeck.toml, e.g. Work or Life. */
 export interface Area {
   id: string;
   name: string;
@@ -221,13 +221,13 @@ export interface Connection {
   error: string | null;
 }
 
-/** Whether the user's own Claude Code sessions can reach Bridge. */
+/** Whether the user's own Claude Code sessions can reach Quarterdeck. */
 export type ClaudeConnection =
   | { state: "connected" }
   | { state: "missing"; command: string }
   | { state: "elsewhere"; command: string };
 
-/** A synced calendar. Its private link stays in bridge.toml. */
+/** A synced calendar. Its private link stays in quarterdeck.toml. */
 export interface Calendar {
   name: string;
   area: string;

@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use rusqlite::{Connection, Row, params};
 
 use super::codec::{column, encode};
@@ -33,6 +33,16 @@ fn query(conn: &Connection, sql: &str, args: impl rusqlite::Params) -> AppResult
 pub fn live(conn: &Connection) -> AppResult<Vec<Run>> {
     let sql = format!("SELECT {COLUMNS} FROM runs WHERE finished_at IS NULL ORDER BY started_at");
     query(conn, &sql, [])
+}
+
+/// Runs still marked as going when the app starts can't be: their process ended with the app.
+pub fn close_interrupted(conn: &Connection, at: DateTime<Utc>) -> AppResult<()> {
+    conn.execute(
+        "UPDATE runs SET finished_at = ?1, outcome = 'failed', summary = 'stopped when Quarterdeck quit'
+         WHERE finished_at IS NULL",
+        params![at],
+    )?;
+    Ok(())
 }
 
 /// The latest finished runs of one schedule.

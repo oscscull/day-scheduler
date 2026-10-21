@@ -9,7 +9,7 @@ use super::sync::SyncSettings;
 use super::watchdog::WatchdogSettings;
 use crate::error::AppResult;
 
-/// A part of life Bridge keeps separate, e.g. Work, Personal projects, Life.
+/// A part of life Quarterdeck keeps separate, e.g. Work, Personal projects, Life.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Area {
     pub id: String,
@@ -20,7 +20,7 @@ pub struct Area {
     pub node: String,
 }
 
-/// Mechanical settings from `bridge.toml`. Anything missing falls back to a default, so a
+/// Mechanical settings from `quarterdeck.toml`. Anything missing falls back to a default, so a
 /// hand-edited file with a line removed still loads.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -38,7 +38,7 @@ pub struct Settings {
     pub github: GithubSettings,
     pub calendar: CalendarSettings,
     pub alerts: AlertSettings,
-    /// Start Bridge when you log in, so schedules and alerts keep working.
+    /// Start Quarterdeck when you log in, so schedules and alerts keep working.
     pub launch_at_login: bool,
     pub sync: SyncSettings,
     pub watchdog: WatchdogSettings,
@@ -102,7 +102,7 @@ impl Settings {
 }
 
 pub fn load(config: &Config) -> AppResult<Settings> {
-    let text = std::fs::read_to_string(config.root().join("bridge.toml"))?;
+    let text = std::fs::read_to_string(config.root().join("quarterdeck.toml"))?;
     Ok(toml::from_str(&text)?)
 }
 
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn shipped_settings_parse() {
         let parsed: Settings =
-            toml::from_str(include_str!("../../defaults/config/bridge.toml")).unwrap();
+            toml::from_str(include_str!("../../defaults/config/quarterdeck.toml")).unwrap();
         assert_eq!(parsed.areas.len(), 3);
     }
 }

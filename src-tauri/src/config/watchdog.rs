@@ -1,4 +1,4 @@
-//! The `[watchdog]` section of `bridge.toml`: keeping Claude moving without nagging it.
+//! The `[watchdog]` section of `quarterdeck.toml`: keeping Claude moving without nagging it.
 
 use serde::Deserialize;
 
@@ -6,9 +6,9 @@ use serde::Deserialize;
 #[serde(default)]
 pub struct WatchdogSettings {
     pub enabled: bool,
-    /// How long an item Claude holds can go without an update before Bridge checks in.
+    /// How long an item Claude holds can go without an update before Quarterdeck checks in.
     pub quiet_minutes: i64,
-    /// Check-ins per quiet spell before Bridge stops and tells the user instead.
+    /// Check-ins per quiet spell before Quarterdeck stops and tells the user instead.
     pub max_nudges: u32,
 }
 

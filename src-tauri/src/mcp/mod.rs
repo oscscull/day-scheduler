@@ -1,4 +1,4 @@
-//! A Model Context Protocol server over stdio, so any Claude session can read and change Bridge.
+//! A Model Context Protocol server over stdio, so any Claude session can read and change Quarterdeck.
 //! Started as `<app binary> mcp`. It works on the same database and config folder as the app.
 
 mod ctx;
@@ -13,7 +13,7 @@ use serde_json::Value;
 
 use crate::error::{AppError, AppResult};
 
-/// Every Bridge tool, for the MCP server and the peer server.
+/// Every Quarterdeck tool, for the MCP server and the peer server.
 pub fn registry() -> Vec<Tool> {
     tools::all()
 }
@@ -59,7 +59,8 @@ mod tests {
     use super::*;
 
     fn session(name: &str) -> (Ctx, Vec<Tool>) {
-        let dir = std::env::temp_dir().join(format!("bridge-mcp-{name}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("quarterdeck-mcp-{name}-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
         let ctx = Ctx::at(&dir.join("data"), dir.join("config")).unwrap();
         (ctx, tools::all())
@@ -94,7 +95,7 @@ mod tests {
             "initialize",
             &json!({ "protocolVersion": "2025-06-18" }),
         );
-        assert_eq!(init["result"]["serverInfo"]["name"], "bridge");
+        assert_eq!(init["result"]["serverInfo"]["name"], "quarterdeck");
         let listed = send(&ctx, &registry, "tools/list", &json!({}));
         let all = listed["result"]["tools"].as_array().unwrap();
         let names: Vec<&str> = all.iter().filter_map(|t| t["name"].as_str()).collect();

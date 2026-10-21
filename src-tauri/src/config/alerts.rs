@@ -1,4 +1,4 @@
-//! The `[alerts]` section of `bridge.toml`: the loud, on-top countdown before meetings.
+//! The `[alerts]` section of `quarterdeck.toml`: the loud, on-top countdown before meetings.
 
 use serde::Deserialize;
 
