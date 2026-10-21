@@ -4,6 +4,7 @@
 mod defaults;
 mod frontmatter;
 
+pub mod github;
 pub mod inbox;
 pub mod pause;
 pub mod prompts;

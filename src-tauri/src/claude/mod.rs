@@ -3,32 +3,13 @@
 pub mod draft;
 pub mod runner;
 
-use std::path::PathBuf;
-
 use tokio::process::Command;
 
+use crate::cli;
 use crate::error::{AppError, AppResult};
 
 /// Lets a headless run use every Bridge tool without asking.
 const BRIDGE_TOOLS: &str = "mcp__bridge";
-
-/// Apps opened from Finder don't get the shell's PATH, so look where Claude Code usually lives.
-fn resolve(command: &str) -> PathBuf {
-    let given = PathBuf::from(command);
-    if given.is_absolute() || command.contains('/') {
-        return given;
-    }
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_default();
-    let candidates = [
-        home.join(".local/bin").join(command),
-        home.join(".claude/local").join(command),
-        PathBuf::from("/opt/homebrew/bin").join(command),
-        PathBuf::from("/usr/local/bin").join(command),
-    ];
-    candidates.into_iter().find(|p| p.exists()).unwrap_or(given)
-}
 
 /// The Bridge MCP server for a headless run: this same binary, started with `mcp`.
 fn bridge_server() -> AppResult<String> {
@@ -44,7 +25,7 @@ fn bridge_server() -> AppResult<String> {
 pub async fn ask_with(command: &str, prompt: &str, tools: &[String]) -> AppResult<String> {
     let mut allowed = vec![BRIDGE_TOOLS.to_owned()];
     allowed.extend_from_slice(tools);
-    let mut cmd = Command::new(resolve(command));
+    let mut cmd = Command::new(cli::resolve(command));
     cmd.arg("-p")
         .arg(prompt)
         .arg("--mcp-config")

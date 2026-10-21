@@ -235,5 +235,12 @@
   "connect.title": "Connect your Claude sessions",
   "connect.hint": "Run this once in a terminal. Every Claude Code session can then read and update Bridge: “add dinner on Friday to my to-dos”, “move JD-104 to review”.",
   "connect.copy": "Copy",
-  "connect.copied": "Copied"
+  "connect.copied": "Copied",
+  "connections.title": "Connections",
+  "connections.github": "GitHub",
+  "connections.calendar": "Calendar",
+  "connections.never": "not synced yet",
+  "connections.synced": "synced {when} ago",
+  "connections.failed": "last sync failed: {error}",
+  "item.synced": "From {source}. Bridge updates it when it changes there; your edits stick until then."
 }

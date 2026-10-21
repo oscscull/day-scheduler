@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS items (
     holder TEXT NOT NULL,
     area TEXT NOT NULL,
     link TEXT,
+    source TEXT NOT NULL DEFAULT 'manual',
+    external_id TEXT,
+    hidden INTEGER NOT NULL DEFAULT 0,
     opened_at TEXT NOT NULL,
     state_since TEXT NOT NULL,
     rank INTEGER NOT NULL
@@ -68,6 +71,12 @@ CREATE TABLE IF NOT EXISTS item_events (
 CREATE TABLE IF NOT EXISTS run_requests (
     schedule_id TEXT NOT NULL,
     requested_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sync_state (
+    source TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    snapshot TEXT NOT NULL,
+    PRIMARY KEY (source, external_id)
 );
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,

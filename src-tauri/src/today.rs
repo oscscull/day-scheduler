@@ -60,6 +60,8 @@ mod tests {
             holder: String::new(),
             area: String::new(),
             link: None,
+            source: String::new(),
+            external_id: None,
             opened_at: Utc::now(),
             state_since: Utc::now(),
             rank,

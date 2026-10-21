@@ -50,6 +50,8 @@ fn update(
         opened_at: old.opened_at,
         state_since: old.state_since,
         rank: old.rank,
+        source: old.source.clone(),
+        external_id: old.external_id.clone(),
         ..from_input(input)
     };
     let changes = diff(old, &item);
@@ -74,6 +76,8 @@ fn from_input(input: ItemInput) -> WorkItem {
         holder: input.holder,
         area: input.area,
         link: input.link.filter(|l| !l.trim().is_empty()),
+        source: items::MANUAL.to_owned(),
+        external_id: None,
         opened_at: DateTime::<Utc>::MIN_UTC,
         state_since: DateTime::<Utc>::MIN_UTC,
         rank: 0,

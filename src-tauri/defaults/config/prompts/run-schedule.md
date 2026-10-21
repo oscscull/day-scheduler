@@ -1,5 +1,5 @@
 You are running a scheduled job for Bridge, the user's work-and-life dashboard, on the machine
-"{{node}}". The job is "{{name}}".
+"{{node}}". The job is "{{name}}". It is running because {{trigger}}.
 
 Its instructions:
 

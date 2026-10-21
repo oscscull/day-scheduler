@@ -39,6 +39,7 @@ pub fn tick(handle: &AppHandle) -> AppResult<()> {
         ));
     }
     start_requested(handle)?;
+    super::connectors::sync_if_due(handle, &settings)?;
     let now = Utc::now();
     let last = app.db.with(|c| meta::time(c, LAST_TICK))?;
     app.db.with(|c| meta::set_time(c, LAST_TICK, now))?;
@@ -72,7 +73,7 @@ fn consider(
         record_missed(handle, schedule, settings.node_for(&schedule.area), &p)?;
     }
     if p.run && !is_running(handle, &schedule.id)? {
-        start(handle, schedule.clone());
+        start(handle, schedule.clone(), None);
     }
     Ok(())
 }
@@ -84,7 +85,7 @@ fn start_requested(handle: &AppHandle) -> AppResult<()> {
         if let Ok(schedule) = schedules::find(&app.config, &id)
             && !is_running(handle, &id)?
         {
-            start(handle, schedule);
+            start(handle, schedule, None);
         }
     }
     Ok(())
@@ -96,10 +97,10 @@ fn is_running(handle: &AppHandle, id: &str) -> AppResult<bool> {
 }
 
 /// Runs a schedule in the background; the runner records its own outcome.
-pub fn start(handle: &AppHandle, schedule: Schedule) {
+pub fn start(handle: &AppHandle, schedule: Schedule, trigger: Option<String>) {
     let handle = handle.clone();
     tauri::async_runtime::spawn(async move {
-        drop(runner::run(&handle, &schedule).await);
+        drop(runner::run(&handle, &schedule, trigger.as_deref()).await);
     });
 }
 

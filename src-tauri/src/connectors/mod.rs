@@ -1,0 +1,5 @@
+//! Connectors pull outside data into Bridge with app code, spending no tokens. What they pull is a
+//! starting point: users and agents can hide or edit anything, and syncs respect that.
+
+pub mod github;
+pub mod status;

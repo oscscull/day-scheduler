@@ -37,6 +37,10 @@ pub struct WorkItem {
     pub area: String,
     /// Where the work lives: a ticket, PR or doc.
     pub link: Option<String>,
+    /// `manual`, or the connector that made it, e.g. `github`.
+    pub source: String,
+    /// The connector's own id, e.g. `owner/repo#12`.
+    pub external_id: Option<String>,
     pub opened_at: DateTime<Utc>,
     /// When the stage, status or label last changed.
     pub state_since: DateTime<Utc>,

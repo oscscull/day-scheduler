@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::config::pause::Pause;
 use crate::config::schedules::Loaded;
+use crate::connectors::{github, status};
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::run::Run;
 use crate::domain::schedule::{Schedule, Trigger};
@@ -32,6 +33,7 @@ pub struct AgentView {
     pub schedules: Vec<ScheduleView>,
     pub problems: Vec<String>,
     pub pause: Option<Pause>,
+    pub connections: Vec<status::Status>,
 }
 
 pub fn build(conn: &Connection, loaded: Loaded, pause: Option<Pause>) -> AppResult<AgentView> {
@@ -56,5 +58,6 @@ pub fn build(conn: &Connection, loaded: Loaded, pause: Option<Pause>) -> AppResu
         schedules,
         problems,
         pause,
+        connections: vec![status::read(conn, github::SOURCE)?],
     })
 }

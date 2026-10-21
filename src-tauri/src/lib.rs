@@ -2,8 +2,10 @@
 
 mod app;
 mod claude;
+mod cli;
 mod commands;
 mod config;
+mod connectors;
 mod cron;
 mod domain;
 mod error;

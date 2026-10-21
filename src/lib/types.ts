@@ -12,6 +12,9 @@ export interface WorkItem {
   holder: string;
   area: string;
   link: string | null;
+  /** "manual", or the connector that made it, e.g. "github". */
+  source: string;
+  externalId: string | null;
   openedAt: string;
   stateSince: string;
   rank: number;
@@ -78,6 +81,9 @@ export interface Commitment {
   startsAt: string;
   endsAt: string;
   location: string | null;
+  source: string;
+  externalId: string | null;
+  hidden: boolean;
 }
 
 export interface Activity {
@@ -181,4 +187,11 @@ export interface AgentView {
   problems: string[];
   /** Set while every schedule is paused. `until: null` means until resumed. */
   pause: { until: string | null } | null;
+  connections: Connection[];
+}
+
+export interface Connection {
+  name: string;
+  lastSync: string | null;
+  error: string | null;
 }

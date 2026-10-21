@@ -1,0 +1,58 @@
+<script lang="ts">
+  import { t, type CopyKey } from "../../lib/copy";
+  import { age } from "../../lib/time";
+  import type { Connection } from "../../lib/types";
+
+  interface Props {
+    connections: Connection[];
+    now: Date;
+  }
+
+  let { connections, now }: Props = $props();
+
+  const NAMES: Record<string, CopyKey> = { github: "connections.github", calendar: "connections.calendar" };
+  const nameOf = (c: Connection): string => {
+    const key = NAMES[c.name];
+    return key ? t(key) : c.name;
+  };
+
+  function stateOf(c: Connection): string {
+    if (c.error) return t("connections.failed", { error: c.error });
+    return c.lastSync ? t("connections.synced", { when: age(c.lastSync, now) }) : t("connections.never");
+  }
+</script>
+
+<section aria-label={t("connections.title")}>
+  <h2 class="section-label">{t("connections.title")}</h2>
+  <ul>
+    {#each connections as c (c.name)}
+      <li><span class="name">{nameOf(c)}</span> <span class:error={c.error} class="hint">{stateOf(c)}</span></li>
+    {/each}
+  </ul>
+</section>
+
+<style>
+  section {
+    margin-top: 44px;
+  }
+
+  ul {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+  }
+
+  .name {
+    font-weight: 500;
+  }
+
+  .hint {
+    font-size: 13px;
+  }
+
+  .error {
+    color: var(--urgent-fg);
+  }
+</style>

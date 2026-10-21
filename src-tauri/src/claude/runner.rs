@@ -61,12 +61,13 @@ fn note(schedule: &Schedule, summary: &str) -> Activity {
     }
 }
 
-async fn ask(app: &App, schedule: &Schedule, node: &str) -> AppResult<String> {
+async fn ask(app: &App, schedule: &Schedule, node: &str, trigger: &str) -> AppResult<String> {
     let settings = app.settings()?;
     let vars = [
         ("node", node),
         ("name", schedule.name.as_str()),
         ("instructions", schedule.prompt.as_str()),
+        ("trigger", trigger),
     ];
     let prompt = render(&app.config, Prompt::RunSchedule, &vars)?;
     super::ask_with(&settings.claude_command, &prompt, &schedule.allowed_tools).await
@@ -74,13 +75,15 @@ async fn ask(app: &App, schedule: &Schedule, node: &str) -> AppResult<String> {
 
 /// Runs `schedule` now. Success lands in "From Claude"; failure is raised as urgent.
 /// Both send a quiet notification.
-pub async fn run(handle: &AppHandle, schedule: &Schedule) -> AppResult<()> {
+/// `trigger` says why it ran, e.g. which PR got new comments.
+pub async fn run(handle: &AppHandle, schedule: &Schedule, trigger: Option<&str>) -> AppResult<()> {
     let app = handle.state::<App>();
     let node = app.settings()?.node_for(&schedule.area).to_owned();
     let id = app
         .db
         .with(|conn| runs::start(conn, &started(schedule, &node)))?;
-    let (outcome, summary) = match ask(&app, schedule, &node).await {
+    let why = trigger.unwrap_or("its schedule came due, or someone asked to run it now");
+    let (outcome, summary) = match ask(&app, schedule, &node, why).await {
         Ok(text) => (Outcome::Ok, summary_of(&text)),
         Err(e) => (Outcome::Failed, summary_of(&e.to_string())),
     };

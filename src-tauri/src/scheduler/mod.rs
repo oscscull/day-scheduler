@@ -1,15 +1,22 @@
 //! Fires cron schedules on time on this machine, and records the ones that were missed.
 
+mod connectors;
 mod due;
+mod events;
 mod tick;
 
-pub use tick::start as run_now;
+use crate::domain::schedule::Schedule;
 
 use std::time::Duration;
 
 use tauri::AppHandle;
 
 const EVERY: Duration = Duration::from_secs(30);
+
+/// Runs a schedule now, in the background.
+pub fn run_now(handle: &AppHandle, schedule: Schedule) {
+    tick::start(handle, schedule, None);
+}
 
 /// Starts the scheduler loop for as long as the app runs.
 pub fn spawn(handle: AppHandle) {

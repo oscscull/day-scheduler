@@ -35,3 +35,17 @@ id = "life"
 name = "Life"
 color = "#2e8a47"
 node = "home-mac"
+
+# Your open PRs become items, through the `gh` command's existing login. Bridge only rewrites a
+# PR's title, stage and status when they change on GitHub, so your edits stick in between.
+[github]
+enabled = true
+poll_minutes = 5
+default_area = "work"
+# Skip PRs from these owners or repos.
+ignore = []
+
+# Owner or owner/repo to area id. A repo entry beats its owner's.
+[github.areas]
+# "my-org" = "work"
+# "me/side-project" = "projects"

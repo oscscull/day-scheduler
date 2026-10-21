@@ -13,6 +13,7 @@ pub mod items;
 pub mod meta;
 pub mod run_requests;
 pub mod runs;
+pub mod sync_state;
 pub mod todos;
 pub mod urgent;
 
