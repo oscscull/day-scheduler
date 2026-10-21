@@ -1,0 +1,41 @@
+# Setting up Bridge
+
+Reader: a person or agent installing Bridge on a machine, or connecting two machines. Rewrite this
+when setup changes.
+
+## One machine
+
+1. Needs: Rust, Node, `gh auth login` done, Claude Code (`claude`) logged in.
+2. `git clone https://github.com/oscscull/day-scheduler && cd day-scheduler && npm install`
+3. Run it with `npm run tauri dev`, or build an app with `npm run tauri build` and open the bundle in
+   `src-tauri/target/release/bundle/macos/`.
+4. First start creates `~/.config/bridge/` (settings, prompts, schedules, inbox) and the database
+   in `~/Library/Application Support/com.oscscull.dayscheduler/`.
+5. In `~/.config/bridge/bridge.toml`, set `node` to this machine's name, check the `[[areas]]`
+   (each area's `node` is the machine that runs it), map GitHub owners to areas under
+   `[github.areas]`, and add calendars' private iCal links under `[[calendar.feeds]]`.
+6. Connect Claude Code: run the command shown under "Connect your Claude sessions" on the Agent
+   tab. After that, most setup can be done by asking Claude ("add my work calendar: <link>").
+
+## Two machines
+
+Each machine keeps its own data and serves it to the other. Records stay where they were made;
+connectors and schedules only run for areas whose `node` is this machine.
+
+1. Give each machine a different `node`, and the same `[[areas]]` list on both.
+2. On each machine, turn sharing on: `[sync] enabled = true` (or Claude: `set_sync`), then restart
+   Bridge. A token is written to `[sync] token`; `get_sync_info` shows it.
+3. Expose each machine's port (default 4791, localhost only) with a tunnel. For example
+   `tailscale serve --bg 4791` (then use `https://<machine>.<tailnet>.ts.net`), or
+   `ssh -N -L 4792:localhost:4791 other-mac` (then use `http://localhost:4792`).
+4. On each machine, add the other as a peer: Claude `add_peer` with its `node` name, URL and token,
+   or a `[[sync.peers]]` entry in `bridge.toml`.
+5. The Agent tab's Connections list shows whether each peer answers.
+
+A machine without a screen can serve its Bridge with `<binary> serve`.
+
+## Checking it
+
+- Lints and tests: `npm run check`, then in `src-tauri/`: `cargo clippy --all-targets -- -D warnings`
+  and `cargo test`.
+- The scheduler's last error, if any, is in the database's `meta` table as `scheduler.last_error`.

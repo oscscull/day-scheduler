@@ -1,7 +1,8 @@
 # CLAUDE.md
 
 Bridge (repo: `day-scheduler`) is a Tauri 2 desktop app that tracks work in flight and runs recurring
-Claude jobs. [docs/SPEC.md](docs/SPEC.md) describes the current design.
+Claude jobs. [docs/SPEC.md](docs/SPEC.md) describes the current design; [docs/setup.md](docs/setup.md)
+how to install it and connect machines.
 
 ## Principles (non-negotiable)
 
@@ -43,5 +44,8 @@ cd src-tauri && cargo fmt --check                          # format check
 
 - `src/`: Svelte 5 frontend. `views/` one per tab, `components/` shared, `lib/` logic, `copy/` text.
 - `src-tauri/src/`: Rust. `domain/` types, `store/` SQLite, `config/` files, `cron/`, `views/` screen
-  data, `commands/` thin Tauri handlers, `claude/` headless runs.
-- `src-tauri/defaults/`: default config files and sample data, embedded in the binary.
+  data, `commands/` thin Tauri handlers, `claude/` headless runs, `scheduler/`, `connectors/`,
+  `mcp/` (the MCP server and its tools), `peers/` (sync between machines), `alerts/`, `desktop/`.
+- `src-tauri/defaults/config/`: default config files, embedded in the binary.
+
+Every way to change data should exist as an MCP tool, since agents are the main way in.
