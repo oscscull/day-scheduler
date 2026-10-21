@@ -32,7 +32,8 @@ pub fn tools() -> Vec<Tool> {
         ),
         tool(
             "answer_ask",
-            "Answers an ask on the user's behalf, when they told you the answer.",
+            "Answers an ask on the user's behalf, when they told you the answer. Returns \"gone\" \
+             if it was already answered or dismissed, and changes nothing.",
             answer,
         ),
         tool(
@@ -101,7 +102,7 @@ struct AnswerArgs {
     answer: String,
 }
 
-fn answer(ctx: &Ctx, args: AnswerArgs) -> AppResult<()> {
+fn answer(ctx: &Ctx, args: AnswerArgs) -> AppResult<crate::answer::Outcome> {
     let settings = ctx.settings()?;
     ctx.db
         .with(|c| crate::answer::give(c, &settings, args.ask_id, &args.answer))

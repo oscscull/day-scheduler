@@ -246,3 +246,6 @@ export type Response =
   | { kind: "answer"; askId: number; text: string }
   | { kind: "dismiss"; askId: number }
   | { kind: "tell"; itemId: string; text: string };
+
+/** What came of a reply: "gone" when the question was already answered or dismissed. */
+export type ReplyOutcome = "done" | "gone";
