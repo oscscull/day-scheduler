@@ -1,6 +1,7 @@
 //! Bridge: tracks work in flight and runs recurring Claude jobs.
 
 mod alerts;
+mod answer;
 mod app;
 mod claude;
 mod cli;

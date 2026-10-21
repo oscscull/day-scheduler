@@ -14,7 +14,7 @@ macro_rules! default_file {
     };
 }
 
-const FILES: [(&str, &str); 9] = [
+const FILES: [(&str, &str); 10] = [
     default_file!("README.md"),
     default_file!("bridge.toml"),
     default_file!("prompts/chat.md"),
@@ -24,6 +24,7 @@ const FILES: [(&str, &str); 9] = [
     default_file!("prompts/check-in.md"),
     default_file!("prompts/fix-ci.md"),
     default_file!("prompts/ci-done.md"),
+    default_file!("prompts/answer.md"),
 ];
 
 /// Folders that must exist even when empty.

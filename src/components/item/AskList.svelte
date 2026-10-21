@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { errorText } from "../../lib/api";
-  import { route } from "../../lib/route";
+  import AnswerBox from "../AnswerBox.svelte";
   import { t } from "../../lib/copy";
-  import { changed } from "../../lib/refresh.svelte";
   import type { Ask } from "../../lib/types";
 
   interface Props {
@@ -11,39 +9,21 @@
   }
 
   let { node, asks }: Props = $props();
-
-  let error = $state("");
-
-  async function run(work: () => Promise<unknown>): Promise<void> {
-    try {
-      await work();
-      error = "";
-      changed();
-    } catch (e) {
-      error = t("item.failed", { error: errorText(e) });
-    }
-  }
-
 </script>
 
 {#if asks.length > 0}
-<section aria-label={t("item.asks")}>
-  <h3 class="section-label">{t("item.asks")}</h3>
-  <ul>
-    {#each asks as ask (ask.id)}
-      <li class="row">
-        <span class="body">
-          <span>{ask.question}</span>
-          {#if ask.context}<span class="hint small">{ask.context}</span>{/if}
-        </span>
-        <button type="button" class="button-secondary small" onclick={() => run(() => route.resolveAsk(node, ask.id))}>
-          {t("item.answered")}
-        </button>
-      </li>
-    {/each}
-  </ul>
-  {#if error}<p class="error">{error}</p>{/if}
-</section>
+  <section aria-label={t("item.asks")}>
+    <h3 class="section-label">{t("item.asks")}</h3>
+    <ul>
+      {#each asks as ask (ask.id)}
+        <li>
+          <p class="question">{ask.question}</p>
+          {#if ask.context}<p class="hint small">{ask.context}</p>{/if}
+          <AnswerBox {ask} {node} dismissable />
+        </li>
+      {/each}
+    </ul>
+  </section>
 {/if}
 
 <style>
@@ -53,27 +33,22 @@
 
   li {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 0;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 0 14px;
   }
 
-  .body {
-    flex: 1 1 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  li + li {
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .question {
+    font-size: 15px;
   }
 
   .small {
     font-size: 13px;
+    margin-bottom: 6px;
+    overflow-wrap: anywhere;
   }
-
-
-  button.small {
-    padding: 6px 10px;
-    font-size: 13px;
-  }
-
 </style>

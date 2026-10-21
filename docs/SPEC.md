@@ -73,6 +73,11 @@ The watchdog keeps claimed work moving: agents post updates as they go, and only
 carrying that stays quiet past `[watchdog] quiet_minutes` gets a check-in (`prompts/check-in.md`),
 at most `max_nudges` times before the user is told. Waiting on CI or reviewers isn't silence.
 
+Questions (`add_ask`) are answered, not ticked off: with one of the agent's `options` or in writing,
+on Today or the item. The answer goes on the item's history, and the scheduler resumes the session
+that asked (or the one holding the item) with it (`prompts/answer.md`). Sessions are stored with
+their working directory, since Claude only resumes a session from the folder it ran in.
+
 ## Not built yet
 
 - A database layer on baseddsl, once it can adopt existing databases.

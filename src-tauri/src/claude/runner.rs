@@ -73,6 +73,7 @@ async fn ask(app: &App, schedule: &Schedule, node: &str, trigger: &str) -> AppRe
     let opts = super::Ask {
         tools: &schedule.allowed_tools,
         session: super::Session::Fresh,
+        cwd: None,
     };
     super::ask_with(&settings.claude_command, &prompt, &opts).await
 }

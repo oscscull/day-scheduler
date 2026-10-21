@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AnswerBox from "../components/AnswerBox.svelte";
   import AreaDot from "../components/AreaDot.svelte";
   import LoadError from "../components/LoadError.svelte";
   import { api, errorText } from "../lib/api";
@@ -7,7 +8,7 @@
   import { t } from "../lib/copy";
   import { poll } from "../lib/poll";
   import { clock, dayClock, until } from "../lib/time";
-  import type { Commitment, Priority, TodayView } from "../lib/types";
+  import type { Commitment, TodayView } from "../lib/types";
   import { openItem } from "../lib/detail.svelte";
   import { mergeToday } from "../lib/merge";
   import { nav } from "../lib/nav.svelte";
@@ -29,15 +30,6 @@
   async function hide(c: Commitment): Promise<void> {
     try {
       await route.hideMeeting(c.node, c.id);
-      changed();
-    } catch (e) {
-      error = errorText(e);
-    }
-  }
-
-  async function answered(p: Priority): Promise<void> {
-    try {
-      if (p.kind === "ask") await route.resolveAsk(p.node, p.ask.id);
       changed();
     } catch (e) {
       error = errorText(e);
@@ -112,10 +104,10 @@
               <span>{line.text}</span>
               <span class="hint small">{line.context}</span>
             </button>
-            {#if p.kind === "ask"}
-              <button type="button" class="tick" aria-label={t("today.answered", { question: line.text })} onclick={() => answered(p)}>✓</button>
-            {/if}
           </li>
+          {#if p.kind === "ask"}
+            <li class="answer-row"><AnswerBox ask={p.ask} node={p.node} /></li>
+          {/if}
         {:else}
           <li class="hint">{t("today.noPriorities")}</li>
         {/each}
@@ -186,14 +178,8 @@
     font-size: 13px;
   }
 
-  .tick {
-    width: 32px;
-    height: 32px;
-    flex: none;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--surface);
-    color: var(--muted);
+  .answer-row {
+    padding: 0 0 14px 22px;
   }
 
   .label-row {

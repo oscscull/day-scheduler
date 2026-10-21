@@ -4,6 +4,8 @@ use serde::Deserialize;
 use super::super::ctx::Ctx;
 use super::super::tool::{Tool, tool};
 use super::in_area;
+use crate::domain::ask::Ask;
+use crate::domain::session::SessionRef;
 use crate::error::AppResult;
 use crate::store::{asks, items};
 use chrono::Utc;
@@ -22,10 +24,22 @@ pub fn tools() -> Vec<Tool> {
             "add_ask",
             "Asks the user something about an item: a design fork, a question you can't answer. \
              It appears in their Priorities if the item ranks high enough. Put the question in one \
-             line and the background in `context`.",
+             line and the background in `context`. Offer `options` when the answer is a choice \
+             (e.g. [\"Yes\", \"No\"]); they can always write an answer instead. Pass your session \
+             id and working directory so Bridge can resume you with the answer; don't wait or poll \
+             for it. Answers are also kept on the item's history.",
             add,
         ),
-        tool("resolve_ask", "Removes an ask once it's answered.", resolve),
+        tool(
+            "answer_ask",
+            "Answers an ask on the user's behalf, when they told you the answer.",
+            answer,
+        ),
+        tool(
+            "dismiss_ask",
+            "Removes an ask that no longer matters, without answering it.",
+            dismiss,
+        ),
     ]
 }
 
@@ -51,20 +65,44 @@ struct AddArgs {
     /// Where it came from or why it matters, e.g. "Design fork on PR #812".
     #[serde(default)]
     context: String,
+    /// Choices to answer with, e.g. `["Yes", "No"]`. Leave out for a written answer.
+    #[serde(default)]
+    options: Vec<String>,
+    /// Your Claude Code session, so the answer can resume you.
+    session: Option<SessionRef>,
 }
 
 fn add(ctx: &Ctx, args: AddArgs) -> AppResult<()> {
+    let ask = Ask {
+        id: 0,
+        item_id: args.item_id,
+        question: args.question,
+        context: args.context,
+        options: args.options,
+        asker: args.session,
+    };
     ctx.db.with(|c| {
-        items::get(c, &args.item_id)?;
-        asks::insert(c, &args.item_id, &args.question, &args.context)
+        items::get(c, &ask.item_id)?;
+        asks::insert(c, &ask)
     })
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-struct ResolveArgs {
+struct AnswerArgs {
+    ask_id: i64,
+    answer: String,
+}
+
+fn answer(ctx: &Ctx, args: AnswerArgs) -> AppResult<()> {
+    ctx.db
+        .with(|c| crate::answer::give(c, args.ask_id, &args.answer, Utc::now()))
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct AskIdArgs {
     ask_id: i64,
 }
 
-fn resolve(ctx: &Ctx, args: ResolveArgs) -> AppResult<()> {
-    ctx.db.with(|c| asks::resolve(c, args.ask_id))
+fn dismiss(ctx: &Ctx, args: AskIdArgs) -> AppResult<()> {
+    ctx.db.with(|c| asks::remove(c, args.ask_id))
 }

@@ -6,13 +6,13 @@ use super::super::ctx::Ctx;
 use super::super::tool::{Tool, tool};
 use crate::config::edit;
 use crate::domain::item::{ItemInput, Status};
+use crate::domain::session::SessionRef;
 use crate::error::AppResult;
 use crate::store::{items, watch};
 use crate::work;
 
-const CLAIM: &str = "Say you're working on an item. Call this when you start. Pass your Claude Code session id if \
-you know it, so that if you go quiet Bridge can resume your session and ask for an update rather \
-than start a new one. Then post progress as it happens: add_note for steps, update_item for the \
+const CLAIM: &str = "Say you're working on an item. Call this when you start. Pass your Claude Code session id and \
+working directory, so Bridge can resume your session with CI results, answers and check-ins. Then post progress as it happens: add_note for steps, update_item for the \
 state label, add_ask when you need the user. Don't poll CI: when it finishes on this item, Bridge \
 resumes your session with the result. Long silences get a check-in; repeated silence is flagged \
 to the user.";
@@ -30,8 +30,9 @@ pub fn tools() -> Vec<Tool> {
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ClaimArgs {
     id: String,
-    /// Your Claude Code session id, if known.
-    session_id: Option<String>,
+    /// Your Claude Code session (id and working directory), so Bridge can resume you with CI
+    /// results, answers and check-ins.
+    session: Option<SessionRef>,
 }
 
 fn claim(ctx: &Ctx, args: ClaimArgs) -> AppResult<()> {
@@ -48,7 +49,7 @@ fn claim(ctx: &Ctx, args: ClaimArgs) -> AppResult<()> {
             link: item.link,
         };
         work::save(c, input, Utc::now())?;
-        watch::claim(c, &args.id, args.session_id.as_deref())
+        watch::claim(c, &args.id, args.session.as_ref())
     })
 }
 

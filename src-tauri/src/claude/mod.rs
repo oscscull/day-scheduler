@@ -27,6 +27,8 @@ pub struct Ask<'a> {
     /// Claude Code tools it may use without asking, besides the Bridge tools.
     pub tools: &'a [String],
     pub session: Session<'a>,
+    /// The folder to run in. A resumed session must run where it started.
+    pub cwd: Option<&'a str>,
 }
 
 /// Which Claude Code session a run belongs to.
@@ -52,6 +54,9 @@ pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<
         .arg(bridge_server()?)
         .arg("--allowedTools")
         .arg(allowed.join(","));
+    if let Some(dir) = opts.cwd {
+        cmd.current_dir(dir);
+    }
     match opts.session {
         Session::Fresh => {}
         Session::Start(id) => drop(cmd.arg("--session-id").arg(id)),

@@ -43,6 +43,8 @@ pub fn tick(handle: &AppHandle) -> AppResult<()> {
     let urgent_count = app.db.with(urgent::list)?.len();
     crate::desktop::tray::show_urgent(handle, urgent_count)?;
     super::connectors::sync_if_due(handle, &settings)?;
+    // Answers go out even while paused: the user just gave them.
+    super::answers::deliver(handle, &settings)?;
     let now = Utc::now();
     let last = app.db.with(|c| meta::time(c, LAST_TICK))?;
     app.db.with(|c| meta::set_time(c, LAST_TICK, now))?;

@@ -28,9 +28,15 @@ pub fn delete_item(app: State<'_, App>, id: String) -> AppResult<()> {
     app.db.with(|conn| items::delete(conn, &id))
 }
 
+/// Answers an ask, or with no answer drops one that no longer matters.
 #[tauri::command]
-pub fn resolve_ask(app: State<'_, App>, id: i64) -> AppResult<()> {
-    app.db.with(|conn| asks::resolve(conn, id))
+pub fn settle_ask(app: State<'_, App>, id: i64, answer: Option<String>) -> AppResult<()> {
+    app.db.with(|conn| {
+        answer.map_or_else(
+            || asks::remove(conn, id),
+            |text| crate::answer::give(conn, id, &text, Utc::now()),
+        )
+    })
 }
 
 /// One item with its open asks and history, for the detail view.

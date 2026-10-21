@@ -23,7 +23,11 @@ CREATE TABLE IF NOT EXISTS asks (
     id INTEGER PRIMARY KEY,
     item_id TEXT NOT NULL REFERENCES items(id),
     question TEXT NOT NULL,
-    context TEXT NOT NULL
+    context TEXT NOT NULL,
+    options TEXT NOT NULL DEFAULT '[]',
+    session TEXT,
+    cwd TEXT,
+    answer TEXT
 );
 CREATE TABLE IF NOT EXISTS commitments (
     id INTEGER PRIMARY KEY,
@@ -87,6 +91,7 @@ CREATE TABLE IF NOT EXISTS alert_state (
 CREATE TABLE IF NOT EXISTS watch (
     item_id TEXT PRIMARY KEY,
     session TEXT,
+    cwd TEXT,
     nudges INTEGER NOT NULL DEFAULT 0,
     last_nudge TEXT
 );
@@ -105,7 +110,14 @@ CREATE TABLE IF NOT EXISTS todos (
 
 /// Changes to databases made before the current schema, in order. Append only: each runs once,
 /// tracked by `SQLite`'s `user_version`. A fresh database starts from `SCHEMA` and skips them all.
-const MIGRATIONS: [&str; 1] = ["ALTER TABLE commitments ADD COLUMN join_url TEXT"];
+const MIGRATIONS: [&str; 6] = [
+    "ALTER TABLE commitments ADD COLUMN join_url TEXT",
+    "ALTER TABLE asks ADD COLUMN options TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE asks ADD COLUMN session TEXT",
+    "ALTER TABLE asks ADD COLUMN cwd TEXT",
+    "ALTER TABLE asks ADD COLUMN answer TEXT",
+    "ALTER TABLE watch ADD COLUMN cwd TEXT",
+];
 
 fn version(conn: &Connection) -> AppResult<usize> {
     let v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -115,6 +127,19 @@ fn version(conn: &Connection) -> AppResult<usize> {
 fn set_version(conn: &Connection, v: usize) -> AppResult<()> {
     conn.pragma_update(None, "user_version", i64::try_from(v).unwrap_or(i64::MAX))?;
     Ok(())
+}
+
+/// Runs one migration. A table created after a column joined `SCHEMA` already has that column, so
+/// adding it again counts as done.
+fn apply(conn: &Connection, sql: &str) -> AppResult<()> {
+    match conn.execute_batch(sql) {
+        Err(rusqlite::Error::SqliteFailure(_, Some(msg)))
+            if msg.starts_with("duplicate column name") =>
+        {
+            Ok(())
+        }
+        other => Ok(other?),
+    }
 }
 
 pub fn migrate(conn: &Connection) -> AppResult<()> {
@@ -128,7 +153,7 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
         return set_version(conn, MIGRATIONS.len());
     }
     for (done, sql) in MIGRATIONS.iter().enumerate().skip(version(conn)?) {
-        conn.execute_batch(sql)?;
+        apply(conn, sql)?;
         set_version(conn, done + 1)?;
     }
     Ok(())
@@ -152,6 +177,8 @@ mod tests {
         .unwrap();
         migrate(&old).unwrap();
         old.execute("UPDATE commitments SET join_url = 'x'", [])
+            .unwrap();
+        old.execute("UPDATE asks SET options = '[]', answer = NULL", [])
             .unwrap();
         assert_eq!(version(&old).unwrap(), MIGRATIONS.len());
     }

@@ -67,6 +67,8 @@ export interface Ask {
   itemId: string;
   question: string;
   context: string;
+  /** Choices to answer with. Empty means a written answer; one can always be written. */
+  options: string[];
 }
 
 /** Something that needs the user, derived from the work. `kind` says why. */

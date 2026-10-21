@@ -112,6 +112,7 @@ mod tests {
             item_id: item_id.to_owned(),
             question: String::new(),
             context: String::new(),
+            ..Ask::default()
         }
     }
 

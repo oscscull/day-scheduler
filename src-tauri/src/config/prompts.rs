@@ -11,6 +11,7 @@ pub enum Prompt {
     CheckIn,
     FixCi,
     CiDone,
+    Answer,
 }
 
 impl Prompt {
@@ -23,6 +24,7 @@ impl Prompt {
             Self::CheckIn => "check-in.md",
             Self::FixCi => "fix-ci.md",
             Self::CiDone => "ci-done.md",
+            Self::Answer => "answer.md",
         }
     }
 }
