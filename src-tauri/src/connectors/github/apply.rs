@@ -123,6 +123,7 @@ mod tests {
             ci: Some("SUCCESS".to_owned()),
             comments,
             reviewers: super::super::fetch::Reviewers::Requested,
+            reviewer_names: Vec::new(),
         }
     }
 

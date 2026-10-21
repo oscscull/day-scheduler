@@ -19,7 +19,7 @@ const MAP_GITHUB: &str = "Files PRs from a GitHub owner (e.g. \"my-org\") or rep
 A repo entry beats its owner's.";
 const IGNORE_GITHUB: &str = "Sets the GitHub owners or repos whose PRs Bridge skips entirely.";
 const SELF_REVIEW: &str = "Sets the GitHub owners or repos where the user reviews their own PRs, so an unreviewed PR \
-shows as waiting on their decision rather than on reviewers. PRs with no requested reviewers are \
+shows as waiting on their decision rather than on reviewers. PRs nobody has been asked to review, or has reviewed, are \
 treated that way already.";
 
 pub fn tools() -> Vec<Tool> {

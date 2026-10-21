@@ -55,6 +55,15 @@ fn state(pr: &Pr) -> (Option<Status>, &'static str, &'static str) {
     }
 }
 
+/// Names the reviewers when a PR waits on them, e.g. "madonoharu".
+fn holder_name(pr: &Pr, holder: &str) -> String {
+    if holder == "reviewers" && !pr.reviewer_names.is_empty() {
+        pr.reviewer_names.join(", ")
+    } else {
+        holder.to_owned()
+    }
+}
+
 pub fn of(pr: &Pr) -> Snapshot {
     let (status, label, holder) = match (waiting_on_review(pr), pr.reviewers) {
         (true, Reviewers::Yourself) => (Some(Status::Decision), "ready for your review", "you"),
@@ -63,6 +72,7 @@ pub fn of(pr: &Pr) -> Snapshot {
         }
         (true | false, _) => state(pr),
     };
+    let holder = holder_name(pr, holder);
     Snapshot {
         owned: Owned {
             title: pr.title.clone(),
@@ -73,7 +83,7 @@ pub fn of(pr: &Pr) -> Snapshot {
             },
             status,
             label: label.to_owned(),
-            holder: holder.to_owned(),
+            holder,
         },
         ci_failing: failing(pr),
         ci_passed: pr.ci.as_deref() == Some("SUCCESS"),
@@ -112,6 +122,7 @@ mod tests {
             ci: ci.map(str::to_owned),
             comments,
             reviewers: Reviewers::Requested,
+            reviewer_names: Vec::new(),
         }
     }
 
@@ -139,6 +150,16 @@ mod tests {
             ..pr(Some("FAILURE"), None, 0)
         };
         assert_eq!(of(&failing).owned.status, Some(Status::CiFailed));
+    }
+
+    #[test]
+    fn waiting_on_review_names_the_reviewers() {
+        let named = Pr {
+            reviewer_names: vec!["madonoharu".to_owned()],
+            ..pr(Some("SUCCESS"), Some("REVIEW_REQUIRED"), 0)
+        };
+        assert_eq!(of(&named).owned.holder, "madonoharu");
+        assert_eq!(of(&pr(Some("SUCCESS"), None, 0)).owned.holder, "reviewers");
     }
 
     #[test]
