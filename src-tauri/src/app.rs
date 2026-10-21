@@ -22,14 +22,16 @@ impl App {
     }
 
     /// Turns any files agents dropped in `inbox/` into urgent items.
-    pub fn take_inbox(&self, settings: &Settings) -> AppResult<()> {
+    /// Returns how many items were raised.
+    pub fn take_inbox(&self, settings: &Settings) -> AppResult<usize> {
         let raised = inbox::take(&self.config)?;
+        let count = raised.len();
         self.db.with(|conn| {
             for r in raised {
                 let area = settings.known_area(&r.area);
                 urgent::raise(conn, &r.into_urgent(area, Utc::now()))?;
             }
-            Ok(())
+            Ok(count)
         })
     }
 

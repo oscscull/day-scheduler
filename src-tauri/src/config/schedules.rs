@@ -18,6 +18,8 @@ struct Settings {
     enabled: bool,
     #[serde(default)]
     request: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    allowed_tools: Vec<String>,
     trigger: Trigger,
 }
 
@@ -89,6 +91,7 @@ fn read(file: &Path) -> AppResult<Schedule> {
         autonomy: s.autonomy,
         enabled: s.enabled,
         request: s.request,
+        allowed_tools: s.allowed_tools,
     })
 }
 
@@ -100,6 +103,7 @@ pub fn save(config: &Config, schedule: &Schedule) -> AppResult<()> {
         autonomy: schedule.autonomy,
         enabled: schedule.enabled,
         request: schedule.request.clone(),
+        allowed_tools: schedule.allowed_tools.clone(),
         trigger: schedule.trigger.clone(),
     };
     let text = frontmatter::join(&toml::to_string(&settings)?, &schedule.prompt);

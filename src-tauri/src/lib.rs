@@ -7,6 +7,8 @@ mod config;
 mod cron;
 mod domain;
 mod error;
+mod notify;
+mod scheduler;
 mod store;
 mod today;
 mod views;
@@ -19,6 +21,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let db = store::Db::open(&app.path().app_data_dir()?)?;
     let config = config::Config::open(app.path().home_dir()?.join(".config").join("bridge"))?;
     app.manage(app::App { db, config });
+    scheduler::spawn(app.handle().clone());
     Ok(())
 }
 
@@ -34,6 +37,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn run() -> tauri::Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             commands::areas::areas,

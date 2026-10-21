@@ -49,4 +49,8 @@ pub struct Schedule {
     pub enabled: bool,
     /// The plain-English request this schedule was made from, if any.
     pub request: String,
+    /// Claude Code tools the run may use without asking, e.g. `Bash(gh pr comment:*)`.
+    /// Empty means it can only read and report back.
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
 }

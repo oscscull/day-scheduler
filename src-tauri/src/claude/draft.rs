@@ -49,6 +49,7 @@ pub fn parse(reply: &str, request: &str) -> AppResult<Schedule> {
         autonomy: draft.autonomy,
         enabled: true,
         request: request.to_owned(),
+        allowed_tools: Vec::new(),
     })
 }
 

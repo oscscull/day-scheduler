@@ -2,11 +2,11 @@ use chrono::{DateTime, Local, Utc};
 use tauri::{AppHandle, Manager as _, State};
 
 use crate::app::App;
-use crate::claude::runner;
 use crate::config::{pause, schedules};
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::schedule::Schedule;
 use crate::error::{AppError, AppResult};
+use crate::scheduler;
 use crate::store::runs;
 
 const PREVIEW_RUNS: usize = 3;
@@ -45,11 +45,7 @@ pub fn explain_cron(expr: String) -> AppResult<Explanation> {
 #[tauri::command]
 pub fn run_schedule_now(handle: AppHandle, id: String) -> AppResult<()> {
     let schedule = schedules::find(&handle.state::<App>().config, &id)?;
-    tauri::async_runtime::spawn(async move {
-        let app = handle.state::<App>();
-        // The runner records its own failures as a failed run plus an urgent item.
-        drop(runner::run(&app, &schedule).await);
-    });
+    scheduler::run_now(&handle, schedule);
     Ok(())
 }
 

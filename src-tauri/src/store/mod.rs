@@ -10,6 +10,7 @@ pub mod commitments;
 pub mod events;
 pub mod expire;
 pub mod items;
+pub mod meta;
 pub mod runs;
 pub mod todos;
 pub mod urgent;

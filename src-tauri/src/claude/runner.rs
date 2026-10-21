@@ -1,14 +1,17 @@
 //! Runs one schedule through headless Claude and records the outcome.
 
 use chrono::Utc;
+use tauri::{AppHandle, Manager as _};
 
 use crate::app::App;
 use crate::config::prompts::{Prompt, render};
+use crate::domain::activity::Activity;
 use crate::domain::run::{Outcome, Run};
 use crate::domain::schedule::Schedule;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
-use crate::store::{runs, urgent};
+use crate::notify;
+use crate::store::{activity, runs, urgent};
 
 const SUMMARY_CHARS: usize = 200;
 
@@ -48,33 +51,55 @@ fn failure(schedule: &Schedule, detail: String) -> Urgent {
     }
 }
 
-/// Runs `schedule` now. A failure is recorded on the run and raised as urgent.
-pub async fn run(app: &App, schedule: &Schedule) -> AppResult<()> {
+fn note(schedule: &Schedule, summary: &str) -> Activity {
+    Activity {
+        id: 0,
+        text: format!("{}: {summary}", schedule.name),
+        area: schedule.area.clone(),
+        at: Utc::now(),
+        unread: true,
+    }
+}
+
+async fn ask(app: &App, schedule: &Schedule, node: &str) -> AppResult<String> {
     let settings = app.settings()?;
-    let node = settings.node_for(&schedule.area).to_owned();
-    let id = app
-        .db
-        .with(|conn| runs::start(conn, &started(schedule, &node)))?;
     let vars = [
-        ("node", node.as_str()),
+        ("node", node),
         ("name", schedule.name.as_str()),
         ("instructions", schedule.prompt.as_str()),
     ];
-    let reply = match render(&app.config, Prompt::RunSchedule, &vars) {
-        Ok(prompt) => super::ask(&settings.claude_command, &prompt).await,
-        Err(e) => Err(e),
-    };
-    let (outcome, summary) = match reply {
+    let prompt = render(&app.config, Prompt::RunSchedule, &vars)?;
+    super::ask_with(&settings.claude_command, &prompt, &schedule.allowed_tools).await
+}
+
+/// Runs `schedule` now. Success lands in "From Claude"; failure is raised as urgent.
+/// Both send a quiet notification.
+pub async fn run(handle: &AppHandle, schedule: &Schedule) -> AppResult<()> {
+    let app = handle.state::<App>();
+    let node = app.settings()?.node_for(&schedule.area).to_owned();
+    let id = app
+        .db
+        .with(|conn| runs::start(conn, &started(schedule, &node)))?;
+    let (outcome, summary) = match ask(&app, schedule, &node).await {
         Ok(text) => (Outcome::Ok, summary_of(&text)),
         Err(e) => (Outcome::Failed, summary_of(&e.to_string())),
     };
     app.db.with(|conn| {
         runs::finish(conn, id, outcome, &summary)?;
-        if outcome == Outcome::Failed {
-            urgent::raise(conn, &failure(schedule, summary.clone()))?;
+        match outcome {
+            Outcome::Ok => activity::insert(conn, &note(schedule, &summary)),
+            Outcome::Failed | Outcome::Missed => {
+                urgent::raise(conn, &failure(schedule, summary.clone()))
+            }
         }
-        Ok(())
-    })
+    })?;
+    let title = match outcome {
+        Outcome::Ok => schedule.name.clone(),
+        Outcome::Failed | Outcome::Missed => format!("{} failed", schedule.name),
+    };
+    // Notifications are a courtesy; the outcome is already recorded.
+    drop(notify::send(handle, &title, &summary));
+    Ok(())
 }
 
 #[cfg(test)]

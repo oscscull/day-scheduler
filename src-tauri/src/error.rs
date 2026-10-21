@@ -19,6 +19,8 @@ pub enum AppError {
     Tauri(#[from] tauri::Error),
     #[error("claude failed: {0}")]
     Claude(String),
+    #[error("couldn't notify: {0}")]
+    Notify(String),
     #[error("not found: {0}")]
     NotFound(String),
     #[error("the database lock was poisoned")]

@@ -8,6 +8,8 @@ every refresh, so edits apply immediately.
 - `prompts/`: Bridge's built-in agent jobs. `{{name}}` placeholders are filled in by the app.
 - `schedules/`: one file per recurring job; the file name is its id. TOML between `+++`
   lines, then the instructions Claude follows. Copy an existing file to start a new one.
+  `allowed_tools` (optional) lists Claude Code tools a run may use without asking, e.g.
+  `["Bash(gh pr comment:*)"]`; without it a run can only read and report back.
   `trigger.type` is `cron` (with `expr`) or `event` (with `kind` = `ci_failed` or
   `pr_new_comments`). Events are detected by app code and cost no tokens until they fire.
 - `inbox/`: an agent raises an urgent item by writing `inbox/<anything>.toml` with `title` and
