@@ -15,7 +15,8 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
-		"vite": "^8.0.16",
+    "vite": "^8.0.16",
     "typescript": "~6.0.3"
-  }
+  },
+  "license": "GPL-3.0-or-later"
 }

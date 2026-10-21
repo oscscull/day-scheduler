@@ -11,4 +11,4 @@ npm run tauri dev
 
 ## License
 
-MIT
+GPL-3.0-or-later. See [LICENSE](LICENSE).
