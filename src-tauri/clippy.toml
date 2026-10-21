@@ -1,0 +1,13 @@
+# Enforce small units (SRP).
+too-many-lines-threshold = 40
+too-many-arguments-threshold = 4
+cognitive-complexity-threshold = 10
+type-complexity-threshold = 150
+max-struct-bools = 2
+max-fn-params-bools = 1
+excessive-nesting-threshold = 4
+# Tests may unwrap.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true

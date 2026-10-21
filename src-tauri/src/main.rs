@@ -1,6 +1,6 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+// Prevents an extra console window on Windows in release. Do not remove.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-fn main() {
+fn main() -> tauri::Result<()> {
     day_scheduler_lib::run()
 }

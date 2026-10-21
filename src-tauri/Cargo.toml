@@ -5,6 +5,10 @@ description = "A day scheduler desktop app"
 authors = ["Oscar Scull"]
 license = "GPL-3.0-or-later"
 edition = "2024"
+repository = "https://github.com/oscscull/day-scheduler"
+readme = "../README.md"
+keywords = ["scheduler", "tauri", "claude", "productivity"]
+categories = ["gui"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -32,3 +36,35 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+# Groups (lower priority so single lints below can override).
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# Restriction picks: no panicking paths in app code.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+exit = "deny"
+let_underscore_must_use = "deny"
+string_slice = "deny"
+clone_on_ref_ptr = "deny"
+# Keep code small and explicit.
+shadow_unrelated = "deny"
+wildcard_enum_match_arm = "deny"
+allow_attributes_without_reason = "deny"
+# Tauri's dependency tree pulls duplicate crate versions; not actionable here.
+multiple_crate_versions = "allow"
