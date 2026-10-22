@@ -168,7 +168,6 @@ pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult
                 item_id: &job.item_id,
                 what: job.what,
                 detail: summary.trim_start_matches("failed: "),
-                started_session: matches!(job.thread, Thread::Start(_)),
             };
             // Nothing is left to tell if even this fails; the run record above still shows it.
             drop(failed::report(&handle, &failure).await);

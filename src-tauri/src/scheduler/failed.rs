@@ -17,8 +17,6 @@ pub struct Failure<'a> {
     /// What the run was for, e.g. "Answer".
     pub what: &'a str,
     pub detail: &'a str,
-    /// The run was to start a session, which now doesn't exist and mustn't be resumed.
-    pub started_session: bool,
 }
 
 /// What to show when a run died without saying why.
@@ -63,9 +61,8 @@ async fn return_to_user(db: &Db, item: WorkItem) -> AppResult<()> {
 }
 
 async fn hand_back(db: &Db, f: &Failure<'_>) -> AppResult<String> {
-    if f.started_session {
-        watch::release(db, f.item_id).await?;
-    }
+    // A session that failed may not exist or have lost its folder; the next message starts afresh.
+    watch::release(db, f.item_id).await?;
     let item = items::get(db, f.item_id).await?;
     let text = format!("Your agent couldn't run ({}): {}", f.what, f.detail());
     events::record(db, &item.id, Utc::now(), &Change::Note { text }).await?;
