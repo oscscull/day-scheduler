@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager as _};
 
 use super::agent_prompt;
 use super::agent_work::{self, Known};
+use super::failed::{self, Failure};
 use crate::app::App;
 use crate::config::settings::Settings;
 use crate::domain::item::WorkItem;
@@ -23,7 +24,7 @@ async fn act(handle: &AppHandle, settings: &Settings, item: &WorkItem, due: Due)
     match due {
         Due::Wait => Ok(()),
         Due::StartClock => turns::reset_clock(db, &item.id, clock.deadline(item.turn)?).await,
-        Due::Prompt => agent_prompt::carry_on(handle, settings, item).await,
+        Due::Prompt => prompt(handle, settings, item).await,
         Due::Remind => {
             turns::reset_clock(db, &item.id, clock.deadline(Turn::You)?).await?;
             tell_user(handle, item, "Still your turn");
@@ -37,6 +38,20 @@ async fn act(handle: &AppHandle, settings: &Settings, item: &WorkItem, due: Due)
             Ok(())
         }
     }
+}
+
+/// A prompt that can't start is a failed run: the turn comes back with why, and loudly.
+async fn prompt(handle: &AppHandle, settings: &Settings, item: &WorkItem) -> AppResult<()> {
+    let Err(e) = agent_prompt::carry_on(handle, settings, item).await else {
+        return Ok(());
+    };
+    let detail = e.to_string();
+    let failure = Failure {
+        item_id: &item.id,
+        what: "Carry on",
+        detail: &detail,
+    };
+    failed::report(handle, &failure, &settings.turns).await
 }
 
 /// A notification is a courtesy; the turn is shown in the app either way.
