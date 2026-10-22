@@ -58,12 +58,10 @@ A machine without a screen can serve its Quarterdeck with `<binary> serve`.
 Every merge to `main` runs `.github/workflows/release.yml`: it builds macOS (universal), Windows and
 Linux, and publishes release `v0.1.<run>`, which installed apps pick up. Updates are signed; the
 public key is `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`, and CI signs with two repo
-secrets. To set them up (once, by the repo owner, who keeps the private key):
-
-1. `npm run tauri signer generate -- -w ~/.tauri/quarterdeck-updater.key` (choose a password).
-2. `gh secret set TAURI_SIGNING_PRIVATE_KEY --repo oscscull/quarterdeck < ~/.tauri/quarterdeck-updater.key`
-3. `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo oscscull/quarterdeck` (enter the password).
-4. Put the contents of `~/.tauri/quarterdeck-updater.key.pub` in `plugins.updater.pubkey`.
+secrets. To set them up, the repo owner runs `bash scripts/release-key.sh` once (needs `gh`, Node and
+[dotenvx](https://dotenvx.com/docs/install)). It asks for a password, makes the signing key in
+`~/.tauri/`, sets both secrets, writes the public key into `tauri.conf.json`, and keeps the password
+only encrypted in `.env.release`; what decrypts it stays in `~/.tauri/quarterdeck-release.env.keys`.
 
 Losing the private key means installed apps can't update; reinstall from a release signed with a new one.
 
