@@ -64,7 +64,9 @@ async fn start(
         watch::claim(&app.db, &item.id, Some(session)).await?;
     }
     let prompt = prompt_for(&app, answered, item, ws.as_ref())?;
-    let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
+    let job = Job::new("Answer", item.id.clone(), prompt, thread)
+        .in_workspace(ws)
+        .saying(&answered.answer);
     dispatch::run(handle, settings, job).await
 }
 
