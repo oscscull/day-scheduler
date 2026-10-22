@@ -1,6 +1,9 @@
 //! Other machines' Quarterdecks. Each machine serves its own data and tools over HTTP (the same tools
 //! as the MCP server); the UI merges what peers serve, and edits to their records go back to them.
+//! The one thing every machine shares is the areas list ([`areas`]), which says where schedules live
+//! ([`handoff`]).
 
+pub mod areas;
 pub mod client;
 pub mod handoff;
 pub mod reach;

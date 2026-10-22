@@ -67,16 +67,32 @@ fn strings(list: &[String]) -> Item {
     )
 }
 
+fn area_table(area: &Area) -> Table {
+    let mut t = Table::new();
+    t.insert("id", value(&area.id));
+    t.insert("name", value(&area.name));
+    t.insert("color", value(&area.color));
+    t.insert("node", value(&area.node));
+    t
+}
+
 /// Adds an area, or replaces the one with the same id.
 pub fn upsert_area(config: &Config, area: &Area) -> AppResult<()> {
     edit(config, |doc| {
         let list = tables(doc.as_table_mut(), "areas")?;
-        let mut t = Table::new();
-        t.insert("id", value(&area.id));
-        t.insert("name", value(&area.name));
-        t.insert("color", value(&area.color));
-        t.insert("node", value(&area.node));
-        replace_or_push(list, "id", &area.id, t);
+        replace_or_push(list, "id", &area.id, area_table(area));
+        Ok(())
+    })
+}
+
+/// Replaces the whole areas list, e.g. with the one a peer sent.
+pub fn set_areas(config: &Config, areas: &[Area]) -> AppResult<()> {
+    edit(config, |doc| {
+        let list = tables(doc.as_table_mut(), "areas")?;
+        list.clear();
+        for area in areas {
+            list.push(area_table(area));
+        }
         Ok(())
     })
 }

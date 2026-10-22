@@ -9,6 +9,7 @@
   import { loadPeers } from "./lib/peers.svelte";
   import { reloadOnReturn } from "./lib/refresh.svelte";
   import { t } from "./lib/copy";
+  import { showVersion } from "./lib/version";
   import { suggestionKeys, viewLabel } from "./lib/views";
   import Agent from "./views/Agent.svelte";
   import Board from "./views/Board.svelte";
@@ -28,6 +29,7 @@
   });
 
   $effect(() => reloadOnReturn());
+  $effect(() => void showVersion());
 </script>
 
 <Header {view} onSelect={(next) => (nav.view = next)} />

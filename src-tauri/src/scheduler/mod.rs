@@ -8,6 +8,7 @@ mod due;
 mod events;
 mod focus;
 mod handoff;
+mod peers;
 mod queue;
 mod tick;
 mod undelivered;

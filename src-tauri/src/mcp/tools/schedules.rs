@@ -163,8 +163,13 @@ fn set_enabled(ctx: &Ctx, args: EnabledArgs) -> AppResult<()> {
     schedules::save(&ctx.config, &schedule)
 }
 
+/// Runs on the machine that owns the schedule's area, moving it there first if it's held here.
 async fn run(ctx: Ctx, args: IdArgs) -> AppResult<()> {
-    schedules::find(&ctx.config, &args.id)?;
+    let schedule = schedules::find(&ctx.config, &args.id)?;
+    let settings = ctx.settings()?;
+    if peers::handoff::run_elsewhere(&ctx.db, &ctx.config, &settings, schedule).await? {
+        return Ok(());
+    }
     run_requests::add(&ctx.db, &args.id).await
 }
 

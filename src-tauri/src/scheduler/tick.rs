@@ -38,6 +38,7 @@ pub async fn tick(handle: &AppHandle) -> AppResult<()> {
             &format!("{raised} new urgent item(s)"),
         ));
     }
+    super::peers::sync(handle);
     start_requested(handle).await?;
     crate::alerts::check(handle).await?;
     let urgent_count = urgent::list(&app.db).await?.len();

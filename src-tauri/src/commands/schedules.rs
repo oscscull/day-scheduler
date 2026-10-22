@@ -48,10 +48,15 @@ pub fn explain_cron(expr: String) -> AppResult<Explanation> {
 }
 
 /// Starts a schedule in the background; the Agent view shows it as live until it finishes.
+/// A schedule held here but owned by another machine runs there instead.
 #[tauri::command]
-pub fn run_schedule_now(handle: AppHandle, id: String) -> AppResult<()> {
-    let schedule = schedules::find(&handle.state::<App>().config, &id)?;
-    scheduler::run_now(&handle, schedule);
+pub async fn run_schedule_now(handle: AppHandle, id: String) -> AppResult<()> {
+    let app = handle.state::<App>();
+    let schedule = schedules::find(&app.config, &id)?;
+    let settings = app.settings()?;
+    if !peers::handoff::run_elsewhere(&app.db, &app.config, &settings, schedule.clone()).await? {
+        scheduler::run_now(&handle, schedule);
+    }
     Ok(())
 }
 
