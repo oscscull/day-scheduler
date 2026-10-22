@@ -38,7 +38,6 @@ fn compile(arch: &str, out: &Path) -> Result<(), Box<dyn Error>> {
 
 /// One universal helper, named for this build's target and for Tauri's universal bundle, which
 /// looks for `-universal-apple-darwin`. Needs Xcode's command line tools.
-#[expect(clippy::print_stdout, reason = "cargo reads a build script's stdout")]
 fn calendar_helper() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=helpers/calendars.swift");
     println!("cargo:rerun-if-changed=Info.plist");
@@ -55,7 +54,10 @@ fn calendar_helper() -> Result<(), Box<dyn Error>> {
         .arg(&universal))?;
     fs::create_dir_all("binaries")?;
     for triple in [env::var("TARGET")?, "universal-apple-darwin".to_owned()] {
-        fs::copy(&universal, format!("binaries/quarterdeck-calendars-{triple}"))?;
+        fs::copy(
+            &universal,
+            format!("binaries/quarterdeck-calendars-{triple}"),
+        )?;
     }
     Ok(())
 }

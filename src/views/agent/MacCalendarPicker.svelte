@@ -6,9 +6,11 @@
   interface Props {
     /** The picked calendar's name as the feed stores it; empty until there is one. */
     calendar: string;
+    /** Called when this machine has no Calendar app to read. */
+    onUnavailable: () => void;
   }
 
-  let { calendar = $bindable() }: Props = $props();
+  let { calendar = $bindable(), onUnavailable }: Props = $props();
 
   let calendars = $state<MacCalendar[] | null>(null);
   let error = $state("");
@@ -24,6 +26,10 @@
     api
       .macCalendars()
       .then((list) => {
+        if (list === null) {
+          onUnavailable();
+          return;
+        }
         calendars = list;
         calendar = list[0] ? nameOf(list[0], list) : "";
       })

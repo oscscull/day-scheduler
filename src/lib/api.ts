@@ -30,7 +30,8 @@ export const api = {
   claudeConnection: () => invoke<ClaudeConnection>("claude_connection"),
   calendars: () => invoke<Calendar[]>("calendars"),
   addCalendar: (url: string, area: string) => invoke<undefined>("add_calendar", { url, area }),
-  macCalendars: () => invoke<MacCalendar[]>("mac_calendars"),
+  /** `null` where there is no Calendar app (Windows, Linux). */
+  macCalendars: () => invoke<MacCalendar[] | null>("mac_calendars"),
   addMacCalendar: (calendar: string, area: string) =>
     invoke<undefined>("add_mac_calendar", { calendar, area }),
   removeCalendar: (name: string) => invoke<undefined>("remove_calendar", { name }),

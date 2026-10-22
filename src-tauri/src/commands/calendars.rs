@@ -81,11 +81,16 @@ pub async fn add_calendar(app: State<'_, App>, url: String, area: String) -> App
     add(&app, Origin::Link { url: https(&url)? }, &area).await
 }
 
-/// Lists the Calendar app's calendars. The first call has macOS ask for access, so it waits for
-/// the user off the main thread.
+/// Lists the Calendar app's calendars, or `None` where there is no Calendar app (Windows, Linux).
+/// The first call has macOS ask for access, so it waits for the user off the main thread.
 #[tauri::command]
-pub async fn mac_calendars() -> AppResult<Vec<MacCalendar>> {
-    tauri::async_runtime::spawn_blocking(macos::calendars).await?
+pub async fn mac_calendars() -> AppResult<Option<Vec<MacCalendar>>> {
+    if !cfg!(target_os = "macos") {
+        return Ok(None);
+    }
+    Ok(Some(
+        tauri::async_runtime::spawn_blocking(macos::calendars).await??,
+    ))
 }
 
 #[tauri::command]

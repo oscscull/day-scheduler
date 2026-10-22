@@ -14,6 +14,7 @@
 
   type Mode = "mac" | "link";
   let mode = $state<Mode>("mac");
+  let macAvailable = $state(true);
   let url = $state("");
   let area = $state(areas.list[0]?.id ?? "");
   let calendar = $state("");
@@ -26,17 +27,17 @@
 </script>
 
 <form onsubmit={(e) => { e.preventDefault(); save(); }}>
-  <div class="modes" role="group" aria-label={t("calendar.source")}>
+  {#if macAvailable}<div class="modes" role="group" aria-label={t("calendar.source")}>
     <button type="button" class:active={mode === "mac"} aria-pressed={mode === "mac"} onclick={() => (mode = "mac")}>
       {t("calendar.fromMac")}
     </button>
     <button type="button" class:active={mode === "link"} aria-pressed={mode === "link"} onclick={() => (mode = "link")}>
       {t("calendar.fromLink")}
     </button>
-  </div>
+  </div>{/if}
 
   {#if mode === "mac"}
-    <MacCalendarPicker bind:calendar />
+    <MacCalendarPicker bind:calendar onUnavailable={() => { macAvailable = false; mode = "link"; }} />
   {:else}
     <label>
       <span class="section-label">{t("calendar.link")}</span>
