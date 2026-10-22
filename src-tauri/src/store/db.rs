@@ -55,8 +55,7 @@ impl Db {
             Compiled::from_sources(embedded::MANIFEST, embedded::SOURCES).map_err(db_error)?;
         let migrations =
             migrate::from_sources(Dialect::Sqlite, embedded::MIGRATIONS).map_err(db_error)?;
-        // Migrations ship inside the app and are reviewed with its code, which is where their
-        // destructive steps are vouched for; each copies what it keeps before it drops.
+        // Each destructive migration copies what it keeps before it drops.
         let opts = ApplyOpts {
             allow_destructive: true,
             ..ApplyOpts::default()

@@ -17,6 +17,11 @@ pub async fn take(db: &Db, (item_id, what): (&str, &str), limits: &TurnSettings)
     turns::pass(db, item_id, Pass::to(Turn::Agent, what), Clock::now(limits)).await
 }
 
+/// Hands the turn back without raising anything: the build may not run the agent, by design.
+pub async fn give_back(db: &Db, item_id: &str, why: &str, limits: &TurnSettings) -> AppResult<()> {
+    turns::pass(db, item_id, Pass::to(Turn::You, why), Clock::now(limits)).await
+}
+
 /// A run about an item that finished: when it started, and what it said last.
 #[derive(Debug, Clone, Copy)]
 pub struct Finished<'a> {

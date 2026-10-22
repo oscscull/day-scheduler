@@ -1,6 +1,5 @@
 //! The user answering an ask, or telling the agent what to do about an item. Either way it stays
-//! on the item's history and waits for the scheduler to take it to the agent, but the turn passes
-//! at once.
+//! on the item's history, and the turn passes at once.
 
 use chrono::Utc;
 use serde::Serialize;

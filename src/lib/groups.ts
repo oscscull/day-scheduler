@@ -6,7 +6,7 @@ export const STAGES: readonly Stage[] = ["up_next", "in_progress", "in_review", 
 export const isInFlight = (item: WorkItem): boolean =>
   item.stage !== "up_next" && item.stage !== "done";
 
-/** In flight, grouped by whose turn it is. The backend keeps the turn; nothing here guesses it. */
+/** In flight, grouped by whose turn it is. */
 export const TURNS: readonly { id: Turn; label: CopyKey }[] = [
   { id: "you", label: "inflight.you" },
   { id: "agent", label: "inflight.agent" },

@@ -73,7 +73,6 @@ async fn get(ctx: Ctx, args: IdArgs) -> AppResult<serde_json::Value> {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 struct CreateArgs {
     title: String,
     /// Area id, e.g. "work".
@@ -103,7 +102,6 @@ async fn create(ctx: Ctx, args: CreateArgs) -> AppResult<String> {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 struct UpdateArgs {
     id: String,
     title: Option<String>,

@@ -17,8 +17,9 @@ pub fn tools() -> Vec<Tool> {
     vec![
         async_tool(
             "list_asks",
-            "Everything that needs the user, in item rank order: questions raised on an item, else \
-             the item itself when it's in flight and their turn. Today shows the first few.",
+            "Everything that needs the user, in item rank order: questions raised on an item \
+             (kind `ask`), else the item itself when it's in flight and their turn (kind `yours`). \
+             Today shows the first few.",
             list,
         ),
         async_tool(

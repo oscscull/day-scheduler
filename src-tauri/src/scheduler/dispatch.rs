@@ -159,7 +159,7 @@ async fn after(
         return run_turn::end(&app.db, run, limits).await;
     };
     if !ended.may_run {
-        return Ok(());
+        return run_turn::give_back(&app.db, &job.item_id, detail, limits).await;
     }
     let failure = failed::Failure {
         item_id: &job.item_id,
@@ -195,13 +195,13 @@ async fn work(handle: AppHandle, job: Job, how: How) {
 
 pub async fn run(handle: &AppHandle, settings: &Settings, mut job: Job) -> AppResult<()> {
     let app = handle.state::<App>();
-    run_turn::take(&app.db, (&job.item_id, job.what), &settings.turns).await?;
     let rule = render(
         &app.config,
         Prompt::HandOver,
         &[("item", job.item_id.as_str())],
     )?;
     job.prompt = format!("{}\n\n{rule}", job.prompt);
+    run_turn::take(&app.db, (&job.item_id, job.what), &settings.turns).await?;
     let started = Utc::now();
     let how = How {
         command: settings.claude().map(str::to_owned),

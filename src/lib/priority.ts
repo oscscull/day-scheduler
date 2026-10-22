@@ -6,6 +6,8 @@ export function describe(p: Priority): { text: string; context: string } {
     case "ask":
       return { text: p.ask.question, context: p.ask.context ? `${p.ask.context} · ${p.itemId}` : p.itemId };
     case "yours":
+    // A peer on an older build may send kinds this one doesn't know; show the item.
+    default:
       return { text: p.itemTitle, context: `${p.itemLabel} · ${p.itemId}` };
   }
 }
