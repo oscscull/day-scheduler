@@ -77,7 +77,6 @@ async fn return_to_user(db: &Db, item: WorkItem) -> AppResult<()> {
 }
 
 async fn hand_back(db: &Db, f: &Failure<'_>) -> AppResult<String> {
-    // A session that failed may not exist or have lost its folder; the next message starts afresh.
     watch::release(db, f.item_id).await?;
     let item = items::get(db, f.item_id).await?;
     let text = format!("Your agent couldn't run ({}): {}", f.what, f.detail());
