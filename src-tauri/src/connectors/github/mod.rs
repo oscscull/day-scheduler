@@ -3,6 +3,7 @@
 mod adopt;
 mod apply;
 mod checks;
+mod fate;
 mod fetch;
 mod snapshot;
 
@@ -71,7 +72,7 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
     let all = app.settings()?;
     let prs = fetch::open_prs().await?;
     let now = Utc::now();
-    app.db.with(|conn| {
+    let (fired, unseen) = app.db.with(|conn| {
         let mut fired = Vec::new();
         let mut open = HashSet::new();
         for pr in prs.iter().filter(|p| !all.github.ignores(&p.repo)) {
@@ -81,9 +82,22 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
                 fired.extend(sync_pr(conn, &prepared(pr, &all.github), &area, now)?);
             }
         }
-        apply::close_missing(conn, &open, now)?;
-        Ok(fired)
-    })
+        Ok((fired, apply::unseen(conn, &open)?))
+    })?;
+    close_ended(&app, &unseen).await?;
+    Ok(fired)
+}
+
+/// Asks GitHub what happened to each PR the search didn't return, and closes the merged or
+/// closed ones. One GitHub can't answer for stays as it is until the next sync.
+async fn close_ended(app: &App, unseen: &[String]) -> AppResult<()> {
+    for ext in unseen {
+        if let Ok(ended) = fate::of(ext).await {
+            app.db
+                .with(|conn| apply::close(conn, ext, ended, Utc::now()))?;
+        }
+    }
+    Ok(())
 }
 
 /// The area to sync `pr` into, if this machine syncs it: the area of the item already made for
@@ -130,7 +144,7 @@ mod tests {
 
     use super::*;
     use crate::config::settings::Area;
-    use crate::store::{items, schema};
+    use crate::store::schema;
 
     fn area(id: &str, node: &str) -> Area {
         Area {
@@ -184,12 +198,8 @@ mod tests {
             synced_here(&conn, &settings(), &pr(2)).unwrap().as_deref(),
             Some("projects")
         );
-        // Still open on GitHub, so closing missing PRs leaves it alone.
+        // Seen in the open-PR search, so nothing asks GitHub whether it ended.
         let open = HashSet::from([apply::external_id(&pr(2))]);
-        apply::close_missing(&conn, &open, Utc::now()).unwrap();
-        let held = items::by_external(&conn, SOURCE, "me/lib#2")
-            .unwrap()
-            .unwrap();
-        assert_ne!(held.stage, crate::domain::item::Stage::Done);
+        assert_eq!(apply::unseen(&conn, &open).unwrap(), Vec::<String>::new());
     }
 }

@@ -54,7 +54,7 @@ pub enum Reviewers {
     Yourself,
 }
 
-async fn gh(args: &[&str]) -> AppResult<String> {
+pub(super) async fn gh(args: &[&str]) -> AppResult<String> {
     let out = Command::new(cli::resolve("gh")).args(args).output().await?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
