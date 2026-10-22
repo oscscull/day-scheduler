@@ -49,6 +49,14 @@ connectors and schedules only run for areas whose `node` is this machine.
 
 A machine without a screen can serve its Quarterdeck with `<binary> serve`.
 
+## Developing
+
+`npm run tauri dev` runs a dev build beside the installed app, never touching its data: its own
+window ("Quarterdeck Dev", with a banner on every screen), config (`~/.config/quarterdeck-dev/`) and
+database. It starts empty. To work on your real data, quit the dev app and run `npm run dev:seed`,
+which copies the installed app's config and database in, paused, with sync and peers off. A dev build
+runs no Claude until you set `[dev] run_claude = true` in its `quarterdeck.toml`.
+
 ## Checking it
 
 - Lints and tests: `npm run check`, then in `src-tauri/`: `cargo clippy --all-targets -- -D warnings`

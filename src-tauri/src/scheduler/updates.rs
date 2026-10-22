@@ -24,7 +24,8 @@ pub async fn check_if_due(handle: &AppHandle, settings: &Settings) -> AppResult<
     let now = Utc::now();
     let every = Duration::minutes(settings.updates.check_minutes);
     let last = meta::time(&app.db, LAST_CHECK).await?;
-    if !settings.updates.enabled || last.is_some_and(|t| now - t < every) {
+    // A dev build is built from the working copy; a release would replace it with main.
+    if crate::profile::DEV || !settings.updates.enabled || last.is_some_and(|t| now - t < every) {
         return Ok(());
     }
     meta::set_time(&app.db, LAST_CHECK, now).await?;

@@ -88,7 +88,7 @@ async fn ask(
         permission_mode: None,
         run: Some(place.id),
     };
-    super::ask_with(&settings.claude_command, &prompt, &opts).await
+    super::ask_with(settings.claude()?, &prompt, &opts).await
 }
 
 /// Runs `schedule` now. Success lands in "From Claude"; failure is raised as urgent.

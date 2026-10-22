@@ -293,5 +293,6 @@
   "step.tool": "{tool}: {detail}",
   "step.using": "Using {tool}",
   "step.failed": "Failed: {text}",
-  "step.failedBare": "A step failed"
+  "step.failedBare": "A step failed",
+  "dev.banner": "Dev build · its own data and config, apart from the installed app"
 }

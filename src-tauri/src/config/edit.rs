@@ -200,6 +200,18 @@ pub fn set_sync_token(config: &Config, token: &str) -> AppResult<()> {
     })
 }
 
+/// Makes a copied config safe for a dev build: it serves nobody, reaches no peers (whose records
+/// are real) and runs no Claude.
+pub fn make_dev_safe(config: &Config) -> AppResult<()> {
+    edit(config, |doc| {
+        let sync = table(doc, "sync")?;
+        sync.insert("enabled", value(false));
+        sync.remove("peers");
+        table(doc, "dev")?.insert("run_claude", value(false));
+        Ok(())
+    })
+}
+
 /// Adds a peer, or replaces the one with the same name.
 pub fn upsert_peer(config: &Config, peer: &Peer) -> AppResult<()> {
     edit(config, |doc| {

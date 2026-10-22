@@ -5,11 +5,13 @@ use serde::{Deserialize, Serialize};
 use super::Config;
 use super::alerts::AlertSettings;
 use super::calendar::CalendarSettings;
+use super::dev::DevSettings;
 use super::github::GithubSettings;
 use super::sync::SyncSettings;
 use super::updates::UpdateSettings;
 use super::watchdog::WatchdogSettings;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
+use crate::profile;
 
 /// A part of life Quarterdeck keeps separate, e.g. Work, Personal projects, Life.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
@@ -50,6 +52,7 @@ pub struct Settings {
     pub project_permission_mode: String,
     pub queue: QueueSettings,
     pub updates: UpdateSettings,
+    pub dev: DevSettings,
 }
 
 impl Default for Settings {
@@ -74,6 +77,7 @@ impl Default for Settings {
             project_permission_mode: "auto".to_owned(),
             queue: QueueSettings::default(),
             updates: UpdateSettings::default(),
+            dev: DevSettings::default(),
         }
     }
 }
@@ -96,6 +100,17 @@ impl Settings {
             .iter()
             .find(|a| a.id == area)
             .map_or(self.node.as_str(), |a| a.node.as_str())
+    }
+
+    /// The command that runs Claude. A dev build runs it only when `[dev] run_claude` is on.
+    pub fn claude(&self) -> AppResult<&str> {
+        if profile::DEV && !self.dev.run_claude {
+            return Err(AppError::Claude(
+                "this dev build doesn't run Claude; set [dev] run_claude = true in its quarterdeck.toml"
+                    .to_owned(),
+            ));
+        }
+        Ok(&self.claude_command)
     }
 
     /// `area` if it is configured (or none are), otherwise the first area.
@@ -143,6 +158,7 @@ mod tests {
             project_permission_mode: "auto".to_owned(),
             queue: QueueSettings::default(),
             updates: UpdateSettings::default(),
+            dev: DevSettings::default(),
         }
     }
 

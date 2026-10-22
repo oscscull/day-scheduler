@@ -5,6 +5,7 @@
 mod client;
 mod convert;
 mod db;
+mod snapshot;
 mod time;
 
 pub mod activity;
@@ -24,3 +25,4 @@ pub mod urgent;
 pub mod watch;
 
 pub use db::Db;
+pub use snapshot::snapshot;

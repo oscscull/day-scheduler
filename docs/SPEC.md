@@ -50,6 +50,11 @@ Connectors and schedules only act for areas this machine runs.
   the database. Activity, finished runs, done to-dos, done items with their history, and past
   meetings all expire. The first start of a Based build copies a pre-Based `quarterdeck.sqlite`
   across once and keeps it as `quarterdeck.sqlite.imported`.
+- **Dev builds** (debug, `npm run tauri dev`) are a separate app: id `com.oscscull.quarterdeck.dev`,
+  config `~/.config/quarterdeck-dev/`, their own data folder, MCP name `quarterdeck-dev`, a banner on
+  every screen, no updater, and no Claude runs unless their `[dev] run_claude` is on.
+  `npm run dev:seed` replaces a dev build's config and data with a snapshot of the installed app's,
+  paused and with sync and peers off.
 
 ## Connectors
 

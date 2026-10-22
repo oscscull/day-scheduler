@@ -86,6 +86,15 @@ async fn record(handle: &AppHandle, item: &WorkItem, w: &Watch) -> AppResult<()>
 }
 
 async fn nudge(handle: &AppHandle, item: &WorkItem, w: &Watch, quiet: Duration) -> AppResult<()> {
+    // A build that may not run Claude has nobody to nudge; the item keeps its count.
+    let Ok(command) = handle
+        .state::<App>()
+        .settings()?
+        .claude()
+        .map(str::to_owned)
+    else {
+        return Ok(());
+    };
     record(
         handle,
         item,
@@ -105,7 +114,7 @@ async fn nudge(handle: &AppHandle, item: &WorkItem, w: &Watch, quiet: Duration) 
         ("quiet", quiet_text.as_str()),
     ];
     let prompt = render(&app.config, Prompt::CheckIn, &vars)?;
-    check_in(app.settings()?.claude_command, prompt, w.session.clone());
+    check_in(command, prompt, w.session.clone());
     Ok(())
 }
 

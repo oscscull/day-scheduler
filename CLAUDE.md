@@ -33,7 +33,8 @@ Delete files that lack either. Bias towards fewer, shorter files.
 ## Commands
 
 ```bash
-npm run tauri dev                                          # run the app
+npm run tauri dev                                          # run a dev build beside the installed app
+npm run dev:seed                                           # copy the installed app's data into it
 npm run check                                              # type-check the frontend
 cd src-tauri && cargo clippy --all-targets -- -D warnings  # lint Rust
 cd src-tauri && cargo test                                 # Rust tests

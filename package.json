@@ -8,6 +8,7 @@
     "build": "npm run check && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "dev:seed": "cd src-tauri && cargo run --quiet -- seed-dev",
     "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
   },
   "dependencies": {

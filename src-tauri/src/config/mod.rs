@@ -6,6 +6,7 @@ mod frontmatter;
 
 pub mod alerts;
 pub mod calendar;
+pub mod dev;
 pub mod edit;
 pub mod github;
 pub mod inbox;

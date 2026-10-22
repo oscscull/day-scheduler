@@ -16,14 +16,19 @@ pub enum Connection {
     Missing {
         command: String,
     },
-    /// Registered, but for another copy of the app (e.g. a dev build); `command` re-points it.
+    /// Registered, but for another copy of the app (e.g. an older install); `command` re-points it.
     Elsewhere {
         command: String,
     },
 }
 
-/// The server name Quarterdeck registers under, and the name it had before (Bridge).
-const NAME: &str = "quarterdeck";
+/// The server name Quarterdeck registers under, and the name it had before (Bridge). A dev build
+/// registers apart, so connecting it never re-points the installed app's server.
+const NAME: &str = if crate::profile::DEV {
+    "quarterdeck-dev"
+} else {
+    "quarterdeck"
+};
 const OLD_NAME: &str = "bridge";
 
 /// The `command` Claude Code runs for the server called `name`, if registered at user scope.
@@ -75,13 +80,14 @@ mod tests {
     #[test]
     fn connected_only_when_registered_for_this_binary() {
         let exe = Path::new("/apps/quarterdeck");
-        let this =
-            r#"{"mcpServers":{"quarterdeck":{"command":"/apps/quarterdeck","args":["mcp"]}}}"#;
+        let this = format!(
+            r#"{{"mcpServers":{{"{NAME}":{{"command":"/apps/quarterdeck","args":["mcp"]}}}}}}"#
+        );
         let renamed = r#"{"mcpServers":{"bridge":{"command":"/apps/day-scheduler"}}}"#;
-        let other = r#"{"mcpServers":{"quarterdeck":{"command":"/old/quarterdeck"}}}"#;
-        assert_eq!(classify(Some(this), exe), Connection::Connected);
+        let other = format!(r#"{{"mcpServers":{{"{NAME}":{{"command":"/old/quarterdeck"}}}}}}"#);
+        assert_eq!(classify(Some(&this), exe), Connection::Connected);
         assert!(matches!(
-            classify(Some(other), exe),
+            classify(Some(&other), exe),
             Connection::Elsewhere { .. }
         ));
         assert!(matches!(

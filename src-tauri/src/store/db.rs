@@ -16,7 +16,7 @@ mod embedded {
     include!(concat!(env!("OUT_DIR"), "/schema.rs"));
 }
 
-const FILE: &str = "quarterdeck.db";
+pub(super) const FILE: &str = "quarterdeck.db";
 
 /// A client whose calls run in one transaction.
 pub type TxApi = Client<based_runtime::TxTransport>;
@@ -88,7 +88,7 @@ impl Db {
     }
 }
 
-fn db_error(e: impl std::fmt::Display) -> AppError {
+pub(super) fn db_error(e: impl std::fmt::Display) -> AppError {
     AppError::Db(e.to_string())
 }
 
