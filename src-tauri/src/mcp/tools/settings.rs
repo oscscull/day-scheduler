@@ -2,16 +2,21 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::super::ctx::Ctx;
-use super::super::tool::{Tool, tool};
+use super::super::tool::{NoArgs, Tool, tool};
 use crate::config::calendar::Feed;
 use crate::config::edit;
 use crate::config::settings::Area;
+use crate::connectors::calendar::macos::{self, MacCalendar};
 use crate::error::AppResult;
 
 const UPSERT_AREA: &str = "Adds an area of life, or changes one by id: its name, dot colour (CSS hex) and the \
 machine (`node`) that runs its schedules. Use list_areas to see machine names.";
-const ADD_FEED: &str = "Adds a calendar from its private iCal link (Google: Settings > the calendar > \
-\"Secret address in iCal format\"), or replaces one with the same name. Its events become meetings in `area`.";
+const ADD_FEED: &str = "Adds a calendar, or replaces one with the same name. Its events become meetings in \
+`area`. Give either `url`, its private iCal link (Google: Settings > the calendar > \"Secret address in iCal \
+format\"), or `mac_calendar`, a calendar's title in the macOS Calendar app (see list_mac_calendars). The Calendar \
+app works for accounts that offer no iCal link, once the account is added in System Settings > Internet Accounts.";
+const LIST_MAC: &str = "Lists the calendars in this Mac's Calendar app, with the account each belongs to. The first \
+call may wait while macOS asks the user to allow calendar access.";
 const CALENDAR_RULES: &str = "Sets which calendar events Quarterdeck skips for every calendar: titles containing \
 any of `ignore_titles` (case-insensitive), and optionally all-day events. To hide a single event, use \
 update_meeting with hidden instead.";
@@ -30,6 +35,7 @@ pub fn tools() -> Vec<Tool> {
     vec![
         tool("upsert_area", UPSERT_AREA, upsert_area),
         tool("add_calendar", ADD_FEED, add_feed),
+        tool("list_mac_calendars", LIST_MAC, list_mac),
         tool(
             "remove_calendar",
             "Stops syncing a calendar, by name.",
@@ -53,6 +59,10 @@ fn add_feed(ctx: &Ctx, feed: Feed) -> AppResult<()> {
         ..feed
     };
     edit::upsert_feed(&ctx.config, &feed)
+}
+
+fn list_mac(_: &Ctx, _: NoArgs) -> AppResult<Vec<MacCalendar>> {
+    macos::calendars()
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -115,4 +125,19 @@ struct InformationalArgs {
 
 fn informational(ctx: &Ctx, args: InformationalArgs) -> AppResult<()> {
     edit::set_informational_checks(&ctx.config, &args.owner_or_repo, &args.checks)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_calendar_offers_a_link_or_a_mac_calendar() {
+        let add = tools()
+            .into_iter()
+            .find(|t| t.name == "add_calendar")
+            .unwrap();
+        let schema = add.schema.to_string();
+        assert!(schema.contains("\"url\"") && schema.contains("\"mac_calendar\""));
+    }
 }

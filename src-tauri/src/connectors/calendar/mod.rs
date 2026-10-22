@@ -1,7 +1,9 @@
-//! Calendars: private iCal links become meetings and appointments.
+//! Calendars: private iCal links and macOS Calendar app calendars become meetings and appointments.
 
 mod apply;
 mod fetch;
+mod links;
+pub mod macos;
 pub mod parse;
 
 use chrono::{Duration, Utc};
@@ -31,10 +33,7 @@ pub async fn sync(handle: &AppHandle) -> AppResult<()> {
         .filter(|f| all.node_for(&f.area) == all.node)
     {
         // A feed that can't be fetched or read is an error, never an empty calendar.
-        match fetch::ics(&feed.url)
-            .await
-            .and_then(|text| parse::occurrences(&text, from, to))
-        {
+        match fetch::occurrences(feed, from, to).await {
             Ok(mut occurrences) => {
                 occurrences.retain(|o| !settings.skips(feed, &o.title, o.all_day));
                 apply::apply(&app.db, feed, &occurrences, from).await?;

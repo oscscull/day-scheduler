@@ -11,7 +11,8 @@ when setup changes.
    unpacked into `/Applications`). The build isn't notarized, so the first time on a Mac, clear the
    download flag: `xattr -dr com.apple.quarantine /Applications/Quarterdeck.app`. After that it updates
    itself from each new release (`[updates]` in `quarterdeck.toml`).
-3. To work on Quarterdeck instead: needs Rust and Node too; `git clone https://github.com/oscscull/quarterdeck
+3. To work on Quarterdeck instead: needs Rust and Node too, and on a Mac Xcode's command line tools
+   (`xcode-select --install`); `git clone https://github.com/oscscull/quarterdeck
    && cd quarterdeck && npm install`, then `npm run tauri dev`. A local build is version 0.1.0, so the
    next release replaces it.
 4. First start creates `~/.config/quarterdeck/` (settings, prompts, schedules, inbox) and the database
@@ -20,7 +21,10 @@ when setup changes.
    Linux `~/.local/share/com.oscscull.quarterdeck/`).
 5. In `~/.config/quarterdeck/quarterdeck.toml`, set `node` to this machine's name, check the `[[areas]]`
    (each area's `node` is the machine that runs it), map GitHub owners to areas under
-   `[github.areas]`, and add calendars' private iCal links under `[[calendar.feeds]]`.
+   `[github.areas]`, and add calendars under `[[calendar.feeds]]`: a private iCal link (`url`), or
+   a calendar's title in the macOS Calendar app (`mac_calendar`). The Calendar app suits accounts
+   that hide iCal links, such as many work Google accounts: add the account in System Settings →
+   Internet Accounts, and allow Quarterdeck when macOS asks for calendar access.
 6. Connect Claude Code: run the command shown under "Connect your Claude sessions" on the Agent
    tab. After that, most setup can be done by asking Claude ("add my work calendar: <link>").
 

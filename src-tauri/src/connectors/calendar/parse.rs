@@ -9,6 +9,7 @@ use ical::parser::ical::component::IcalEvent;
 use ical::property::Property;
 use rrule::{RRuleSet, Tz};
 
+use super::links::first_call_link;
 use crate::error::{AppError, AppResult};
 
 /// One time an event happens.
@@ -53,21 +54,6 @@ fn line(p: &Property, keep_tzid: bool) -> String {
         p.name,
         p.value.as_deref().unwrap_or_default()
     )
-}
-
-/// Video call hosts whose links make a Join button.
-const CALL_HOSTS: [&str; 4] = [
-    "meet.google.com",
-    "zoom.us",
-    "teams.microsoft.com",
-    "whereby.com",
-];
-
-fn first_call_link(text: &str) -> Option<String> {
-    text.split(|c: char| c.is_whitespace() || matches!(c, '<' | '>' | '"' | '\\'))
-        .filter(|w| w.starts_with("https://"))
-        .find(|w| CALL_HOSTS.iter().any(|h| w.contains(h)))
-        .map(|w| w.trim_end_matches(['.', ',', ')']).to_owned())
 }
 
 /// The event's video call link, from conference fields first, then the location and notes.

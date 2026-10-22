@@ -104,6 +104,7 @@ mod tests {
     use chrono::Duration;
 
     use super::*;
+    use crate::config::calendar::Origin;
 
     fn occ(title: &str, start: DateTime<Utc>) -> Occurrence {
         Occurrence {
@@ -122,7 +123,7 @@ mod tests {
         let db = Db::in_memory().await;
         let feed = Feed {
             name: "home".to_owned(),
-            url: String::new(),
+            origin: Origin::Link { url: String::new() },
             area: "life".to_owned(),
             ignore_titles: vec![],
         };

@@ -251,6 +251,12 @@ export interface Calendar {
   area: string;
 }
 
+/** A calendar in the macOS Calendar app, and the account it belongs to. */
+export interface MacCalendar {
+  title: string;
+  account: string;
+}
+
 /** A to-do as the edit form saves it. `due: null` clears the date. */
 export interface TodoEdit {
   id: number;

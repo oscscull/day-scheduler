@@ -90,9 +90,10 @@ items = []
 # "my-org" = "work"
 # "me/side-project" = "projects"
 
-# Calendars become meetings on Today, alerted before they start. Use each calendar's private iCal
-# link (Google: Settings > your calendar > "Secret address in iCal format"). Hide or re-file any
-# event in Quarterdeck and the next sync keeps it that way.
+# Calendars become meetings on Today, alerted before they start. Give each calendar's private iCal
+# link (Google: Settings > your calendar > "Secret address in iCal format"), or, on a Mac, its title
+# in the Calendar app (`mac_calendar`) for accounts with no link. Hide or re-file any event in
+# Quarterdeck and the next sync keeps it that way.
 [calendar]
 poll_minutes = 15
 days_ahead = 14
@@ -105,6 +106,11 @@ ignore_titles = []
 # url = "https://calendar.google.com/calendar/ical/.../basic.ics"
 # area = "work"
 # ignore_titles = ["Lunch"]
+#
+# [[calendar.feeds]]
+# name = "labs"
+# mac_calendar = "me@work.example"   # or "account/title" when two accounts share a title
+# area = "work"
 
 # The on-top countdown before each meeting, with a chime.
 [alerts]

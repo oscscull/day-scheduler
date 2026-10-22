@@ -2,11 +2,23 @@
 
 use serde::Deserialize;
 
-/// One calendar's private iCal link and the area its events belong to.
+/// Where a calendar's events come from.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, schemars::JsonSchema)]
+#[serde(untagged)]
+pub enum Origin {
+    /// A private iCal link.
+    Link { url: String },
+    /// A calendar in the macOS Calendar app, by its title there, or "account/title" when two
+    /// accounts share a title.
+    Mac { mac_calendar: String },
+}
+
+/// One calendar, where it comes from and the area its events belong to.
 #[derive(Debug, Clone, Deserialize, schemars::JsonSchema)]
 pub struct Feed {
     pub name: String,
-    pub url: String,
+    #[serde(flatten)]
+    pub origin: Origin,
     pub area: String,
     /// Extra title words to skip for this calendar only.
     #[serde(default)]
@@ -63,7 +75,7 @@ mod tests {
         };
         let feed = Feed {
             name: "w".to_owned(),
-            url: String::new(),
+            origin: Origin::Link { url: String::new() },
             area: "work".to_owned(),
             ignore_titles: vec!["Lunch".to_owned()],
         };
@@ -71,5 +83,26 @@ mod tests {
         assert!(settings.skips(&feed, "team lunch", false));
         assert!(settings.skips(&feed, "Holiday", true));
         assert!(!settings.skips(&feed, "Standup", false));
+    }
+
+    #[test]
+    fn feeds_come_from_a_link_or_the_calendar_app() {
+        let settings: CalendarSettings = toml::from_str(
+            "[[feeds]]\nname = \"a\"\nurl = \"https://x\"\narea = \"work\"\n\
+             [[feeds]]\nname = \"b\"\nmac_calendar = \"Work\"\narea = \"work\"\n",
+        )
+        .unwrap();
+        let origins: Vec<Origin> = settings.feeds.into_iter().map(|f| f.origin).collect();
+        assert_eq!(
+            origins,
+            [
+                Origin::Link {
+                    url: "https://x".to_owned()
+                },
+                Origin::Mac {
+                    mac_calendar: "Work".to_owned()
+                }
+            ]
+        );
     }
 }

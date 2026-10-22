@@ -4,5 +4,9 @@
 <dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Quarterdeck syncs with your other Macs running Quarterdeck on this network.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Quarterdeck shows the meetings from the calendars you pick, with a countdown before each one.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Quarterdeck shows the meetings from the calendars you pick, with a countdown before each one.</string>
 </dict>
 </plist>
