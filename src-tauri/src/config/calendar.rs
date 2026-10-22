@@ -9,7 +9,7 @@ pub enum Origin {
     /// A private iCal link.
     Link { url: String },
     /// A calendar in the macOS Calendar app, by its title there, or "account/title" when two
-    /// accounts share a title. Only the Mac that runs the feed's area can read it.
+    /// accounts share a title.
     Mac { mac_calendar: String },
 }
 

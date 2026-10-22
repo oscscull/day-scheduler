@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { api, errorText } from "../../lib/api";
+  import { api } from "../../lib/api";
   import { areas } from "../../lib/areas.svelte";
   import { t } from "../../lib/copy";
-  import type { MacCalendar } from "../../lib/types";
+  import MacCalendarPicker from "./MacCalendarPicker.svelte";
 
   interface Props {
     /** Runs the save, then closes the form or shows its error. */
@@ -17,29 +17,6 @@
   let url = $state("");
   let area = $state(areas.list[0]?.id ?? "");
   let calendar = $state("");
-  let macCalendars = $state<MacCalendar[] | null>(null);
-  let macError = $state("");
-
-  /** A title, or "account/title" when another account has a calendar with the same title. */
-  function nameOf(c: MacCalendar, all: MacCalendar[]): string {
-    const shared = all.filter((o) => o.title === c.title).length > 1;
-    return shared ? `${c.account}/${c.title}` : c.title;
-  }
-
-  // Asking for the list is what has macOS ask for calendar access, so only do it in this mode.
-  $effect(() => {
-    if (mode !== "mac" || macCalendars !== null) return;
-    api
-      .macCalendars()
-      .then((list) => {
-        macCalendars = list;
-        calendar = list[0] ? nameOf(list[0], list) : "";
-      })
-      .catch((e: unknown) => {
-        macCalendars = [];
-        macError = t("calendar.macFailed", { error: errorText(e) });
-      });
-  });
 
   const ready = $derived(mode === "mac" ? calendar !== "" : url.trim() !== "");
 
@@ -59,23 +36,7 @@
   </div>
 
   {#if mode === "mac"}
-    {#if macCalendars === null}
-      <p class="hint small">{t("calendar.macLoading")}</p>
-    {:else if macError}
-      <p class="error small">{macError}</p>
-    {:else if macCalendars.length === 0}
-      <p class="hint small">{t("calendar.macEmpty")}</p>
-    {:else}
-      <label>
-        <span class="section-label">{t("calendar.macCalendar")}</span>
-        <select class="input" bind:value={calendar}>
-          {#each macCalendars as c (`${c.account}/${c.title}`)}
-            <option value={nameOf(c, macCalendars)}>{t("calendar.macOption", { title: c.title, account: c.account })}</option>
-          {/each}
-        </select>
-      </label>
-    {/if}
-    <p class="hint small">{t("calendar.macHint")}</p>
+    <MacCalendarPicker bind:calendar />
   {:else}
     <label>
       <span class="section-label">{t("calendar.link")}</span>
@@ -154,7 +115,4 @@
     gap: 8px;
   }
 
-  .error {
-    color: var(--urgent-fg);
-  }
 </style>
