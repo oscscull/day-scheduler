@@ -39,6 +39,7 @@ ical = { version = "0.11", default-features = false, features = ["ical"] }
 rrule = "0.14.0"
 toml_edit = "0.25.17"
 tauri-plugin-autostart = "2.7.0"
+tauri-plugin-updater = "2"
 tiny_http = "0.12.0"
 uuid = { version = "1.28.0", features = ["v4"] }
 

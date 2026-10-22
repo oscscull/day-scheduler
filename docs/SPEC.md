@@ -110,6 +110,13 @@ watchdog leaves an item alone while a run is still working on it.
 Default prompt files Quarterdeck wrote and nobody has edited follow newer defaults
 (`.quarterdeck-defaults` records what it wrote); edited ones, and `quarterdeck.toml`, are left alone.
 
+## Updates
+
+Every merge to `main` builds macOS, Windows and Linux in CI and publishes a signed release. Each
+installed app checks `releases/latest` every `[updates] check_minutes`, from the scheduler (no
+Claude), and installs a new one only when no Claude run is live and the window isn't in use, then
+restarts. So every machine runs the same build without rebuilding locally.
+
 ## Not built yet
 
 - A database layer on baseddsl, once it can adopt existing databases.

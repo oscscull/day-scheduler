@@ -43,6 +43,7 @@ pub fn tick(handle: &AppHandle) -> AppResult<()> {
     let urgent_count = app.db.with(urgent::list)?.len();
     crate::desktop::tray::show_urgent(handle, urgent_count)?;
     super::connectors::sync_if_due(handle, &settings)?;
+    super::updates::check_if_due(handle, &settings)?;
     // Answers go out even while paused: the user just gave them.
     super::answers::deliver(handle, &settings)?;
     // Cleanup only; a failed removal is retried next tick.

@@ -7,6 +7,7 @@ use super::alerts::AlertSettings;
 use super::calendar::CalendarSettings;
 use super::github::GithubSettings;
 use super::sync::SyncSettings;
+use super::updates::UpdateSettings;
 use super::watchdog::WatchdogSettings;
 use crate::error::AppResult;
 
@@ -48,6 +49,7 @@ pub struct Settings {
     /// safe, as in the user's own sessions) or `acceptEdits` (only the project's allow rules).
     pub project_permission_mode: String,
     pub queue: QueueSettings,
+    pub updates: UpdateSettings,
 }
 
 impl Default for Settings {
@@ -71,6 +73,7 @@ impl Default for Settings {
             projects: Vec::new(),
             project_permission_mode: "auto".to_owned(),
             queue: QueueSettings::default(),
+            updates: UpdateSettings::default(),
         }
     }
 }
@@ -139,6 +142,7 @@ mod tests {
             projects: Vec::new(),
             project_permission_mode: "auto".to_owned(),
             queue: QueueSettings::default(),
+            updates: UpdateSettings::default(),
         }
     }
 
