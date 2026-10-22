@@ -20,7 +20,10 @@ pub struct Failure<'a> {
 }
 
 /// What to show when a run died without saying why.
-const NO_DETAIL: &str = "it stopped without saying why; its run on the Agent tab may show more";
+const NO_DETAIL: &str = "it stopped without saying why";
+const NEXT_STEP: &str = "Open its run on the Agent tab, or tell Claude to look into it.";
+/// The longest reason an alert shows; the item's history keeps all of it.
+const BRIEF_CHARS: usize = 200;
 
 impl Failure<'_> {
     fn detail(&self) -> &str {
@@ -30,6 +33,19 @@ impl Failure<'_> {
             self.detail
         }
     }
+
+    /// The first line of the reason and what to do, for an alert.
+    fn brief(&self) -> String {
+        let first: String = self
+            .detail()
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .chars()
+            .take(BRIEF_CHARS)
+            .collect();
+        format!("{first}. {NEXT_STEP}")
+    }
 }
 
 async fn raise_urgent(db: &Db, item: &WorkItem, f: &Failure<'_>) -> AppResult<String> {
@@ -37,7 +53,7 @@ async fn raise_urgent(db: &Db, item: &WorkItem, f: &Failure<'_>) -> AppResult<St
     let raised = Urgent {
         id: 0,
         title: title.clone(),
-        detail: f.detail().to_owned(),
+        detail: f.brief(),
         area: item.area.clone(),
         raised_at: Utc::now(),
         schedule_id: None,
@@ -73,5 +89,5 @@ async fn hand_back(db: &Db, f: &Failure<'_>) -> AppResult<String> {
 
 pub async fn report(handle: &AppHandle, failure: &Failure<'_>) -> AppResult<()> {
     let title = hand_back(&handle.state::<App>().db, failure).await?;
-    notify::send(handle, &title, failure.detail())
+    notify::send(handle, &title, &failure.brief())
 }
