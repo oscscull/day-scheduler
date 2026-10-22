@@ -7,6 +7,7 @@
   import { loadAreas } from "./lib/areas.svelte";
   import { nav } from "./lib/nav.svelte";
   import { loadPeers } from "./lib/peers.svelte";
+  import { reloadOnReturn } from "./lib/refresh.svelte";
   import { t } from "./lib/copy";
   import { suggestionKeys, viewLabel } from "./lib/views";
   import Agent from "./views/Agent.svelte";
@@ -25,6 +26,8 @@
     const timer = setInterval(() => void loadPeers(), PEERS_EVERY_MS);
     return () => clearInterval(timer);
   });
+
+  $effect(() => reloadOnReturn());
 </script>
 
 <Header {view} onSelect={(next) => (nav.view = next)} />

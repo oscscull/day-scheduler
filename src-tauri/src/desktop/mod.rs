@@ -17,13 +17,18 @@ pub fn show_main(handle: &AppHandle) {
     }
 }
 
-/// Closing the main window hides it instead of quitting.
+/// Closing the main window hides it instead of quitting. Coming back to it syncs at once.
 pub fn on_window_event(window: &Window, event: &WindowEvent) {
-    if let WindowEvent::CloseRequested { api, .. } = event
-        && window.label() == MAIN
-    {
+    if window.label() != MAIN {
+        return;
+    }
+    if let WindowEvent::CloseRequested { api, .. } = event {
         api.prevent_close();
         drop(window.hide());
+    }
+    if matches!(event, WindowEvent::Focused(true)) {
+        // The regular poll still runs if this fails.
+        drop(crate::scheduler::sync_on_focus(window.app_handle()));
     }
 }
 

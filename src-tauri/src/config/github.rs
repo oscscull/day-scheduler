@@ -10,6 +10,8 @@ pub struct GithubSettings {
     /// Uses the `gh` command's existing login.
     pub enabled: bool,
     pub poll_minutes: i64,
+    /// Coming back to the window syncs at once, unless a sync ran this recently.
+    pub focus_sync_seconds: i64,
     /// Area for PRs from repos not listed in `areas`.
     pub default_area: String,
     /// Owner (`my-org`) or repo (`my-org/app`) to area id. A repo entry beats its owner's.
@@ -32,6 +34,7 @@ impl Default for GithubSettings {
         Self {
             enabled: true,
             poll_minutes: 5,
+            focus_sync_seconds: 30,
             default_area: "work".to_owned(),
             areas: BTreeMap::new(),
             ignore: Vec::new(),
