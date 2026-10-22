@@ -3,6 +3,7 @@
 use chrono::Utc;
 use tauri::{AppHandle, Manager as _};
 
+use super::failed;
 use crate::app::App;
 use crate::claude::{self, Ask, Session};
 use crate::config::settings::Settings;
@@ -161,6 +162,16 @@ pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult
         }
         // The run record is for display; losing it changes nothing about the item.
         drop(runs::finish(&handle.state::<App>().db, id, outcome, &summary).await);
+        if outcome == Outcome::Failed {
+            let failure = failed::Failure {
+                item_id: &job.item_id,
+                what: job.what,
+                detail: summary.trim_start_matches("failed: "),
+                started_session: matches!(job.thread, Thread::Start(_)),
+            };
+            // Nothing is left to tell if even this fails; the run record above still shows it.
+            drop(failed::report(&handle, &failure).await);
+        }
     });
     Ok(())
 }

@@ -47,6 +47,18 @@ async fn read_all(err: impl AsyncRead + Unpin) -> String {
     text
 }
 
+/// Names the program that couldn't be found, rather than a bare "No such file or directory".
+fn missing(cmd: &Command, e: std::io::Error) -> AppError {
+    if e.kind() != std::io::ErrorKind::NotFound {
+        return e.into();
+    }
+    let program = cmd.as_std().get_program().to_string_lossy().into_owned();
+    AppError::Claude(format!(
+        "can't find your agent: `{program}` isn't installed where Quarterdeck looks or on your \
+         login shell's PATH. Set claude_command in quarterdeck.toml to its full path."
+    ))
+}
+
 /// Runs `cmd` and returns Claude's reply, writing its steps to `log` as they come.
 pub async fn follow(mut cmd: Command, log: Option<Writer>) -> AppResult<String> {
     cmd.args(["--output-format", "stream-json", "--verbose"])
@@ -54,7 +66,7 @@ pub async fn follow(mut cmd: Command, log: Option<Writer>) -> AppResult<String> 
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
-    let mut child = cmd.spawn()?;
+    let mut child = cmd.spawn().map_err(|e| missing(&cmd, e))?;
     let (out, err) = (child.stdout.take(), child.stderr.take());
     let (reply, stderr) = tokio::join!(
         async {

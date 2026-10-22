@@ -6,6 +6,7 @@ mod connectors;
 mod dispatch;
 mod due;
 mod events;
+mod failed;
 mod focus;
 mod handoff;
 mod peers;

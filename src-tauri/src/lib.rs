@@ -174,6 +174,10 @@ pub fn run() -> tauri::Result<()> {
 }
 
 /// The app's config, renamed for a dev build so it's its own app beside the installed one.
+#[allow(
+    clippy::exit,
+    reason = "tauri::generate_context! exits on a broken tauri.conf.json; that code is Tauri's"
+)]
 fn context() -> tauri::Context {
     let mut context = tauri::generate_context!();
     if profile::DEV {

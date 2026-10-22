@@ -9,7 +9,7 @@ use super::db::{FILE, db_error};
 use super::legacy::OLD_FILE;
 use crate::error::{AppError, AppResult};
 
-/// Every database file a data folder may hold, including SQLite's sidecars and an imported old one.
+/// Every database file a data folder may hold, including `SQLite`'s sidecars and an imported old one.
 fn database_files(dir: &Path) -> Vec<std::path::PathBuf> {
     let imported = format!("{OLD_FILE}.imported");
     [FILE, OLD_FILE, imported.as_str()]
