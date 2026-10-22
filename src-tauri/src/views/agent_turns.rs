@@ -1,4 +1,4 @@
-//! The items that are the agent's turn, so the Agent tab and In flight show the same work.
+//! The items that are the agent's turn, and whether a run or session holds each.
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;

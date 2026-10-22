@@ -13,7 +13,6 @@
 
   let { item, now }: Props = $props();
 
-  // Name who it waits on where that adds something.
   const detail = $derived(item.turn === "others" ? (item.waitingOn ?? undefined) : undefined);
 </script>
 

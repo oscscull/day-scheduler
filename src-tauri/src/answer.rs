@@ -62,8 +62,7 @@ pub async fn tell(db: &Db, settings: &Settings, item_id: &str, message: &str) ->
 }
 
 /// A reply ends the user's turn: the agent has it, unless another question on the item is open.
-/// The answer settles a decision the item was waiting on. With no agent to take it, delivery
-/// reports that and hands the turn back.
+/// The answer settles a decision the item was waiting on.
 async fn hand_over(db: &Db, settings: &Settings, ask: &Ask, why: String) -> AppResult<()> {
     if !asks::for_item(db, &ask.item_id).await?.is_empty() {
         return Ok(());

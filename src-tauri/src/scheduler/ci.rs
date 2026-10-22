@@ -4,7 +4,8 @@
 
 use tauri::{AppHandle, Manager as _};
 
-use super::dispatch::{self, Job, Thread};
+use super::dispatch::{self, Job};
+use super::thread::{self, Thread};
 use crate::app::App;
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
@@ -37,7 +38,7 @@ pub async fn react(
         None if event.kind == EventKind::CiFailed && settings.github.fix_ci && !covered => {
             let session = ws
                 .as_ref()
-                .map_or_else(dispatch::fresh_session, Workspace::new_session);
+                .map_or_else(thread::fresh_session, Workspace::new_session);
             watch::claim(&app.db, &item.id, &session).await?;
             let place = workspace::describe(&app.config, ws.as_ref())?;
             let prompt = prompt_for(&app, Prompt::FixCi, &item, &[("workspace", place.as_str())])?;

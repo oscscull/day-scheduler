@@ -41,7 +41,7 @@ pub struct WorkItem {
     pub status: Option<Status>,
     /// Whose move it is. Changed only through `turns::pass`, which records why.
     pub turn: Turn,
-    /// When the turn runs out. Unset until the item is in flight.
+    /// When the turn runs out.
     pub turn_until: Option<DateTime<Utc>>,
     /// Who the item waits on while it's others' turn, e.g. reviewers' names or "CI".
     pub waiting_on: Option<String>,

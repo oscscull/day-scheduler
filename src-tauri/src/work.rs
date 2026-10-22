@@ -69,8 +69,8 @@ async fn update(
     Ok(item.id)
 }
 
-/// The fields filled from input; ids, times, rank and the turn are set by the caller. A new item
-/// is the user's turn, with its clock started once it's in flight.
+/// The fields filled from input; ids, times and rank are set by the caller. A new item is the
+/// user's turn.
 fn from_input(input: ItemInput) -> WorkItem {
     WorkItem {
         id: String::new(),

@@ -3,49 +3,16 @@
 use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager as _};
 
+use super::thread::Thread;
 use super::{failed, run_turn};
 use crate::app::App;
 use crate::claude::{self, Ask, Session};
+use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
 use crate::domain::run::{Outcome, Run};
-use crate::domain::session::SessionRef;
 use crate::error::AppResult;
 use crate::store::runs;
 use crate::workspace::{self, Kind, Workspace};
-
-/// Whether a run continues a session or starts one Quarterdeck can come back to.
-#[derive(Debug, Clone)]
-pub enum Thread {
-    Start(SessionRef),
-    Resume(SessionRef),
-}
-
-impl Thread {
-    const fn session(&self) -> &SessionRef {
-        match self {
-            Self::Start(s) | Self::Resume(s) => s,
-        }
-    }
-}
-
-/// A new session in Quarterdeck's own folder, for repos with no project here.
-pub fn fresh_session() -> SessionRef {
-    SessionRef {
-        id: uuid::Uuid::new_v4().to_string(),
-        cwd: None,
-    }
-}
-
-/// Where work on an item continues: the known session if it ran in the item's worktree (or there
-/// is none), else a new session in the worktree. None with neither.
-pub fn thread_for(known: Option<SessionRef>, ws: Option<&Workspace>) -> Option<Thread> {
-    match (known, ws) {
-        (Some(s), Some(ws)) if ws.holds(&s) => Some(Thread::Resume(s)),
-        (_, Some(ws)) => Some(Thread::Start(ws.new_session())),
-        (Some(s), None) => Some(Thread::Resume(s)),
-        (None, None) => None,
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Job {
@@ -196,9 +163,13 @@ async fn after(handle: &AppHandle, job: &Job, ended: &Ended) -> AppResult<()> {
 
 pub async fn run(handle: &AppHandle, settings: &Settings, mut job: Job) -> AppResult<()> {
     let app = handle.state::<App>();
-    let about = (job.item_id.as_str(), job.what);
-    let rule = run_turn::begin(&app.db, &app.config, about, &settings.turns);
-    job.prompt = format!("{}\n\n{}", job.prompt, rule.await?);
+    run_turn::take(&app.db, (&job.item_id, job.what), &settings.turns).await?;
+    let rule = render(
+        &app.config,
+        Prompt::HandOver,
+        &[("item", job.item_id.as_str())],
+    )?;
+    job.prompt = format!("{}\n\n{rule}", job.prompt);
     let started = Utc::now();
     let id = start_record(handle, settings, &job, started).await?;
     let how = How {

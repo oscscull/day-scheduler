@@ -123,7 +123,7 @@ pub async fn last_why(db: &Db, item_id: &str) -> AppResult<Option<String>> {
     }))
 }
 
-/// Whether the agent handed the turn on since `since`, through `pass` (its own, or anyone's).
+/// Whether the turn was passed by anyone since `since`.
 pub async fn passed_since(db: &Db, item_id: &str, since: DateTime<Utc>) -> AppResult<bool> {
     let history = events::for_item(db, item_id).await?;
     Ok(history

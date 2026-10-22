@@ -14,6 +14,7 @@ mod keeper;
 mod peers;
 mod queue;
 mod run_turn;
+mod thread;
 mod tick;
 mod undelivered;
 mod updates;

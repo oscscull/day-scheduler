@@ -7,7 +7,8 @@ use std::collections::HashSet;
 
 use tauri::{AppHandle, Manager as _};
 
-use super::dispatch::{self, Job, Thread};
+use super::dispatch::{self, Job};
+use super::thread::{self, Thread};
 use super::undelivered;
 use crate::app::App;
 use crate::config::prompts::{Prompt, render};
@@ -40,7 +41,7 @@ pub async fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         }
         let known = known_session(&app, &answered, &item).await?;
         let ws = workspace::for_item(settings, &item)?;
-        match dispatch::thread_for(known, ws.as_ref()) {
+        match thread::thread_for(known, ws.as_ref()) {
             Some(thread) => {
                 start(handle, settings, (&answered, &item), (thread, ws)).await?;
                 busy.insert(item.id.clone());
@@ -103,41 +104,4 @@ fn prompt_for(
         Prompt::Answer
     };
     render(&app.config, prompt, &vars)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::workspace::Kind;
-
-    fn session(cwd: Option<&str>) -> SessionRef {
-        SessionRef {
-            id: "s".to_owned(),
-            cwd: cwd.map(str::to_owned),
-        }
-    }
-
-    #[test]
-    fn only_items_with_no_session_and_no_workspace_have_nobody_to_tell() {
-        let ws = Workspace {
-            project: "/code/app".into(),
-            repo: "me/app".to_owned(),
-            number: 3,
-            kind: Kind::Issue,
-            dir: "/wt/app-3".into(),
-        };
-        assert!(dispatch::thread_for(None, None).is_none());
-        assert!(matches!(
-            dispatch::thread_for(Some(session(None)), None),
-            Some(Thread::Resume(_))
-        ));
-        assert!(matches!(
-            dispatch::thread_for(None, Some(&ws)),
-            Some(Thread::Start(_))
-        ));
-        assert!(matches!(
-            dispatch::thread_for(Some(session(Some("/wt/app-3"))), Some(&ws)),
-            Some(Thread::Resume(_))
-        ));
-    }
 }

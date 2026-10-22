@@ -3,25 +3,18 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::config::Config;
-use crate::config::prompts::{Prompt, render};
 use crate::config::turns::TurnSettings;
 use crate::domain::turn::Turn;
 use crate::error::AppResult;
 use crate::store::{Db, items};
 use crate::turns::{self, Clock, Pass};
 
-/// Gives the agent the turn, unless it has it already, and adds the rule for handing it on.
-pub async fn begin(
-    db: &Db,
-    config: &Config,
-    (item_id, what): (&str, &str),
-    limits: &TurnSettings,
-) -> AppResult<String> {
-    if items::get(db, item_id).await?.turn != Turn::Agent {
-        turns::pass(db, item_id, Pass::to(Turn::Agent, what), Clock::now(limits)).await?;
+/// Gives the agent the turn, unless it has it already.
+pub async fn take(db: &Db, (item_id, what): (&str, &str), limits: &TurnSettings) -> AppResult<()> {
+    if items::get(db, item_id).await?.turn == Turn::Agent {
+        return Ok(());
     }
-    render(config, Prompt::HandOver, &[("item", item_id)])
+    turns::pass(db, item_id, Pass::to(Turn::Agent, what), Clock::now(limits)).await
 }
 
 /// A run about an item that finished: when it started, and what it said last.
