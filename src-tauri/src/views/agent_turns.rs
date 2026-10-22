@@ -3,10 +3,13 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
+use crate::config::turns::TurnSettings;
 use crate::domain::item::{Stage, WorkItem};
 use crate::domain::turn::Turn;
 use crate::error::AppResult;
-use crate::store::{Db, items, runs, watch};
+use crate::store::{Db, items};
+use crate::turns::due::Work;
+use crate::turns::work;
 
 /// Where the agent's turn on an item stands.
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -14,9 +17,9 @@ use crate::store::{Db, items, runs, watch};
 pub enum Doing {
     /// A Quarterdeck run is working on it.
     Running,
-    /// A session outside Quarterdeck holds it.
+    /// A session outside Quarterdeck was heard from lately.
     Session,
-    /// Quarterdeck prompts it on the next tick.
+    /// Quarterdeck prompts it, or delivers its answer, on the next tick.
     Starting,
 }
 
@@ -35,32 +38,27 @@ const fn agents(item: &WorkItem) -> bool {
     matches!(item.turn, Turn::Agent) && matches!(item.stage, Stage::InProgress | Stage::InReview)
 }
 
-pub async fn build(db: &Db) -> AppResult<Vec<AgentTurn>> {
-    let running: Vec<String> = runs::live(db)
-        .await?
-        .into_iter()
-        .map(|r| r.target)
-        .collect();
-    let sessions = watch::all(db).await?;
-    Ok(items::list(db)
-        .await?
-        .into_iter()
-        .filter(agents)
-        .map(|i| {
-            let doing = if running.contains(&i.id) {
-                Doing::Running
-            } else if sessions.contains_key(&i.id) {
-                Doing::Session
-            } else {
-                Doing::Starting
-            };
-            AgentTurn {
-                item_id: i.id,
-                title: i.title,
-                area: i.area,
-                doing,
-                until: i.turn_until,
-            }
-        })
-        .collect())
+const fn doing(work: Work) -> Doing {
+    match work {
+        Work::Running => Doing::Running,
+        Work::Elsewhere => Doing::Session,
+        Work::Pending | Work::Idle => Doing::Starting,
+    }
+}
+
+/// Classified as the keeper sees them, so this list and the keeper never disagree.
+pub async fn build(db: &Db, limits: &TurnSettings) -> AppResult<Vec<AgentTurn>> {
+    let known = work::known(db).await?;
+    let mut turns = Vec::new();
+    for i in items::list(db).await?.into_iter().filter(agents) {
+        let doing = doing(work::work(db, &i, &known, limits).await?);
+        turns.push(AgentTurn {
+            item_id: i.id,
+            title: i.title,
+            area: i.area,
+            doing,
+            until: i.turn_until,
+        });
+    }
+    Ok(turns)
 }

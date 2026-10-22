@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use tauri::{AppHandle, Manager as _};
 
 use super::dispatch::{self, Job};
+use super::failed::{self, Failure};
 use super::thread::{self, Thread};
 use super::undelivered;
 use crate::app::App;
@@ -39,18 +40,35 @@ pub async fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         if settings.node_for(&item.area) != settings.node {
             continue;
         }
-        let known = known_session(&app, &answered, &item).await?;
-        let ws = workspace::for_item(settings, &item)?;
-        match thread::thread_for(known, ws.as_ref()) {
-            Some(thread) => {
-                start(handle, settings, (&answered, &item), (thread, ws)).await?;
-                busy.insert(item.id.clone());
-            }
-            None => undelivered::report(&app.db, &answered, Clock::now(&settings.turns)).await?,
+        if let Err(e) = deliver_one(handle, settings, &answered, &item).await {
+            let detail = e.to_string();
+            let failure = Failure {
+                item_id: &item.id,
+                what: "Answer",
+                detail: &detail,
+            };
+            failed::report(handle, &failure, &settings.turns).await?;
         }
+        busy.insert(item.id.clone());
         asks::remove(&app.db, answered.ask.id).await?;
     }
     Ok(())
+}
+
+/// Starts the run that takes one answer to the agent, or reports that nobody can take it.
+async fn deliver_one(
+    handle: &AppHandle,
+    settings: &Settings,
+    answered: &Answered,
+    item: &WorkItem,
+) -> AppResult<()> {
+    let app = handle.state::<App>();
+    let known = known_session(&app, answered, item).await?;
+    let ws = workspace::for_item(settings, item)?;
+    match thread::thread_for(known, ws.as_ref()) {
+        Some(thread) => start(handle, settings, (answered, item), (thread, ws)).await,
+        None => undelivered::report(&app.db, answered, Clock::now(&settings.turns)).await,
+    }
 }
 
 /// Hands the answer to the agent.

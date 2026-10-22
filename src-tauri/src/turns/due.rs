@@ -40,7 +40,7 @@ const fn in_flight(item: &WorkItem) -> bool {
 }
 
 fn agent(work: Work, late: bool) -> Due {
-    if late && work != Work::Pending {
+    if late {
         let why = if work == Work::Running {
             "the agent's turn ran out while it was still running"
         } else {

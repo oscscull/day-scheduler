@@ -3,6 +3,7 @@
 
 pub mod due;
 pub mod history;
+pub mod work;
 
 use chrono::{DateTime, TimeDelta, Utc};
 

@@ -6,7 +6,6 @@ use chrono::Utc;
 use tauri::{AppHandle, Manager as _};
 
 use super::agent_prompt;
-use super::agent_work::{self, Known};
 use super::failed::{self, Failure};
 use crate::app::App;
 use crate::config::settings::Settings;
@@ -16,6 +15,7 @@ use crate::error::AppResult;
 use crate::notify;
 use crate::store::items;
 use crate::turns::due::{Due, due};
+use crate::turns::work::{self, Known};
 use crate::turns::{self, Clock, Pass};
 
 async fn act(handle: &AppHandle, settings: &Settings, item: &WorkItem, due: Due) -> AppResult<()> {
@@ -67,7 +67,7 @@ async fn keep(
     known: &Known,
 ) -> AppResult<()> {
     let db = &handle.state::<App>().db;
-    let work = agent_work::work(db, item, known, settings).await?;
+    let work = work::work(db, item, known, &settings.turns).await?;
     let due = due(item, work, &settings.turns, Utc::now());
     act(handle, settings, item, due).await
 }
@@ -75,7 +75,7 @@ async fn keep(
 /// Every item gets its turn kept, even when one fails; the first failure is reported.
 pub async fn check(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     let app = handle.state::<App>();
-    let known = agent_work::known(&app.db).await?;
+    let known = work::known(&app.db).await?;
     let mine = items::list(&app.db).await?;
     let mut first = Ok(());
     for item in mine

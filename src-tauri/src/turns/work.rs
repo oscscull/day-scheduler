@@ -5,12 +5,12 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Duration, Utc};
 
-use crate::config::settings::Settings;
+use crate::config::turns::TurnSettings;
 use crate::domain::event::Change;
 use crate::domain::item::WorkItem;
 use crate::domain::session::SessionRef;
 use crate::domain::turn::Turn;
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::store::{Db, asks, events, runs, watch};
 use crate::turns::due::Work;
 
@@ -59,17 +59,19 @@ async fn idle(db: &Db, item: &WorkItem, known: &Known, quiet: Duration) -> AppRe
     Ok(ran.is_some_and(|r| r >= heard) || Utc::now() - heard >= quiet)
 }
 
-pub async fn work(db: &Db, item: &WorkItem, known: &Known, settings: &Settings) -> AppResult<Work> {
+pub async fn work(
+    db: &Db,
+    item: &WorkItem,
+    known: &Known,
+    limits: &TurnSettings,
+) -> AppResult<Work> {
     if known.running.contains(&item.id) {
         return Ok(Work::Running);
     }
     if known.pending.contains(&item.id) {
         return Ok(Work::Pending);
     }
-    let minutes = settings.turns.quiet_minutes;
-    let quiet = Duration::try_minutes(minutes).ok_or_else(|| {
-        AppError::BadInput(format!("[turns] quiet_minutes {minutes} is too long"))
-    })?;
+    let quiet = limits.quiet()?;
     if item.turn == Turn::Agent && !idle(db, item, known, quiet).await? {
         return Ok(Work::Elsewhere);
     }

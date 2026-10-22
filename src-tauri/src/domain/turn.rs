@@ -16,3 +16,15 @@ pub enum Turn {
     /// Put off until the deadline, then back to whoever is next.
     Later,
 }
+
+impl Turn {
+    /// The name it's stored and sent under, e.g. in `quarterdeck.toml`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::You => "you",
+            Self::Agent => "agent",
+            Self::Others => "others",
+            Self::Later => "later",
+        }
+    }
+}

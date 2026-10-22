@@ -3,6 +3,7 @@ use serde::Serialize;
 
 use crate::config::pause::Pause;
 use crate::config::schedules::Loaded;
+use crate::config::turns::TurnSettings;
 use crate::connectors::{calendar, github, status};
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::run::Run;
@@ -39,7 +40,12 @@ pub struct AgentView {
     pub connections: Vec<status::Status>,
 }
 
-pub async fn build(db: &Db, loaded: Loaded, pause: Option<Pause>) -> AppResult<AgentView> {
+pub async fn build(
+    db: &Db,
+    loaded: Loaded,
+    pause: Option<Pause>,
+    limits: &TurnSettings,
+) -> AppResult<AgentView> {
     let mut problems = loaded.problems;
     let mut schedules = Vec::with_capacity(loaded.schedules.len());
     for schedule in loaded.schedules {
@@ -58,7 +64,7 @@ pub async fn build(db: &Db, loaded: Loaded, pause: Option<Pause>) -> AppResult<A
     }
     Ok(AgentView {
         live: live::build(db).await?,
-        turns: agent_turns::build(db).await?,
+        turns: agent_turns::build(db, limits).await?,
         schedules,
         problems,
         pause,

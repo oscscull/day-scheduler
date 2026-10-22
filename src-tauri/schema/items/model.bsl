@@ -19,7 +19,8 @@ Item {
   turn_until:  timestamp?
   # Who the item waits on while it's others' turn, e.g. reviewers' names or "CI".
   waiting_on:  text?
-  # Who gets the turn when others' or a later turn runs out; none means the configured default.
+  # Who gets the turn when others' turn runs out (none: the configured others_then) or when a
+  # later turn's time comes (none: you).
   then_turn:   Turn?
   area:        text
   link:        text?

@@ -8,7 +8,7 @@ use super::calendar::{Feed, Origin};
 use super::projects::Project;
 use super::settings::{self, Area};
 use super::sync::Peer;
-use crate::domain::turn::Turn;
+use super::turns::TurnChange;
 use crate::error::{AppError, AppResult};
 
 fn path(config: &Config) -> std::path::PathBuf {
@@ -170,47 +170,8 @@ pub fn map_github(config: &Config, owner_or_repo: &str, area: &str) -> AppResult
     })
 }
 
-/// What `set_turn_limits` changes. Fields left `None` keep their current value.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct TurnChange {
-    pub agent_hours: Option<i64>,
-    pub you_remind_hours: Option<i64>,
-    pub others_hours: Option<i64>,
-    pub later_hours: Option<i64>,
-    pub others_then: Option<Turn>,
-    pub quiet_minutes: Option<i64>,
-}
-
-/// The longest any turn may last: a year.
-const MAX_TURN_HOURS: i64 = 24 * 365;
-
-fn check_turns(change: &TurnChange) -> AppResult<()> {
-    let hours = [
-        change.agent_hours,
-        change.you_remind_hours,
-        change.others_hours,
-        change.later_hours,
-    ];
-    let in_range = |h: &i64| (1..=MAX_TURN_HOURS).contains(h);
-    if !hours.iter().flatten().all(in_range) {
-        return Err(AppError::BadInput(format!(
-            "turn lengths must be between 1 and {MAX_TURN_HOURS} hours"
-        )));
-    }
-    let max_minutes = MAX_TURN_HOURS * 60;
-    if change
-        .quiet_minutes
-        .is_some_and(|m| !(1..=max_minutes).contains(&m))
-    {
-        return Err(AppError::BadInput(format!(
-            "quiet_minutes must be between 1 and {max_minutes}"
-        )));
-    }
-    Ok(())
-}
-
 pub fn set_turns(config: &Config, change: TurnChange) -> AppResult<()> {
-    check_turns(&change)?;
+    change.check()?;
     edit(config, |doc| {
         let t = table(doc, "turns")?;
         let numbers = [
@@ -226,19 +187,10 @@ pub fn set_turns(config: &Config, change: TurnChange) -> AppResult<()> {
             }
         }
         if let Some(turn) = change.others_then {
-            t.insert("others_then", value(turn_name(turn)));
+            t.insert("others_then", value(turn.as_str()));
         }
         Ok(())
     })
-}
-
-const fn turn_name(turn: Turn) -> &'static str {
-    match turn {
-        Turn::You => "you",
-        Turn::Agent => "agent",
-        Turn::Others => "others",
-        Turn::Later => "later",
-    }
 }
 
 /// What `set_sync` changes. Fields left `None` keep their current value.

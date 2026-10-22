@@ -29,5 +29,5 @@ pub async fn agent(app: State<'_, App>) -> AppResult<AgentView> {
     app.expire(&settings).await?;
     let loaded = schedules::list(&app.config)?;
     let paused = pause::current(&app.config, Utc::now())?;
-    agent::build(&app.db, loaded, paused).await
+    agent::build(&app.db, loaded, paused, &settings.turns).await
 }
