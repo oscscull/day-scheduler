@@ -109,7 +109,12 @@ pub fn serve_peers() -> std::process::ExitCode {
     reason = "generate_context! expands to code calling process::exit; not ours"
 )]
 pub fn run() -> tauri::Result<()> {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
+        // Must come first. Launching Quarterdeck while it runs shows the running one, so there's
+        // never a second scheduler on the same database.
+        .plugin(tauri_plugin_single_instance::init(|handle, _, _| {
+            desktop::show_main(handle);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -119,8 +124,6 @@ pub fn run() -> tauri::Result<()> {
         ))
         .on_window_event(desktop::on_window_event)
         .setup(setup)
-        .invoke_handler(commands::handler())
-        .build(tauri::generate_context!())?
-        .run(|handle, event| desktop::on_run_event(handle, &event));
-    Ok(())
+        .invoke_handler(commands::handler());
+    builder.run(tauri::generate_context!())
 }

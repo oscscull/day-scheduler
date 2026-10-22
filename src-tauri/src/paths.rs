@@ -8,14 +8,15 @@ use crate::error::{AppError, AppResult};
 const APP_ID: &str = "com.oscscull.quarterdeck";
 
 pub fn home() -> AppResult<PathBuf> {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .ok_or_else(|| AppError::NotFound("the HOME folder".to_owned()))
+    dirs::home_dir().ok_or_else(|| AppError::NotFound("the home folder".to_owned()))
 }
 
-/// The database lives here.
+/// The database lives here: the system's app-data folder, as Tauri uses (on macOS
+/// `~/Library/Application Support/<id>`, on Windows `%APPDATA%\<id>`, on Linux `~/.local/share/<id>`).
 pub fn data_dir() -> AppResult<PathBuf> {
-    Ok(home()?.join("Library/Application Support").join(APP_ID))
+    let base =
+        dirs::data_dir().ok_or_else(|| AppError::NotFound("the app-data folder".to_owned()))?;
+    Ok(base.join(APP_ID))
 }
 
 /// Behaviour the user and agents edit: settings, prompts, schedules, inbox.
