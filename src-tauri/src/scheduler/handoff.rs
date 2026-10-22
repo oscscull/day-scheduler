@@ -6,12 +6,15 @@ use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager as _};
 
 use crate::app::App;
+use crate::config::turns::TurnSettings;
 use crate::connectors::github::{self, OpenedPr};
 use crate::domain::event::Change;
+use crate::domain::turn::Turn;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 use crate::notify;
 use crate::store::{Db, asks, events, items, urgent};
+use crate::turns::{self, Clock, Pass};
 use crate::workspace::{self, Published, Workspace};
 
 pub async fn after_run(handle: &AppHandle, item_id: &str, ws: &Workspace) {
@@ -24,7 +27,13 @@ pub async fn after_run(handle: &AppHandle, item_id: &str, ws: &Workspace) {
     }
     let published = workspace::publish(ws).await;
     let failed = published.as_ref().err().map(ToString::to_string);
-    let recorded = record(&app.db, (item_id, ws), published, Utc::now()).await;
+    let recorded = match app.settings() {
+        Ok(settings) => {
+            let to = (item_id, ws, &settings.turns);
+            record(&app.db, to, published, Utc::now()).await
+        }
+        Err(e) => Err(e),
+    };
     let problem = recorded.err().map(|e| e.to_string()).or(failed);
     if let Some(problem) = problem {
         // The urgent item and history note carry it; the notification is a courtesy.
@@ -35,7 +44,7 @@ pub async fn after_run(handle: &AppHandle, item_id: &str, ws: &Workspace) {
 
 async fn record(
     db: &Db,
-    (item_id, ws): (&str, &Workspace),
+    (item_id, ws, limits): (&str, &Workspace, &TurnSettings),
     published: AppResult<Published>,
     now: DateTime<Utc>,
 ) -> AppResult<()> {
@@ -51,11 +60,11 @@ async fn record(
                 number,
                 url: &url,
             };
-            github::adopt(db, item_id, pr, now).await
+            github::adopt(db, item_id, pr, Clock { limits, now }).await
         }
         Err(e) => {
-            let text = format!("Quarterdeck couldn't push Claude's work or open its PR: {e}");
-            events::record(db, item_id, now, &Change::Note { text }).await?;
+            let why = format!("Quarterdeck couldn't push the agent's work or open its PR: {e}");
+            turns::pass(db, item_id, Pass::to(Turn::You, why), Clock { limits, now }).await?;
             let raised = Urgent {
                 id: 0,
                 title: format!("Couldn't publish Claude's work on {item_id}"),

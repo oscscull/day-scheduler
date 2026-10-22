@@ -1,65 +1,41 @@
-//! Watchdog state per item Claude holds: its session (to resume) and check-ins so far.
-//! Rows go with their item.
+//! The agent session holding each item, so Quarterdeck can resume it. Rows go with their item.
 
 use std::collections::HashMap;
-
-use chrono::{DateTime, Utc};
 
 use super::client;
 use super::convert::text_key;
 use super::db::{Db, gone_ok};
-use super::time;
 use crate::domain::session::SessionRef;
 use crate::error::{AppError, AppResult};
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Watch {
-    /// The Claude Code session working on it, if the agent said.
-    pub session: Option<SessionRef>,
-    pub nudges: u32,
-    pub last_nudge: Option<DateTime<Utc>>,
-}
-
-pub async fn all(db: &Db) -> AppResult<HashMap<String, Watch>> {
+/// The session holding each item that has one, by item id.
+pub async fn all(db: &Db) -> AppResult<HashMap<String, SessionRef>> {
     let rows = db.api().watches(client::WatchesInput {}, ()).await?;
-    rows.into_iter()
-        .map(|r| {
+    Ok(rows
+        .into_iter()
+        .filter_map(|r| {
             let cwd = r.cwd;
-            let watch = Watch {
-                session: r.session.map(|id| SessionRef { id, cwd }),
-                nudges: u32::try_from(r.nudges).unwrap_or_default(),
-                last_nudge: time::get_opt(r.last_nudge.as_deref())?,
-            };
-            Ok((r.item_id.into_raw(), watch))
+            let session = r.session.map(|id| SessionRef { id, cwd })?;
+            Some((r.item_id.into_raw(), session))
         })
-        .collect()
+        .collect())
 }
 
-/// An agent took the item on; a fresh start for the watchdog, keeping any session already known.
-pub async fn claim(db: &Db, item_id: &str, session: Option<&SessionRef>) -> AppResult<()> {
-    let api = db.api();
-    let item = text_key(item_id);
-    if let Some(s) = session {
-        let input = client::ClaimWithSessionInput {
-            item,
-            session: s.id.clone(),
-            cwd: s.cwd.clone(),
-        };
-        return Ok(api.claim_with_session(input, ()).await?);
-    }
-    Ok(api.claim(client::ClaimInput { item }, ()).await?)
+pub async fn session_for(db: &Db, item_id: &str) -> AppResult<Option<SessionRef>> {
+    Ok(all(db).await?.remove(item_id))
 }
 
-pub async fn record(db: &Db, item_id: &str, w: &Watch) -> AppResult<()> {
-    let input = client::RecordNudgesInput {
+/// Records the session working on an item, replacing any before it.
+pub async fn claim(db: &Db, item_id: &str, session: &SessionRef) -> AppResult<()> {
+    let input = client::ClaimWithSessionInput {
         item: text_key(item_id),
-        nudges: i64::from(w.nudges),
-        last_nudge: time::put_opt(w.last_nudge),
+        session: session.id.clone(),
+        cwd: session.cwd.clone(),
     };
-    Ok(db.api().record_nudges(input, ()).await?)
+    Ok(db.api().claim_with_session(input, ()).await?)
 }
 
-/// Stops watching an item once nobody is carrying it.
+/// Forgets the session holding an item.
 pub async fn release(db: &Db, item_id: &str) -> AppResult<()> {
     let input = client::ReleaseInput {
         item: text_key(item_id),

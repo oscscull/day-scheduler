@@ -50,9 +50,8 @@ async fn write_items(db: &Db, old: &Old) -> AppResult<()> {
             asks::answer(db, id, answer).await?;
         }
     }
-    for (item_id, w) in &old.watches {
-        watch::claim(db, item_id, w.session.as_ref()).await?;
-        watch::record(db, item_id, w).await?;
+    for (item_id, session) in &old.watches {
+        watch::claim(db, item_id, session).await?;
     }
     Ok(())
 }
@@ -138,7 +137,10 @@ mod tests {
     /// Every kind of record from `ROWS` is in the new database.
     async fn everything_arrived(db: &Db) {
         let item = items::get(db, "JD-1").await.unwrap();
-        assert_eq!((item.holder.as_str(), item.rank), ("Sam", 0));
+        assert_eq!(
+            (item.turn, item.waiting_on.as_deref(), item.rank),
+            (crate::domain::turn::Turn::Others, Some("Sam"), 0)
+        );
         assert!(
             items::list(db)
                 .await
@@ -151,7 +153,7 @@ mod tests {
         assert_eq!(asks::list(db).await.unwrap().len(), 1);
         assert_eq!(asks::answered(db).await.unwrap().len(), 1);
         let watched = watch::all(db).await.unwrap();
-        assert_eq!(watched.get("JD-1").map(|w| w.nudges), Some(1));
+        assert_eq!(watched.get("JD-1").map(|s| s.id.as_str()), Some("s1"));
         assert_eq!(todos::list(db).await.unwrap().len(), 1);
         assert_eq!(commitments::list(db).await.unwrap().len(), 1);
         assert_eq!(urgent::list(db).await.unwrap().len(), 1);

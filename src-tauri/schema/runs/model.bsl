@@ -13,6 +13,7 @@ Run {
   summary:     text?
   @index(schedule_id, started_at)
   @index(finished_at, started_at)
+  @index(target, finished_at)
 }
 shape RunRow from Run { id, schedule_id, what, target, node, started_at, finished_at, outcome, summary }
 

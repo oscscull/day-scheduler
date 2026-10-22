@@ -1,6 +1,5 @@
 //! Starts the next queued item once the one before it is in review or done.
 
-use chrono::Utc;
 use tauri::{AppHandle, Manager as _};
 
 use crate::app::App;
@@ -9,6 +8,7 @@ use crate::config::settings::Settings;
 use crate::error::AppResult;
 use crate::queue::{self, Next};
 use crate::store::items;
+use crate::turns::Clock;
 
 pub async fn advance(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     if settings.queue.items.is_empty() {
@@ -24,5 +24,5 @@ pub async fn advance(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         return Ok(());
     }
     let message = render(&app.config, Prompt::Queue, &[])?;
-    queue::start(&app.db, item, &message, Utc::now()).await
+    queue::start(&app.db, item, &message, Clock::now(&settings.turns)).await
 }

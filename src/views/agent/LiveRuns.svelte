@@ -3,16 +3,18 @@
   import { t } from "../../lib/copy";
   import { fromPeers, machine } from "../../lib/peers.svelte";
   import { runKey, runMeta, runName, stepText } from "../../lib/steps";
-  import { age } from "../../lib/time";
-  import type { LiveRun } from "../../lib/types";
+  import { age, dayClock } from "../../lib/time";
+  import type { AgentTurn, LiveRun } from "../../lib/types";
   import RunLogModal from "./RunLogModal.svelte";
 
   interface Props {
     /** The Agent tab's last load, shown until this list's own first refresh. */
     runs: LiveRun[];
+    /** Items that are the agent's turn, from the tab's last load. */
+    turns: AgentTurn[];
   }
 
-  let { runs }: Props = $props();
+  let { runs, turns }: Props = $props();
 
   /** Much faster than the tab's 30s, so the latest step reads as live. */
   const REFRESH_MS = 3_000;
@@ -25,6 +27,11 @@
 
   const shown = $derived(fresh ?? runs);
   const openRun = $derived(shown.find((r) => runKey(r) === openKey));
+  /** The agent's turns with no run here yet: in a session elsewhere, or starting. */
+  const waiting = $derived(
+    turns.filter((a) => !shown.some((r) => r.target === a.itemId && (r.node ?? "") === (a.node ?? ""))),
+  );
+  const count = $derived(shown.length + waiting.length);
 
   async function load(): Promise<void> {
     try {
@@ -62,7 +69,7 @@
 
 <section aria-label={t("agent.live")}>
   <h1 class="page-title">
-    {shown.length > 0 ? t("agent.working", { n: shown.length }) : t("agent.idle")}
+    {count > 0 ? t("agent.working", { n: count }) : t("agent.idle")}
   </h1>
   <p class="hint intro">{t("agent.live")}</p>
   <ul>
@@ -77,6 +84,18 @@
           </span>
           <span class="mono elapsed">{age(run.startedAt, now)}</span>
         </button>
+      </li>
+    {/each}
+    {#each waiting as a (`${a.node ?? ""}|${a.itemId}`)}
+      <li>
+        <span class="row-button">
+          <span class="dot waiting"></span>
+          <span class="body">
+            <span>{a.itemId} · {a.title}</span>
+            <span class="hint meta">{a.doing === "session" ? t("agent.session") : t("agent.starting")}</span>
+          </span>
+          {#if a.until}<span class="mono elapsed">{t("agent.until", { at: dayClock(a.until, now) })}</span>{/if}
+        </span>
       </li>
     {/each}
   </ul>
@@ -109,6 +128,11 @@
     border-radius: 50%;
     background: var(--live);
     box-shadow: 0 0 0 4px var(--live-halo);
+  }
+
+  .dot.waiting {
+    background: var(--muted);
+    box-shadow: none;
   }
 
   .body {

@@ -14,8 +14,7 @@ pub async fn today(app: State<'_, App>) -> AppResult<TodayView> {
     let settings = app.settings()?;
     app.expire(&settings).await?;
     app.take_inbox(&settings).await?;
-    let rules = settings.priority_rules(Utc::now());
-    today::build(&app.db, settings.priority_limit, rules).await
+    today::build(&app.db, settings.priority_limit, Utc::now()).await
 }
 
 /// All work items in priority order. Board, In flight and Priorities share this.

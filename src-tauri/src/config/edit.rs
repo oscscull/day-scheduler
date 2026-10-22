@@ -8,6 +8,7 @@ use super::calendar::{Feed, Origin};
 use super::projects::Project;
 use super::settings::{self, Area};
 use super::sync::Peer;
+use crate::domain::turn::Turn;
 use crate::error::{AppError, AppResult};
 
 fn path(config: &Config) -> std::path::PathBuf {
@@ -169,25 +170,46 @@ pub fn map_github(config: &Config, owner_or_repo: &str, area: &str) -> AppResult
     })
 }
 
-pub fn set_watchdog(
-    config: &Config,
-    enabled: Option<bool>,
-    quiet_minutes: Option<i64>,
-    max_nudges: Option<u32>,
-) -> AppResult<()> {
+/// What `set_turn_limits` changes. Fields left `None` keep their current value.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TurnChange {
+    pub agent_hours: Option<i64>,
+    pub you_remind_hours: Option<i64>,
+    pub others_hours: Option<i64>,
+    pub later_hours: Option<i64>,
+    pub others_then: Option<Turn>,
+    pub quiet_minutes: Option<i64>,
+}
+
+pub fn set_turns(config: &Config, change: TurnChange) -> AppResult<()> {
     edit(config, |doc| {
-        let w = table(doc, "watchdog")?;
-        if let Some(on) = enabled {
-            w.insert("enabled", value(on));
+        let t = table(doc, "turns")?;
+        let numbers = [
+            ("agent_hours", change.agent_hours),
+            ("you_remind_hours", change.you_remind_hours),
+            ("others_hours", change.others_hours),
+            ("later_hours", change.later_hours),
+            ("quiet_minutes", change.quiet_minutes),
+        ];
+        for (key, n) in numbers {
+            if let Some(n) = n {
+                t.insert(key, value(n));
+            }
         }
-        if let Some(minutes) = quiet_minutes {
-            w.insert("quiet_minutes", value(minutes));
-        }
-        if let Some(n) = max_nudges {
-            w.insert("max_nudges", value(i64::from(n)));
+        if let Some(turn) = change.others_then {
+            t.insert("others_then", value(turn_name(turn)));
         }
         Ok(())
     })
+}
+
+const fn turn_name(turn: Turn) -> &'static str {
+    match turn {
+        Turn::You => "you",
+        Turn::Agent => "agent",
+        Turn::Others => "others",
+        Turn::Later => "later",
+    }
 }
 
 /// What `set_sync` changes. Fields left `None` keep their current value.

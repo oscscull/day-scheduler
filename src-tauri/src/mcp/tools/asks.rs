@@ -6,9 +6,10 @@ use super::super::tool::{Tool, async_tool};
 use super::in_area;
 use crate::domain::ask::Ask;
 use crate::domain::session::SessionRef;
+use crate::domain::turn::Turn;
 use crate::error::AppResult;
 use crate::store::{asks, items};
-use chrono::Utc;
+use crate::turns::{self, Clock, Pass};
 
 use crate::priorities::{Priority, priorities};
 
@@ -16,14 +17,15 @@ pub fn tools() -> Vec<Tool> {
     vec![
         async_tool(
             "list_asks",
-            "Everything that needs the user, in order: asks and items waiting on their decision by \
-             item rank, then nudges for items waiting on reviewers too long. Today shows the first few.",
+            "Everything that needs the user, in item rank order: questions raised on an item, else \
+             the item itself when it's in flight and their turn. Today shows the first few.",
             list,
         ),
         async_tool(
             "add_ask",
             "Asks the user something about an item: a design fork, a question you can't answer. \
-             It appears in their Priorities if the item ranks high enough. Put the question in one \
+             It makes the item the user's turn, and appears in their Priorities if the item ranks \
+             high enough. Put the question in one \
              line and the background in `context`. Offer `options` when the answer is a choice \
              (e.g. [\"Yes\", \"No\"]); they can always write an answer instead. Pass your session \
              id and working directory so Quarterdeck can resume you with the answer; don't wait or poll \
@@ -59,9 +61,8 @@ struct ListArgs {
 }
 
 async fn list(ctx: Ctx, args: ListArgs) -> AppResult<Vec<Priority>> {
-    let rules = ctx.settings()?.priority_rules(Utc::now());
     let ranked = items::list(&ctx.db).await?;
-    let mut all = priorities(&ranked, &asks::list(&ctx.db).await?, rules);
+    let mut all = priorities(&ranked, &asks::list(&ctx.db).await?);
     all.retain(|p| in_area(args.area.as_ref(), &p.area));
     Ok(all)
 }
@@ -90,7 +91,16 @@ async fn add(ctx: Ctx, args: AddArgs) -> AppResult<()> {
         asker: args.session,
     };
     items::get(&ctx.db, &ask.item_id).await?;
-    asks::insert(&ctx.db, &ask).await.map(drop)
+    asks::insert(&ctx.db, &ask).await?;
+    let why = format!("asked: {}", ask.question);
+    let limits = ctx.settings()?.turns;
+    turns::pass(
+        &ctx.db,
+        &ask.item_id,
+        Pass::to(Turn::You, why),
+        Clock::now(&limits),
+    )
+    .await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

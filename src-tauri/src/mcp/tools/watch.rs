@@ -1,68 +1,37 @@
-use chrono::Utc;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::super::ctx::Ctx;
-use super::super::tool::{Tool, async_tool, tool};
-use crate::config::edit;
-use crate::domain::item::{ItemInput, Status};
+use super::super::tool::{Tool, async_tool};
 use crate::domain::session::SessionRef;
+use crate::domain::turn::Turn;
 use crate::error::AppResult;
 use crate::store::{items, watch};
-use crate::work;
+use crate::turns::{self, Clock, Pass};
 
-const CLAIM: &str = "Say you're working on an item. Call this when you start. Pass your Claude Code session id and \
-working directory, so Quarterdeck can resume your session with CI results, answers and check-ins. Then post progress as it happens: add_note for steps, update_item for the \
-state label, add_ask when you need the user. Don't poll CI: when it finishes on this item, Quarterdeck \
-resumes your session with the result. Long silences get a check-in; repeated silence is flagged \
-to the user.";
-const SETTINGS: &str = "Tunes the watchdog: how long an item Claude holds may go without an update before Quarterdeck \
-checks in (quiet_minutes), how many check-ins before it tells the user instead (max_nudges), or \
-turns it off. Only the fields you pass change.";
+const CLAIM: &str = "Say you're working on an item: it becomes the agent's turn. Call this when you \
+start. Pass your Claude Code session id and working directory, so Quarterdeck can resume your \
+session with CI results, answers and prompts to carry on. Post progress as it happens (add_note, \
+update_item's state label) and hand the turn on with pass_turn when you stop. Don't poll CI: when \
+it finishes on this item, Quarterdeck resumes your session with the result.";
 
 pub fn tools() -> Vec<Tool> {
-    vec![
-        async_tool("claim_item", CLAIM, claim),
-        tool("set_watchdog", SETTINGS, settings),
-    ]
+    vec![async_tool("claim_item", CLAIM, claim)]
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ClaimArgs {
     id: String,
-    /// Your Claude Code session (id and working directory), so Quarterdeck can resume you with CI
-    /// results, answers and check-ins.
+    /// Your Claude Code session (id and working directory), so Quarterdeck can resume you.
     session: Option<SessionRef>,
 }
 
 async fn claim(ctx: Ctx, args: ClaimArgs) -> AppResult<()> {
-    let item = items::get(&ctx.db, &args.id).await?;
-    let input = ItemInput {
-        status: item.status.or(Some(Status::Proceeding)),
-        holder: "Claude".to_owned(),
-        id: item.id,
-        title: item.title,
-        state_label: item.state_label,
-        stage: item.stage,
-        area: item.area,
-        link: item.link,
-    };
-    work::save(&ctx.db, input, Utc::now()).await?;
-    watch::claim(&ctx.db, &args.id, args.session.as_ref()).await
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct SettingsArgs {
-    enabled: Option<bool>,
-    quiet_minutes: Option<i64>,
-    max_nudges: Option<u32>,
-}
-
-fn settings(ctx: &Ctx, args: SettingsArgs) -> AppResult<()> {
-    edit::set_watchdog(
-        &ctx.config,
-        args.enabled,
-        args.quiet_minutes,
-        args.max_nudges,
-    )
+    items::get(&ctx.db, &args.id).await?;
+    if let Some(session) = &args.session {
+        watch::claim(&ctx.db, &args.id, session).await?;
+    }
+    let limits = ctx.settings()?.turns;
+    let pass = Pass::to(Turn::Agent, "a session took it on");
+    turns::pass(&ctx.db, &args.id, pass, Clock::now(&limits)).await
 }

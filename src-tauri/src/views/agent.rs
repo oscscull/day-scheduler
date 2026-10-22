@@ -9,6 +9,7 @@ use crate::domain::run::Run;
 use crate::domain::schedule::{Schedule, Trigger};
 use crate::error::AppResult;
 use crate::store::{Db, runs};
+use crate::views::agent_turns::{self, AgentTurn};
 use crate::views::live::{self, LiveRun};
 
 const NEXT_RUNS: usize = 3;
@@ -30,6 +31,8 @@ pub struct ScheduleView {
 #[serde(rename_all = "camelCase")]
 pub struct AgentView {
     pub live: Vec<LiveRun>,
+    /// Items that are the agent's turn, running or about to be.
+    pub turns: Vec<AgentTurn>,
     pub schedules: Vec<ScheduleView>,
     pub problems: Vec<String>,
     pub pause: Option<Pause>,
@@ -55,6 +58,7 @@ pub async fn build(db: &Db, loaded: Loaded, pause: Option<Pause>) -> AppResult<A
     }
     Ok(AgentView {
         live: live::build(db).await?,
+        turns: agent_turns::build(db).await?,
         schedules,
         problems,
         pause,

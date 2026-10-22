@@ -1,5 +1,6 @@
 <script lang="ts">
   import { openItem } from "../lib/detail.svelte";
+  import { turnText } from "../lib/turn";
   import type { WorkItem } from "../lib/types";
   import Age from "./Age.svelte";
   import AreaDot from "./AreaDot.svelte";
@@ -12,10 +13,8 @@
 
   let { item, now }: Props = $props();
 
-  // Name the person or system holding it where that adds something.
-  const detail = $derived(
-    item.status === "review" || item.status === "dependency" ? item.holder : undefined,
-  );
+  // Name who it waits on where that adds something.
+  const detail = $derived(item.turn === "others" ? (item.waitingOn ?? undefined) : undefined);
 </script>
 
 <button type="button" class="card" class:done={item.stage === "done"} onclick={() => openItem(item.id, item.node)}>
@@ -26,7 +25,7 @@
     {#if item.status && item.stage !== "up_next"}
       <Chip status={item.status} {detail} />
     {:else}
-      <span class="holder">{item.holder}</span>
+      <span class="holder">{turnText(item)}</span>
     {/if}
     <Age since={item.openedAt} {now} />
   </span>

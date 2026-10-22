@@ -17,8 +17,8 @@ pub mod queue;
 pub mod schedules;
 pub mod settings;
 pub mod sync;
+pub mod turns;
 pub mod updates;
-pub mod watchdog;
 
 use std::path::{Path, PathBuf};
 

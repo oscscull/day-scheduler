@@ -1,9 +1,9 @@
 //! Starts one Claude run about an item and records it on the Agent tab while it works.
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager as _};
 
-use super::failed;
+use super::{failed, run_turn};
 use crate::app::App;
 use crate::claude::{self, Ask, Session};
 use crate::config::settings::Settings;
@@ -25,6 +25,25 @@ impl Thread {
         match self {
             Self::Start(s) | Self::Resume(s) => s,
         }
+    }
+}
+
+/// A new session in Quarterdeck's own folder, for repos with no project here.
+pub fn fresh_session() -> SessionRef {
+    SessionRef {
+        id: uuid::Uuid::new_v4().to_string(),
+        cwd: None,
+    }
+}
+
+/// Where work on an item continues: the known session if it ran in the item's worktree (or there
+/// is none), else a new session in the worktree. None with neither.
+pub fn thread_for(known: Option<SessionRef>, ws: Option<&Workspace>) -> Option<Thread> {
+    match (known, ws) {
+        (Some(s), Some(ws)) if ws.holds(&s) => Some(Thread::Resume(s)),
+        (_, Some(ws)) => Some(Thread::Start(ws.new_session())),
+        (Some(s), None) => Some(Thread::Resume(s)),
+        (None, None) => None,
     }
 }
 
@@ -65,14 +84,19 @@ impl Job {
     }
 }
 
-async fn start_record(handle: &AppHandle, settings: &Settings, job: &Job) -> AppResult<i64> {
+async fn start_record(
+    handle: &AppHandle,
+    settings: &Settings,
+    job: &Job,
+    started: DateTime<Utc>,
+) -> AppResult<i64> {
     let record = Run {
         id: 0,
         schedule_id: None,
         what: job.what.to_owned(),
         target: job.item_id.clone(),
         node: settings.node.clone(),
-        started_at: Utc::now(),
+        started_at: started,
         finished_at: None,
         outcome: None,
         summary: None,
@@ -140,8 +164,43 @@ async fn ask(how: &How, job: &Job) -> String {
     }
 }
 
-pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult<()> {
-    let id = start_record(handle, settings, &job).await?;
+/// What came of a run, once it ended.
+struct Ended {
+    summary: String,
+    started: DateTime<Utc>,
+    /// False on a build that may not run Claude, whose runs fail by design.
+    may_run: bool,
+}
+
+async fn after(handle: &AppHandle, job: &Job, ended: &Ended) -> AppResult<()> {
+    let app = handle.state::<App>();
+    let limits = app.settings()?.turns;
+    let Some(detail) = ended.summary.strip_prefix("failed: ") else {
+        let run = run_turn::Finished {
+            item_id: &job.item_id,
+            started: ended.started,
+            said: &ended.summary,
+        };
+        return run_turn::end(&app.db, run, &limits).await;
+    };
+    if !ended.may_run {
+        return Ok(());
+    }
+    let failure = failed::Failure {
+        item_id: &job.item_id,
+        what: job.what,
+        detail,
+    };
+    failed::report(handle, &failure, &limits).await
+}
+
+pub async fn run(handle: &AppHandle, settings: &Settings, mut job: Job) -> AppResult<()> {
+    let app = handle.state::<App>();
+    let about = (job.item_id.as_str(), job.what);
+    let rule = run_turn::begin(&app.db, &app.config, about, &settings.turns);
+    job.prompt = format!("{}\n\n{}", job.prompt, rule.await?);
+    let started = Utc::now();
+    let id = start_record(handle, settings, &job, started).await?;
     let how = How {
         command: settings.claude().map(str::to_owned),
         mode: settings.project_permission_mode.clone(),
@@ -163,15 +222,13 @@ pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult
         }
         // The run record is for display; losing it changes nothing about the item.
         drop(runs::finish(&handle.state::<App>().db, id, outcome, &summary).await);
-        if outcome == Outcome::Failed && may_run {
-            let failure = failed::Failure {
-                item_id: &job.item_id,
-                what: job.what,
-                detail: summary.trim_start_matches("failed: "),
-            };
-            // Nothing is left to tell if even this fails; the run record above still shows it.
-            drop(failed::report(&handle, &failure).await);
-        }
+        let ended = Ended {
+            summary,
+            started,
+            may_run,
+        };
+        // Nothing is left to tell if even this fails; the run record above still shows it.
+        drop(after(&handle, &job, &ended).await);
     });
     Ok(())
 }

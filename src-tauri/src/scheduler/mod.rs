@@ -1,5 +1,6 @@
 //! Fires cron schedules on time on this machine, and records the ones that were missed.
 
+mod agent_prompt;
 mod answers;
 mod ci;
 mod connectors;
@@ -9,8 +10,10 @@ mod events;
 mod failed;
 mod focus;
 mod handoff;
+mod keeper;
 mod peers;
 mod queue;
+mod run_turn;
 mod tick;
 mod undelivered;
 mod updates;

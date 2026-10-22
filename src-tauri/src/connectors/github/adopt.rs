@@ -1,14 +1,14 @@
 //! An item whose PR Quarterdeck opened (an issue it fixed) becomes that PR's item, so syncs update
 //! it rather than adding a second one.
 
-use chrono::{DateTime, Utc};
-
 use super::apply::SOURCE;
 use crate::domain::activity::Activity;
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, Stage, Status, WorkItem};
+use crate::domain::turn::Turn;
 use crate::error::AppResult;
 use crate::store::{Db, activity, events, items};
+use crate::turns::{self, Clock, Pass};
 use crate::work;
 
 /// The PR that the item's work became.
@@ -20,7 +20,8 @@ pub struct OpenedPr<'a> {
     pub url: &'a str,
 }
 
-pub async fn adopt(db: &Db, item_id: &str, pr: OpenedPr<'_>, now: DateTime<Utc>) -> AppResult<()> {
+pub async fn adopt(db: &Db, item_id: &str, pr: OpenedPr<'_>, clock: Clock<'_>) -> AppResult<()> {
+    let now = clock.now;
     let ext = format!("{}#{}", pr.repo, pr.number);
     // A sync between opening the PR and now made an item of its own for it.
     if let Some(twin) = items::by_external(db, SOURCE, &ext).await?
@@ -35,7 +36,6 @@ pub async fn adopt(db: &Db, item_id: &str, pr: OpenedPr<'_>, now: DateTime<Utc>)
         state_label: format!("PR #{} open", pr.number),
         stage: Stage::InReview,
         status: Some(Status::Ci),
-        holder: item.holder.clone(),
         area: item.area.clone(),
         link: Some(pr.url.to_owned()),
     };
@@ -48,6 +48,8 @@ pub async fn adopt(db: &Db, item_id: &str, pr: OpenedPr<'_>, now: DateTime<Utc>)
     items::save(db, &synced).await?;
     let text = format!("Quarterdeck opened {}", pr.url);
     events::record(db, item_id, now, &Change::Note { text }).await?;
+    let pass = Pass::to(Turn::Others, format!("opened PR #{}", pr.number)).waiting_on("CI");
+    turns::pass(db, item_id, pass, clock).await?;
     let update = Activity {
         id: 0,
         text: format!("Opened PR #{} for {item_id}: {}", pr.number, item.title),
@@ -60,7 +62,10 @@ pub async fn adopt(db: &Db, item_id: &str, pr: OpenedPr<'_>, now: DateTime<Utc>)
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use super::*;
+    use crate::config::turns::TurnSettings;
 
     async fn save(db: &Db, id: &str, link: &str) {
         let input = ItemInput {
@@ -69,7 +74,6 @@ mod tests {
             state_label: "up next".to_owned(),
             stage: Stage::UpNext,
             status: None,
-            holder: "Claude".to_owned(),
             area: "projects".to_owned(),
             link: Some(link.to_owned()),
         };
@@ -103,14 +107,17 @@ mod tests {
             number: 190,
             url: "https://github.com/o/baseddsl/pull/190",
         };
-        adopt(&db, "baseddsl#178", pr, Utc::now()).await.unwrap();
+        let limits = TurnSettings::default();
+        adopt(&db, "baseddsl#178", pr, Clock::now(&limits))
+            .await
+            .unwrap();
 
         let item = items::by_external(&db, SOURCE, "o/baseddsl#190")
             .await
             .unwrap()
             .unwrap();
         assert_eq!(item.id, "baseddsl#178");
-        assert_eq!(item.stage, Stage::InReview);
+        assert_eq!((item.stage, item.turn), (Stage::InReview, Turn::Others));
         assert_eq!(item.link.as_deref(), Some(pr.url));
         assert!(items::find(&db, "baseddsl#190").await.unwrap().is_none());
     }

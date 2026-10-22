@@ -4,13 +4,14 @@ use chrono::Utc;
 use tauri::{AppHandle, Manager as _};
 
 use crate::app::App;
-use crate::domain::event::Change;
-use crate::domain::item::{ItemInput, Status, WorkItem};
+use crate::config::turns::TurnSettings;
+use crate::domain::item::WorkItem;
+use crate::domain::turn::Turn;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 use crate::notify;
-use crate::store::{Db, events, items, urgent, watch};
-use crate::work;
+use crate::store::{Db, items, urgent, watch};
+use crate::turns::{self, Clock, Pass};
 
 pub struct Failure<'a> {
     pub item_id: &'a str,
@@ -62,31 +63,20 @@ async fn raise_urgent(db: &Db, item: &WorkItem, f: &Failure<'_>) -> AppResult<St
     Ok(title)
 }
 
-async fn return_to_user(db: &Db, item: WorkItem) -> AppResult<()> {
-    let input = ItemInput {
-        id: item.id,
-        title: item.title,
-        state_label: "agent couldn't run".to_owned(),
-        stage: item.stage,
-        status: Some(Status::Decision),
-        holder: "you".to_owned(),
-        area: item.area,
-        link: item.link,
-    };
-    work::save(db, input, Utc::now()).await.map(drop)
-}
-
-async fn hand_back(db: &Db, f: &Failure<'_>) -> AppResult<String> {
+async fn hand_back(db: &Db, f: &Failure<'_>, limits: &TurnSettings) -> AppResult<String> {
     watch::release(db, f.item_id).await?;
     let item = items::get(db, f.item_id).await?;
-    let text = format!("Your agent couldn't run ({}): {}", f.what, f.detail());
-    events::record(db, &item.id, Utc::now(), &Change::Note { text }).await?;
     let title = raise_urgent(db, &item, f).await?;
-    return_to_user(db, item).await?;
+    let why = format!("your agent couldn't run ({}): {}", f.what, f.detail());
+    turns::pass(db, &item.id, Pass::to(Turn::You, why), Clock::now(limits)).await?;
     Ok(title)
 }
 
-pub async fn report(handle: &AppHandle, failure: &Failure<'_>) -> AppResult<()> {
-    let title = hand_back(&handle.state::<App>().db, failure).await?;
+pub async fn report(
+    handle: &AppHandle,
+    failure: &Failure<'_>,
+    limits: &TurnSettings,
+) -> AppResult<()> {
+    let title = hand_back(&handle.state::<App>().db, failure, limits).await?;
     notify::send(handle, &title, &failure.brief())
 }

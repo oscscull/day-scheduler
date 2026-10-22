@@ -1,14 +1,14 @@
-//! Items Claude works on one at a time, in the order `[queue]` lists them. The first one not yet
-//! in review or done is current: it starts when it's up next, and the queue waits while it's in
-//! progress. Starting one hands Claude `prompts/queue.md` the way `tell_claude` hands it a message.
-
-use chrono::{DateTime, Utc};
+//! Items the agent works on one at a time, in the order `[queue]` lists them. The first one not
+//! yet in review or done is current: it starts when it's up next, and the queue waits while it's in
+//! progress. Starting one gives the agent the turn and `prompts/queue.md`, the way `tell_claude`
+//! hands it a message.
 
 use crate::domain::ask::Ask;
-use crate::domain::event::Change;
-use crate::domain::item::{ItemInput, Stage, Status, WorkItem};
+use crate::domain::item::{ItemInput, Stage, WorkItem};
+use crate::domain::turn::Turn;
 use crate::error::AppResult;
-use crate::store::{Db, asks, events};
+use crate::store::{Db, asks};
+use crate::turns::{self, Clock, Pass};
 use crate::work;
 
 #[derive(Debug, Clone, Copy)]
@@ -37,31 +37,34 @@ pub fn next<'a>(queue: &[String], items: &'a [WorkItem]) -> Next<'a> {
 
 /// Leaves `message` for the scheduler to take to Claude, and marks the item in progress so the
 /// queue waits for it.
-pub async fn start(db: &Db, item: &WorkItem, message: &str, now: DateTime<Utc>) -> AppResult<()> {
+pub async fn start(db: &Db, item: &WorkItem, message: &str, clock: Clock<'_>) -> AppResult<()> {
+    let now = clock.now;
     let ask = Ask {
         item_id: item.id.clone(),
         ..Ask::default()
     };
     let id = asks::insert(db, &ask).await?;
     asks::answer(db, id, message).await?;
-    let text = "Started from the queue".to_owned();
-    events::record(db, &item.id, now, &Change::Note { text }).await?;
     let input = ItemInput {
         id: item.id.clone(),
         title: item.title.clone(),
-        state_label: "Claude is on it".to_owned(),
+        state_label: item.state_label.clone(),
         stage: Stage::InProgress,
-        status: Some(Status::Proceeding),
-        holder: "Claude".to_owned(),
+        status: item.status,
         area: item.area.clone(),
         link: item.link.clone(),
     };
-    work::save(db, input, now).await.map(drop)
+    work::save(db, input, now).await?;
+    let pass = Pass::to(Turn::Agent, "next in the queue");
+    turns::pass(db, &item.id, pass, clock).await
 }
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use super::*;
+    use crate::config::turns::TurnSettings;
     use crate::store::items;
 
     fn item(id: &str, stage: Stage) -> WorkItem {
@@ -71,7 +74,10 @@ mod tests {
             state_label: String::new(),
             stage,
             status: None,
-            holder: String::new(),
+            turn: Turn::You,
+            turn_until: None,
+            waiting_on: None,
+            then_turn: None,
             area: "projects".to_owned(),
             link: None,
             source: "manual".to_owned(),
@@ -107,7 +113,9 @@ mod tests {
         let db = Db::in_memory().await;
         let up = item("b", Stage::UpNext);
         items::save(&db, &up).await.unwrap();
-        start(&db, &up, "Fix it.", Utc::now()).await.unwrap();
+        start(&db, &up, "Fix it.", Clock::now(&TurnSettings::default()))
+            .await
+            .unwrap();
         let waiting = asks::answered(&db).await.unwrap();
         assert_eq!(waiting.first().unwrap().answer, "Fix it.");
         let all = items::list(&db).await.unwrap();

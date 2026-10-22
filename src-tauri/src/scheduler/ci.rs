@@ -11,7 +11,6 @@ use crate::config::settings::Settings;
 use crate::connectors::github::Fired;
 use crate::domain::item::WorkItem;
 use crate::domain::schedule::EventKind;
-use crate::domain::session::SessionRef;
 use crate::error::AppResult;
 use crate::store::{items, watch};
 use crate::workspace::{self, Workspace};
@@ -27,7 +26,7 @@ pub async fn react(
     let item = items::get(&app.db, &event.item_id).await?;
     let ws = workspace::for_item(settings, &item)?;
     let claimed = watch::all(&app.db).await?.remove(&item.id);
-    let job = match claimed.and_then(|w| w.session) {
+    let job = match claimed {
         Some(session) => {
             let passed = event.kind == EventKind::CiPassed;
             let result = if passed { "passed" } else { "failed" };
@@ -36,8 +35,10 @@ pub async fn react(
             Job::new("CI result", item.id, prompt, Thread::Resume(session)).in_workspace(ws)
         }
         None if event.kind == EventKind::CiFailed && settings.github.fix_ci && !covered => {
-            let session = ws.as_ref().map_or_else(fresh, Workspace::new_session);
-            watch::claim(&app.db, &item.id, Some(&session)).await?;
+            let session = ws
+                .as_ref()
+                .map_or_else(dispatch::fresh_session, Workspace::new_session);
+            watch::claim(&app.db, &item.id, &session).await?;
             let place = workspace::describe(&app.config, ws.as_ref())?;
             let prompt = prompt_for(&app, Prompt::FixCi, &item, &[("workspace", place.as_str())])?;
             Job::new("Fix CI", item.id, prompt, Thread::Start(session)).in_workspace(ws)
@@ -50,14 +51,6 @@ pub async fn react(
         job.with_tools(&settings.github.fix_ci_tools),
     )
     .await
-}
-
-/// A new session in Quarterdeck's own folder, for repos with no project here.
-fn fresh() -> SessionRef {
-    SessionRef {
-        id: uuid::Uuid::new_v4().to_string(),
-        cwd: None,
-    }
 }
 
 /// `extra` adds `result` and `workspace` to the item's own fields.

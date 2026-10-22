@@ -73,7 +73,7 @@
 <div class="column">
   <LoadError {error} />
   {#if data}
-    <LiveRuns runs={data.live} />
+    <LiveRuns runs={data.live} turns={data.turns} />
 
     <section class="scheduled" aria-label={t("agent.scheduled")}>
       <div class="head">

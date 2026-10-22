@@ -20,7 +20,7 @@
 
   let { item, onClose, onSaved }: Props = $props();
 
-  const STATUSES: Status[] = ["decision", "approved", "review", "ci", "ci_failed", "dependency", "proceeding", "queued"];
+  const STATUSES: Status[] = ["decision", "approved", "review", "ci", "ci_failed", "dependency", "queued"];
   const stageKey = (s: Stage): CopyKey => `stage.${s}`;
   const statusKey = (s: Status): CopyKey => `status.${s}`;
 
@@ -78,10 +78,6 @@
     <label class="field wide">
       {t("item.label")}
       <input class="input" bind:value={form.stateLabel} placeholder={t("item.labelPlaceholder")} />
-    </label>
-    <label class="field">
-      {t("item.holder")}
-      <input class="input" bind:value={form.holder} placeholder={t("item.holderPlaceholder")} />
     </label>
     <label class="field">
       {t("item.link")}

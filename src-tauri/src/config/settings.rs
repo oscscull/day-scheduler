@@ -8,8 +8,8 @@ use super::calendar::CalendarSettings;
 use super::dev::DevSettings;
 use super::github::GithubSettings;
 use super::sync::SyncSettings;
+use super::turns::TurnSettings;
 use super::updates::UpdateSettings;
-use super::watchdog::WatchdogSettings;
 use crate::error::{AppError, AppResult};
 use crate::profile;
 
@@ -31,8 +31,6 @@ pub struct Area {
 pub struct Settings {
     pub node: String,
     pub priority_limit: usize,
-    /// How long something waits on reviewers before Today suggests a nudge.
-    pub nudge_after_hours: i64,
     pub claude_command: String,
     pub activity_ttl_days: i64,
     pub run_ttl_days: i64,
@@ -45,7 +43,7 @@ pub struct Settings {
     /// Start Quarterdeck when you log in, so schedules and alerts keep working.
     pub launch_at_login: bool,
     pub sync: SyncSettings,
-    pub watchdog: WatchdogSettings,
+    pub turns: TurnSettings,
     pub projects: Vec<Project>,
     /// Claude Code's `--permission-mode` for work in a project, e.g. `auto` (Claude decides what's
     /// safe, as in the user's own sessions) or `acceptEdits` (only the project's allow rules).
@@ -60,7 +58,6 @@ impl Default for Settings {
         Self {
             node: "this-mac".to_owned(),
             priority_limit: 3,
-            nudge_after_hours: 24,
             claude_command: "claude".to_owned(),
             activity_ttl_days: 7,
             run_ttl_days: 14,
@@ -72,7 +69,7 @@ impl Default for Settings {
             alerts: AlertSettings::default(),
             launch_at_login: true,
             sync: SyncSettings::default(),
-            watchdog: WatchdogSettings::default(),
+            turns: TurnSettings::default(),
             projects: Vec::new(),
             project_permission_mode: "auto".to_owned(),
             queue: QueueSettings::default(),
@@ -83,17 +80,6 @@ impl Default for Settings {
 }
 
 impl Settings {
-    /// The rules for deriving priorities, as of `now`.
-    pub const fn priority_rules(
-        &self,
-        now: chrono::DateTime<chrono::Utc>,
-    ) -> crate::priorities::Rules {
-        crate::priorities::Rules {
-            now,
-            nudge_after: chrono::Duration::hours(self.nudge_after_hours),
-        }
-    }
-
     /// The machine an area runs on; this machine for an unknown area.
     pub fn node_for(&self, area: &str) -> &str {
         self.areas
@@ -141,7 +127,6 @@ mod tests {
         Settings {
             node: "this-mac".to_owned(),
             priority_limit: 3,
-            nudge_after_hours: 24,
             claude_command: String::new(),
             activity_ttl_days: 7,
             run_ttl_days: 14,
@@ -153,7 +138,7 @@ mod tests {
             alerts: AlertSettings::default(),
             launch_at_login: true,
             sync: SyncSettings::default(),
-            watchdog: WatchdogSettings::default(),
+            turns: TurnSettings::default(),
             projects: Vec::new(),
             project_permission_mode: "auto".to_owned(),
             queue: QueueSettings::default(),
