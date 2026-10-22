@@ -55,8 +55,12 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
 - **GitHub** (`gh` CLI): open PRs become items; new comments, CI failing and CI passing fire events.
   CI state is worked out per check: checks a repo marks informational (`informational_checks`, e.g.
   a visual-diff report) don't count, and their results are noted on the item instead.
-  PRs with no requested reviewers, or in `self_review` repos, wait on the user.
-- **Calendar** (private iCal links): meetings, with recurrence, exceptions and join links.
+  PRs with no requested reviewers, or in `self_review` repos, wait on the user. An item is closed
+  only when `gh` says its PR merged or closed, never because the open-PR search missed it. Syncs
+  every `poll_minutes`, and at once when the window regains focus (at most every
+  `focus_sync_seconds`), after which the screen reloads.
+- **Calendar** (private iCal links): meetings, with recurrence, exceptions and join links. A feed
+  that can't be fetched or isn't a whole calendar is an error, never an empty calendar.
 - **Slack**: no connector; agents bring things in through the tools.
 
 ## Running Claude
