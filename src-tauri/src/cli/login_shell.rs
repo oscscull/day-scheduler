@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 const SHELL_LIMIT: Duration = Duration::from_secs(5);
 
+#[derive(Clone)]
 pub enum Lookup {
     Found(PathBuf),
     Missing,

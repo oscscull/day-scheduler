@@ -22,6 +22,11 @@ fn usual_places(command: &str) -> Option<PathBuf> {
     candidates.into_iter().find(|p| p.exists())
 }
 
+/// Looks `commands` up on a background thread, so the first real use doesn't wait on the shell.
+pub fn warm(commands: &'static [&'static str]) {
+    std::thread::spawn(move || commands.iter().for_each(|c| drop(resolve(c))));
+}
+
 pub fn resolve(command: &str) -> PathBuf {
     let given = PathBuf::from(command);
     if given.is_absolute() || command.contains('/') {

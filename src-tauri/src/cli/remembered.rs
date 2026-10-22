@@ -1,5 +1,6 @@
 //! The login shell's answers, kept so it's asked once per tool: a path while it still exists, a
-//! miss for a while. A shell that didn't answer isn't remembered.
+//! miss for a while, and a shell that didn't answer for a shorter while, so a hung profile only
+//! costs its deadline now and then.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -9,18 +10,28 @@ use std::time::{Duration, Instant};
 use super::login_shell::{self, Lookup};
 
 const MISS_LIMIT: Duration = Duration::from_mins(10);
+const NO_ANSWER_LIMIT: Duration = Duration::from_mins(1);
 
 #[derive(Clone)]
 struct Answer {
-    path: Option<PathBuf>,
+    lookup: Lookup,
     at: Instant,
 }
 
 impl Answer {
     fn holds(&self) -> bool {
-        self.path
-            .as_ref()
-            .map_or_else(|| self.at.elapsed() < MISS_LIMIT, |p| p.exists())
+        match &self.lookup {
+            Lookup::Found(path) => path.exists(),
+            Lookup::Missing => self.at.elapsed() < MISS_LIMIT,
+            Lookup::NoAnswer => self.at.elapsed() < NO_ANSWER_LIMIT,
+        }
+    }
+
+    fn path(&self) -> Option<PathBuf> {
+        match &self.lookup {
+            Lookup::Found(path) => Some(path.clone()),
+            Lookup::Missing | Lookup::NoAnswer => None,
+        }
     }
 }
 
@@ -31,30 +42,18 @@ fn recall(command: &str) -> Option<Answer> {
     found.get(command).filter(|a| a.holds()).cloned()
 }
 
-fn keep(command: &str, path: Option<&PathBuf>) {
+fn ask(command: &str) -> Option<PathBuf> {
+    let answer = Answer {
+        lookup: login_shell::lookup(command),
+        at: Instant::now(),
+    };
+    let path = answer.path();
     if let Ok(mut found) = FOUND.get_or_init(Mutex::default).lock() {
-        let answer = Answer {
-            path: path.cloned(),
-            at: Instant::now(),
-        };
         found.insert(command.to_owned(), answer);
     }
-}
-
-fn ask(command: &str) -> Option<PathBuf> {
-    match login_shell::lookup(command) {
-        Lookup::Found(path) => {
-            keep(command, Some(&path));
-            Some(path)
-        }
-        Lookup::Missing => {
-            keep(command, None);
-            None
-        }
-        Lookup::NoAnswer => None,
-    }
+    path
 }
 
 pub fn lookup(command: &str) -> Option<PathBuf> {
-    recall(command).map_or_else(|| ask(command), |a| a.path)
+    recall(command).map_or_else(|| ask(command), |a| a.path())
 }
