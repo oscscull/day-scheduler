@@ -93,15 +93,10 @@ async fn add(ctx: Ctx, args: AddArgs) -> AppResult<()> {
     };
     items::get(&ctx.db, &ask.item_id).await?;
     let limits = ctx.settings()?.turns;
-    asks::insert(&ctx.db, &ask).await?;
     let why = format!("asked: {}", ask.question);
-    turns::pass(
-        &ctx.db,
-        &ask.item_id,
-        Pass::to(Turn::You, why),
-        Clock::now(&limits),
-    )
-    .await
+    let pass = Pass::to(Turn::You, why);
+    turns::pass(&ctx.db, &ask.item_id, pass, Clock::now(&limits)).await?;
+    asks::insert(&ctx.db, &ask).await.map(drop)
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
