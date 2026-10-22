@@ -147,7 +147,6 @@ pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult
         mode: settings.project_permission_mode.clone(),
         run: id,
     };
-    // A dev build that may not run Claude records the run as failed, but that's by design, not news.
     let may_run = how.command.is_ok();
     let handle = handle.clone();
     tauri::async_runtime::spawn(async move {

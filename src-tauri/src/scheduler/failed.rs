@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager as _};
 
 use crate::app::App;
 use crate::domain::event::Change;
-use crate::domain::item::{ItemInput, Status};
+use crate::domain::item::{ItemInput, Status, WorkItem};
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 use crate::notify;
@@ -22,24 +22,35 @@ pub struct Failure<'a> {
     pub started_session: bool,
 }
 
-async fn hand_back(db: &Db, f: &Failure<'_>) -> AppResult<String> {
-    if f.started_session {
-        watch::release(db, f.item_id).await?;
+/// What to show when a run died without saying why.
+const NO_DETAIL: &str = "it stopped without saying why; its run on the Agent tab may show more";
+
+impl Failure<'_> {
+    fn detail(&self) -> &str {
+        if self.detail.trim().is_empty() {
+            NO_DETAIL
+        } else {
+            self.detail
+        }
     }
-    let item = items::get(db, f.item_id).await?;
-    let now = Utc::now();
-    let text = format!("Your agent couldn't run ({}): {}", f.what, f.detail);
-    events::record(db, &item.id, now, &Change::Note { text }).await?;
+}
+
+/// Raises the failure as urgent and returns its title.
+async fn raise_urgent(db: &Db, item: &WorkItem, f: &Failure<'_>) -> AppResult<String> {
     let title = format!("Your agent couldn't run on {}", item.id);
     let raised = Urgent {
         id: 0,
         title: title.clone(),
-        detail: f.detail.to_owned(),
+        detail: f.detail().to_owned(),
         area: item.area.clone(),
-        raised_at: now,
+        raised_at: Utc::now(),
         schedule_id: None,
     };
     urgent::raise(db, &raised).await?;
+    Ok(title)
+}
+
+async fn return_to_user(db: &Db, item: WorkItem) -> AppResult<()> {
     let input = ItemInput {
         id: item.id,
         title: item.title,
@@ -50,11 +61,22 @@ async fn hand_back(db: &Db, f: &Failure<'_>) -> AppResult<String> {
         area: item.area,
         link: item.link,
     };
-    work::save(db, input, now).await?;
+    work::save(db, input, Utc::now()).await.map(drop)
+}
+
+async fn hand_back(db: &Db, f: &Failure<'_>) -> AppResult<String> {
+    if f.started_session {
+        watch::release(db, f.item_id).await?;
+    }
+    let item = items::get(db, f.item_id).await?;
+    let text = format!("Your agent couldn't run ({}): {}", f.what, f.detail());
+    events::record(db, &item.id, Utc::now(), &Change::Note { text }).await?;
+    let title = raise_urgent(db, &item, f).await?;
+    return_to_user(db, item).await?;
     Ok(title)
 }
 
 pub async fn report(handle: &AppHandle, failure: &Failure<'_>) -> AppResult<()> {
     let title = hand_back(&handle.state::<App>().db, failure).await?;
-    notify::send(handle, &title, failure.detail)
+    notify::send(handle, &title, failure.detail())
 }

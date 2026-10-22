@@ -54,7 +54,11 @@ pub enum Session<'a> {
 pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<String> {
     let mut allowed = vec![QUARTERDECK_TOOLS.to_owned()];
     allowed.extend_from_slice(opts.tools);
-    let mut cmd = Command::new(cli::resolve(command));
+    let program = cli::resolve(command);
+    let mut cmd = Command::new(&program);
+    if let Some(path) = cli::path_beside(&program) {
+        cmd.env("PATH", path);
+    }
     cmd.arg("-p")
         .arg(prompt)
         .arg("--mcp-config")

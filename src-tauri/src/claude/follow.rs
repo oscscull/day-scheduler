@@ -62,7 +62,8 @@ fn missing(cmd: &Command, e: std::io::Error) -> AppError {
     let program = cmd.get_program().to_string_lossy().into_owned();
     AppError::Claude(format!(
         "can't find your agent: `{program}` isn't installed where Quarterdeck looks or on your \
-         login shell's PATH ({e}). Set claude_command in quarterdeck.toml to its full path."
+         login shell's PATH, or the shell was too slow to say ({e}). Set claude_command in \
+         quarterdeck.toml to its full path."
     ))
 }
 
@@ -93,7 +94,16 @@ pub async fn follow(mut cmd: Command, log: Option<Writer>) -> AppResult<String> 
     match reply {
         Some(r) if !r.failed && status.success() => Ok(r.text),
         Some(r) if !r.text.is_empty() => Err(AppError::Claude(r.text)),
-        _ => Err(AppError::Claude(stderr.trim().to_owned())),
+        _ => Err(AppError::Claude(why_it_stopped(stderr.trim(), status))),
+    }
+}
+
+/// What the agent said on stderr, else how it exited.
+fn why_it_stopped(stderr: &str, status: std::process::ExitStatus) -> String {
+    if stderr.is_empty() {
+        format!("it exited with no message ({status})")
+    } else {
+        stderr.to_owned()
     }
 }
 
