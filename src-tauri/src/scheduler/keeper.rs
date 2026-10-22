@@ -39,7 +39,7 @@ async fn act(handle: &AppHandle, settings: &Settings, item: &WorkItem, due: Due)
     }
 }
 
-/// A notification is a courtesy; the turn is on Today either way.
+/// A notification is a courtesy; the turn is shown in the app either way.
 fn tell_user(handle: &AppHandle, item: &WorkItem, heading: &str) {
     let title = format!("{heading}: {}", item.title);
     drop(notify::send(handle, &title, &item.state_label));

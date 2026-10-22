@@ -217,8 +217,12 @@ pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult
         limits: settings.turns.clone(),
     };
     // A new session is the item's from now on, so later answers and CI results resume it.
-    if let Thread::Start(session) = &job.thread {
-        watch::claim(&app.db, &job.item_id, session).await?;
+    if let Thread::Start(session) = &job.thread
+        && let Err(e) = watch::claim(&app.db, &job.item_id, session).await
+    {
+        let said = format!("failed: couldn't record the session: {e}");
+        drop(runs::finish(&app.db, how.run, Outcome::Failed, &said).await);
+        return Err(e);
     }
     tauri::async_runtime::spawn(work(handle.clone(), job, how));
     Ok(())

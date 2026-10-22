@@ -1,4 +1,4 @@
-//! The agent session holding each item, so Quarterdeck can resume it. Rows go with their item.
+//! The agent session holding each item, so Quarterdeck can resume it.
 
 use std::collections::HashMap;
 
