@@ -10,10 +10,19 @@
   }
 
   let { view, onSelect }: Props = $props();
+
+  // The window stays open for days, so re-read the clock and let the date roll over at midnight.
+  const REFRESH_MS = 60_000;
+  let today = $state(new Date());
+
+  $effect(() => {
+    const timer = setInterval(() => (today = new Date()), REFRESH_MS);
+    return () => clearInterval(timer);
+  });
 </script>
 
 <header>
-  <span class="side">{longDate(new Date())}</span>
+  <span class="side">{longDate(today)}</span>
   <ViewSwitch {view} {onSelect} />
   <div class="side end"><AreaSwitch /></div>
 </header>
