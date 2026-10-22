@@ -19,6 +19,7 @@ mod peers;
 mod priorities;
 mod queue;
 mod rename;
+mod runlog;
 mod scheduler;
 mod store;
 mod today;
@@ -77,6 +78,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let imported = tauri::async_runtime::block_on(store::legacy::import(&db, &data));
     // Only the app runs Claude, so anything still marked running is from before this start.
     tauri::async_runtime::block_on(store::runs::close_interrupted(&db, chrono::Utc::now()))?;
+    // Leftover step logs only fill a folder; they never stop the app opening.
+    drop(runlog::dir().and_then(|d| runlog::clear(&d)));
     let config = config::Config::open(paths::config_dir()?)?;
     let launch_at_login = settings_for_login(&config);
     // Serving peers is optional; a busy port must not stop the app opening.

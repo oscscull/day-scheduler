@@ -10,6 +10,7 @@ mod items;
 mod overview;
 mod projects;
 mod queue;
+mod runs;
 mod schedules;
 mod settings;
 mod sync;
@@ -33,6 +34,7 @@ pub fn all() -> Vec<Tool> {
         urgent::tools(),
         updates::tools(),
         schedules::tools(),
+        runs::tools(),
         settings::tools(),
         sync::tools(),
         watch::tools(),

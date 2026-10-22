@@ -8,5 +8,6 @@ pub mod item;
 pub mod run;
 pub mod schedule;
 pub mod session;
+pub mod step;
 pub mod todo;
 pub mod urgent;

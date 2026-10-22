@@ -1,45 +1,105 @@
 <script lang="ts">
+  import { api } from "../../lib/api";
   import { t } from "../../lib/copy";
+  import { fromPeers, machine } from "../../lib/peers.svelte";
+  import { runKey, runMeta, runName, stepText } from "../../lib/steps";
   import { age } from "../../lib/time";
-  import type { Run } from "../../lib/types";
+  import type { LiveRun } from "../../lib/types";
+  import RunLogModal from "./RunLogModal.svelte";
 
   interface Props {
-    runs: Run[];
-    now: Date;
+    /** The Agent tab's last load, shown until this list's own first refresh. */
+    runs: LiveRun[];
   }
 
-  let { runs, now }: Props = $props();
+  let { runs }: Props = $props();
+
+  /** Much faster than the tab's 30s, so the latest step reads as live. */
+  const REFRESH_MS = 3_000;
+
+  let fresh = $state<LiveRun[] | null>(null);
+  let now = $state(new Date());
+  let openKey = $state<string | null>(null);
+  /** The opened run as last seen, so its log stays up after it finishes. */
+  let opened = $state<LiveRun | null>(null);
+
+  const shown = $derived(fresh ?? runs);
+  const openRun = $derived(shown.find((r) => runKey(r) === openKey));
+
+  async function load(): Promise<void> {
+    try {
+      const [local, remote] = await Promise.all([api.liveRuns(), fromPeers<LiveRun[]>("list_live_runs")]);
+      const answered = new Set(remote.map((r) => r.node));
+      // A peer without `list_live_runs` (an older build) still shows its runs from the tab's load.
+      const unanswered = runs.filter((r) => r.node !== machine.name && !answered.has(r.node));
+      fresh = [...local, ...remote.flatMap((r) => r.value), ...unanswered];
+      now = new Date();
+    } catch {
+      // Keep the last list; the Agent tab reports load errors on its own refresh.
+    }
+  }
+
+  $effect(() => {
+    void load();
+    const timer = setInterval(() => void load(), REFRESH_MS);
+    return () => clearInterval(timer);
+  });
+
+  $effect(() => {
+    if (openRun) opened = openRun;
+  });
+
+  function open(run: LiveRun): void {
+    opened = run;
+    openKey = runKey(run);
+  }
+
+  function close(): void {
+    openKey = null;
+    opened = null;
+  }
 </script>
 
 <section aria-label={t("agent.live")}>
   <h1 class="page-title">
-    {runs.length > 0 ? t("agent.working", { n: runs.length }) : t("agent.idle")}
+    {shown.length > 0 ? t("agent.working", { n: shown.length }) : t("agent.idle")}
   </h1>
   <p class="hint intro">{t("agent.live")}</p>
   <ul>
-    {#each runs as run (run.id)}
-      <li class="row">
-        <span class="dot"></span>
-        <span class="body">
-          <span>{run.what}</span>
-          <span class="hint meta">{run.target ? t("agent.target", { target: run.target, node: run.node }) : run.node}</span>
-        </span>
-        <span class="mono elapsed">{age(run.startedAt, now)}</span>
+    {#each shown as run (runKey(run))}
+      <li>
+        <button type="button" class="row-button" onclick={() => open(run)}>
+          <span class="dot"></span>
+          <span class="body">
+            <span>{runName(run)}</span>
+            <span class="hint meta">{runMeta(run)}</span>
+            {#if run.now}<em class="now">{stepText(run.now)}</em>{/if}
+          </span>
+          <span class="mono elapsed">{age(run.startedAt, now)}</span>
+        </button>
       </li>
     {/each}
   </ul>
 </section>
+
+{#if opened}
+  <RunLogModal run={opened} live={openRun !== undefined} onClose={close} />
+{/if}
 
 <style>
   .intro {
     margin: 6px 0 20px;
   }
 
-  li {
+  .row-button {
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 14px 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
   }
 
   .dot {
@@ -61,6 +121,14 @@
 
   .meta {
     font-size: 13px;
+  }
+
+  .now {
+    font-size: 13px;
+    color: var(--muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .elapsed {

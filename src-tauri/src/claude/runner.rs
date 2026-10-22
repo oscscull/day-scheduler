@@ -61,10 +61,21 @@ fn note(schedule: &Schedule, summary: &str) -> Activity {
     }
 }
 
-async fn ask(app: &App, schedule: &Schedule, node: &str, trigger: &str) -> AppResult<String> {
+/// Where `ask` runs: on `node`, logging its steps under run `id`.
+struct Place<'a> {
+    node: &'a str,
+    id: i64,
+}
+
+async fn ask(
+    app: &App,
+    schedule: &Schedule,
+    place: &Place<'_>,
+    trigger: &str,
+) -> AppResult<String> {
     let settings = app.settings()?;
     let vars = [
-        ("node", node),
+        ("node", place.node),
         ("name", schedule.name.as_str()),
         ("instructions", schedule.prompt.as_str()),
         ("trigger", trigger),
@@ -75,6 +86,7 @@ async fn ask(app: &App, schedule: &Schedule, node: &str, trigger: &str) -> AppRe
         session: super::Session::Fresh,
         cwd: None,
         permission_mode: None,
+        run: Some(place.id),
     };
     super::ask_with(&settings.claude_command, &prompt, &opts).await
 }
@@ -87,7 +99,7 @@ pub async fn run(handle: &AppHandle, schedule: &Schedule, trigger: Option<&str>)
     let node = app.settings()?.node_for(&schedule.area).to_owned();
     let id = runs::start(&app.db, &started(schedule, &node)).await?;
     let why = trigger.unwrap_or("its schedule came due, or someone asked to run it now");
-    let (outcome, summary) = match ask(&app, schedule, &node, why).await {
+    let (outcome, summary) = match ask(&app, schedule, &Place { node: &node, id }, why).await {
         Ok(text) => (Outcome::Ok, summary_of(&text)),
         Err(e) => (Outcome::Failed, summary_of(&e.to_string())),
     };

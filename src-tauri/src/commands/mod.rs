@@ -16,12 +16,17 @@ pub mod commitments;
 pub mod connect;
 pub mod items;
 pub mod peers;
+pub mod runs;
 pub mod schedules;
 pub mod screens;
 pub mod todos;
 pub mod urgent;
 
 /// Every command the frontend can call.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one flat list of commands; `generate_handler!` takes them all in one call"
+)]
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         areas::areas,
@@ -45,6 +50,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         todos::delete_todo,
         screens::work_items,
         screens::agent,
+        runs::live_runs,
+        runs::run_log,
         items::reorder_items,
         items::save_item,
         items::delete_item,

@@ -99,8 +99,14 @@ async fn prompt_for(job: &Job) -> AppResult<String> {
     }
 }
 
-/// `mode` applies to work in a project's worktree.
-async fn ask(command: &str, job: &Job, mode: &str) -> String {
+/// How to run a job: `mode` applies to work in a project's worktree, `run` is its record.
+struct How {
+    command: String,
+    mode: String,
+    run: i64,
+}
+
+async fn ask(how: &How, job: &Job) -> String {
     if let Some(ws) = &job.workspace
         && let Err(e) = workspace::prepare(ws).await
     {
@@ -119,9 +125,10 @@ async fn ask(command: &str, job: &Job, mode: &str) -> String {
         tools: &job.tools,
         session,
         cwd: s.cwd.as_deref(),
-        permission_mode: job.workspace.as_ref().map(|_| mode),
+        permission_mode: job.workspace.as_ref().map(|_| how.mode.as_str()),
+        run: Some(how.run),
     };
-    match claude::ask_with(command, &prompt, &opts).await {
+    match claude::ask_with(&how.command, &prompt, &opts).await {
         Ok(text) => first_line(&text),
         Err(e) => format!("failed: {e}"),
     }
@@ -129,11 +136,14 @@ async fn ask(command: &str, job: &Job, mode: &str) -> String {
 
 pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult<()> {
     let id = start_record(handle, settings, &job).await?;
-    let command = settings.claude_command.clone();
-    let mode = settings.project_permission_mode.clone();
+    let how = How {
+        command: settings.claude_command.clone(),
+        mode: settings.project_permission_mode.clone(),
+        run: id,
+    };
     let handle = handle.clone();
     tauri::async_runtime::spawn(async move {
-        let summary = ask(&command, &job, &mode).await;
+        let summary = ask(&how, &job).await;
         let outcome = if summary.starts_with("failed: ") {
             Outcome::Failed
         } else {

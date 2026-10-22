@@ -124,6 +124,7 @@ fn check_in(command: String, prompt: String, session: Option<SessionRef>) {
                         .map_or(Session::Fresh, |s| Session::Resume(&s.id)),
                     cwd: session.as_ref().and_then(|s| s.cwd.as_deref()),
                     permission_mode: None,
+                    run: None,
                 },
             )
             .await,

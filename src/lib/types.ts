@@ -206,8 +206,24 @@ export interface ScheduleView extends Schedule {
   runs: Run[];
 }
 
+export type StepKind = "doing" | "tool" | "said" | "failed";
+
+/** One step of a live run. `tool` is set for tool calls. */
+export interface Step {
+  at: string;
+  kind: StepKind;
+  tool: string | null;
+  text: string;
+}
+
+/** A run going now, with the item it works on and its latest step. */
+export interface LiveRun extends Run {
+  title: string | null;
+  now: Step | null;
+}
+
 export interface AgentView {
-  live: Run[];
+  live: LiveRun[];
   schedules: ScheduleView[];
   problems: string[];
   /** Set while every schedule is paused. `until: null` means until resumed. */

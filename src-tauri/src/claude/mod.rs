@@ -2,12 +2,14 @@
 
 pub mod connect;
 pub mod draft;
+mod follow;
 pub mod runner;
+mod stream;
 
 use tokio::process::Command;
 
 use crate::cli;
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 
 /// Lets a headless run use every Quarterdeck tool without asking.
 const QUARTERDECK_TOOLS: &str = "mcp__quarterdeck";
@@ -32,6 +34,8 @@ pub struct Ask<'a> {
     /// Claude Code's `--permission-mode`, e.g. `acceptEdits`. Commands still need the project's
     /// own permission rules.
     pub permission_mode: Option<&'a str>,
+    /// The run record whose steps to log for the Agent tab, if it has one.
+    pub run: Option<i64>,
 }
 
 /// Which Claude Code session a run belongs to.
@@ -68,14 +72,7 @@ pub async fn ask_with(command: &str, prompt: &str, opts: &Ask<'_>) -> AppResult<
         Session::Start(id) => drop(cmd.arg("--session-id").arg(id)),
         Session::Resume(id) => drop(cmd.arg("--resume").arg(id)),
     }
-    let out = cmd.output().await?;
-    if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
-    } else {
-        Err(AppError::Claude(
-            String::from_utf8_lossy(&out.stderr).trim().to_owned(),
-        ))
-    }
+    follow::follow(cmd, follow::open_log(opts.run)).await
 }
 
 /// Sends one prompt with only the Quarterdeck tools.

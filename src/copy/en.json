@@ -280,5 +280,18 @@
   "priority.reviewers": "reviewers",
   "today.more": "+{n} more",
   "item.links": "Links",
-  "item.linkGithub": "GitHub"
+  "item.linkGithub": "GitHub",
+  "agent.runMeta": "{what} · {target} · {node}",
+  "runLog.empty": "No steps yet.",
+  "runLog.finished": "This run has finished.",
+  "runLog.failed": "Couldn’t load the steps: {error}",
+  "step.reading": "Reading {detail}",
+  "step.editing": "Editing {detail}",
+  "step.searching": "Searching for {detail}",
+  "step.lookingUp": "Looking up {detail}",
+  "step.delegating": "Handing off: {detail}",
+  "step.tool": "{tool}: {detail}",
+  "step.using": "Using {tool}",
+  "step.failed": "Failed: {text}",
+  "step.failedBare": "A step failed"
 }
