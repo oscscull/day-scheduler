@@ -1,5 +1,5 @@
 //! One-time import of the database from before Quarterdeck moved to Based: `quarterdeck.sqlite`
-//! (plain SQLite) beside `quarterdeck.db`. The first start of a Based build copies its rows across
+//! (plain `SQLite`) beside `quarterdeck.db`. The first start of a Based build copies its rows across
 //! through the normal store functions, then renames it `quarterdeck.sqlite.imported`, so nothing is
 //! deleted. Delete this module once every machine has run a Based build.
 

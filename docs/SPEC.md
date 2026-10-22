@@ -87,7 +87,9 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
 
 ## Running Claude
 
-`claude -p` on the user's subscription, with the Quarterdeck MCP tools always allowed. Runs stream
+`claude -p` on the user's subscription, with the Quarterdeck MCP tools always allowed. It is found
+in the usual install folders, else through the user's login shell (so nvm installs work); if it
+can't be found, the error names the program and the setting to fix. Runs stream
 (`--output-format stream-json`): each step goes to a small per-run file in the data folder's `live/`,
 capped and deleted when the run ends, which the Agent tab and peers read (`list_live_runs`,
 `get_run_log`). Schedules can use other tools only when their file lists them in `allowed_tools`.
@@ -116,7 +118,7 @@ Work Quarterdeck starts on a PR (fixing CI, acting on an answer) or on an item w
 GitHub issue runs in that repo's project when `[[projects]]` maps it to a checkout
 (`set_project`): in a git worktree per item under the data folder, in the permission mode
 `project_permission_mode` sets (default `auto`, as in the user's own sessions), with the
-project's `.claude/settings.local.json` copied in. A PR's worktree is detached at its head; an
+project's `.claude/settings.local.json` copied in before every run. A PR's worktree is detached at its head; an
 issue's is a new branch `issue-<n>` off the latest default branch, and the first run there also
 gets the issue's text (`prompts/issue-workspace.md`). The user's checkout is untouched. Since a
 project's sandbox may keep Claude off GitHub, Quarterdeck does that side when a run finishes and no
@@ -125,7 +127,8 @@ PR closing it (titled from the first commit) and makes the item that PR's, in re
 CI results follow it. A push that fails is noted on the item and raised as urgent. Worktrees are
 removed once their item is done. Repos with no project get a run that can read CI but not change
 code. An answer or message that no session and no worktree can take is never dropped: the item
-stops showing Claude as holding it, its history says why, and it's raised as urgent.
+stops showing Claude as holding it, its history says why, and it's raised as urgent. The same goes
+for a run on an item that fails: urgent, a notification, and the item back with the user.
 
 `[queue]` lists items Claude works on one at a time (`set_queue`, `get_queue`). The first not yet
 in review or done is current: when it's up next, Quarterdeck marks it in progress and delivers

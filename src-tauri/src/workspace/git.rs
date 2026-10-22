@@ -59,14 +59,14 @@ pub(super) async fn default_branch(ws: &Workspace) -> AppResult<String> {
 
 /// Makes the item's worktree, unless it exists.
 pub async fn prepare(ws: &Workspace) -> AppResult<()> {
-    if ws.dir.exists() {
-        return Ok(());
+    if !ws.dir.exists() {
+        match ws.kind {
+            Kind::Pr => prepare_pr(ws).await?,
+            Kind::Issue => prepare_issue(ws).await?,
+        }
     }
-    match ws.kind {
-        Kind::Pr => prepare_pr(ws).await?,
-        Kind::Issue => prepare_issue(ws).await?,
-    }
-    copy_local_settings(ws)
+    copy_local_settings(ws);
+    Ok(())
 }
 
 /// At the PR's latest commit. The head is detached so the branch can stay checked out in the
@@ -100,16 +100,17 @@ async fn prepare_issue(ws: &Workspace) -> AppResult<()> {
     run("git", &ws.project, &add).await.map(drop)
 }
 
-/// The user's personal Claude permissions for the project aren't in git, so bring them along.
-fn copy_local_settings(ws: &Workspace) -> AppResult<()> {
+/// The user's personal Claude permissions for the project aren't in git, so bring them along on
+/// every run. Contents only: `fs::copy` also copies metadata, which macOS can refuse. Without
+/// them the run just asks for less, so it goes on.
+fn copy_local_settings(ws: &Workspace) {
     let local = Path::new(".claude").join("settings.local.json");
-    let from = ws.project.join(&local);
-    if from.exists() {
-        let to = ws.dir.join(&local);
-        if let Some(parent) = to.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::copy(from, to)?;
+    let Ok(text) = std::fs::read(ws.project.join(&local)) else {
+        return;
+    };
+    let to = ws.dir.join(&local);
+    if let Some(parent) = to.parent() {
+        drop(std::fs::create_dir_all(parent));
     }
-    Ok(())
+    drop(std::fs::write(to, text));
 }

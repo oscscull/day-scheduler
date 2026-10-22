@@ -47,6 +47,25 @@ async fn read_all(err: impl AsyncRead + Unpin) -> String {
     text
 }
 
+/// Says what couldn't be found: the folder to run in, or the program. Both show up as `NotFound`.
+fn missing(cmd: &Command, e: std::io::Error) -> AppError {
+    if e.kind() != std::io::ErrorKind::NotFound {
+        return e.into();
+    }
+    let cmd = cmd.as_std();
+    if let Some(dir) = cmd.get_current_dir().filter(|d| !d.exists()) {
+        return AppError::Claude(format!(
+            "send it again to start afresh: the folder this run belonged in is gone ({})",
+            dir.display()
+        ));
+    }
+    let program = cmd.get_program().to_string_lossy().into_owned();
+    AppError::Claude(format!(
+        "set claude_command in quarterdeck.toml to its full path: `{program}` wasn't found \
+         ({e})"
+    ))
+}
+
 /// Runs `cmd` and returns Claude's reply, writing its steps to `log` as they come.
 pub async fn follow(mut cmd: Command, log: Option<Writer>) -> AppResult<String> {
     cmd.args(["--output-format", "stream-json", "--verbose"])
@@ -54,7 +73,7 @@ pub async fn follow(mut cmd: Command, log: Option<Writer>) -> AppResult<String> 
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
-    let mut child = cmd.spawn()?;
+    let mut child = cmd.spawn().map_err(|e| missing(&cmd, e))?;
     let (out, err) = (child.stdout.take(), child.stderr.take());
     let (reply, stderr) = tokio::join!(
         async {
@@ -74,7 +93,16 @@ pub async fn follow(mut cmd: Command, log: Option<Writer>) -> AppResult<String> 
     match reply {
         Some(r) if !r.failed && status.success() => Ok(r.text),
         Some(r) if !r.text.is_empty() => Err(AppError::Claude(r.text)),
-        _ => Err(AppError::Claude(stderr.trim().to_owned())),
+        _ => Err(AppError::Claude(why_it_stopped(stderr.trim(), status))),
+    }
+}
+
+/// What the agent said on stderr, else how it exited.
+fn why_it_stopped(stderr: &str, status: std::process::ExitStatus) -> String {
+    if stderr.is_empty() {
+        format!("it exited with no message ({status})")
+    } else {
+        stderr.to_owned()
     }
 }
 
