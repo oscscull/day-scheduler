@@ -5,12 +5,19 @@ when setup changes.
 
 ## One machine
 
-1. Needs: Rust, Node, `gh auth login` done, Claude Code (`claude`) logged in.
-2. `git clone https://github.com/oscscull/quarterdeck && cd quarterdeck && npm install`
-3. Run it with `npm run tauri dev`, or build an app with `npm run tauri build` and open the bundle in
-   `src-tauri/target/release/bundle/macos/`.
+1. Needs: `gh auth login` done, Claude Code (`claude`) logged in.
+2. Download the app for this machine from the
+   [latest release](https://github.com/oscscull/quarterdeck/releases/latest) (macOS: the `.app.tar.gz`,
+   unpacked into `/Applications`). The build isn't notarized, so the first time on a Mac, clear the
+   download flag: `xattr -dr com.apple.quarantine /Applications/Quarterdeck.app`. After that it updates
+   itself from each new release (`[updates]` in `quarterdeck.toml`).
+3. To work on Quarterdeck instead: needs Rust and Node too; `git clone https://github.com/oscscull/quarterdeck
+   && cd quarterdeck && npm install`, then `npm run tauri dev`. A local build is version 0.1.0, so the
+   next release replaces it.
 4. First start creates `~/.config/quarterdeck/` (settings, prompts, schedules, inbox) and the database
-   (`quarterdeck.db`) in `~/Library/Application Support/com.oscscull.quarterdeck/`.
+   (`quarterdeck.db`) in the system's app-data folder (macOS
+   `~/Library/Application Support/com.oscscull.quarterdeck/`, Windows `%APPDATA%\com.oscscull.quarterdeck\`,
+   Linux `~/.local/share/com.oscscull.quarterdeck/`).
 5. In `~/.config/quarterdeck/quarterdeck.toml`, set `node` to this machine's name, check the `[[areas]]`
    (each area's `node` is the machine that runs it), map GitHub owners to areas under
    `[github.areas]`, and add calendars' private iCal links under `[[calendar.feeds]]`.
@@ -47,3 +54,16 @@ A machine without a screen can serve its Quarterdeck with `<binary> serve`.
 - Lints and tests: `npm run check`, then in `src-tauri/`: `cargo clippy --all-targets -- -D warnings`
   and `cargo test`.
 - The scheduler's last error, if any, is in the database's `meta` table as `scheduler.last_error`.
+
+## Releases
+
+Every merge to `main` runs `.github/workflows/release.yml`: it builds macOS (universal), Windows and
+Linux, and publishes release `v0.1.<run>`, which installed apps pick up. Updates are signed; the
+public key is `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`, and CI signs with two repo
+secrets. To set them up, the repo owner runs `bash scripts/release-key.sh` once (needs `gh`, Node and
+[dotenvx](https://dotenvx.com/docs/install)). It asks for a password, makes the signing key in
+`~/.tauri/`, sets both secrets, writes the public key into `tauri.conf.json`, and keeps the password
+only encrypted in `.env.release`; what decrypts it stays in `~/.tauri/quarterdeck-release.env.keys`.
+
+Losing the private key means installed apps can't update; reinstall from a release signed with a new one.
+

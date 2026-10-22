@@ -48,7 +48,8 @@ Connectors and schedules only act for areas this machine runs.
   state only. Tables and every query are declared in `src-tauri/schema/`; migrations in
   `src-tauri/migrations/` are built into the binary and applied when the app or MCP server opens
   the database. Activity, finished runs, done to-dos, done items with their history, and past
-  meetings all expire.
+  meetings all expire. The first start of a Based build copies a pre-Based `quarterdeck.sqlite`
+  across once and keeps it as `quarterdeck.sqlite.imported`.
 
 ## Connectors
 
@@ -58,8 +59,12 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
 - **GitHub** (`gh` CLI): open PRs become items; new comments, CI failing and CI passing fire events.
   CI state is worked out per check: checks a repo marks informational (`informational_checks`, e.g.
   a visual-diff report) don't count, and their results are noted on the item instead.
-  PRs with no requested reviewers, or in `self_review` repos, wait on the user.
-- **Calendar** (private iCal links): meetings, with recurrence, exceptions and join links.
+  PRs with no requested reviewers, or in `self_review` repos, wait on the user. An item is closed
+  only when `gh` says its PR merged or closed, never because the open-PR search missed it. Syncs
+  every `poll_minutes`, and at once when the window regains focus (at most every
+  `focus_sync_seconds`), after which the screen reloads.
+- **Calendar** (private iCal links): meetings, with recurrence, exceptions and join links. A feed
+  that can't be fetched or isn't a whole calendar is an error, never an empty calendar.
 - **Slack**: no connector; agents bring things in through the tools.
 
 ## Running Claude
@@ -86,15 +91,35 @@ get the answer, otherwise the answer stands as its state. Delivery itself follow
 that asked (or the one holding the item) with it (`prompts/answer.md`). Sessions are stored with
 their working directory, since Claude only resumes a session from the folder it ran in.
 
-Work Quarterdeck starts on a PR (fixing CI, acting on an answer) runs in that repo's project when
-`[[projects]]` maps it to a checkout (`set_project`): in a git worktree per item under the data
-folder, detached at the PR's head so the user's checkout is untouched, in the permission mode
+Work Quarterdeck starts on a PR (fixing CI, acting on an answer) or on an item whose link is a
+GitHub issue runs in that repo's project when `[[projects]]` maps it to a checkout
+(`set_project`): in a git worktree per item under the data folder, in the permission mode
 `project_permission_mode` sets (default `auto`, as in the user's own sessions), with the
-project's `.claude/settings.local.json` copied in. Worktrees are removed once their item is done. Repos with no project get a run that can read
-CI but not change code.
+project's `.claude/settings.local.json` copied in. A PR's worktree is detached at its head; an
+issue's is a new branch `issue-<n>` off the latest default branch, and the first run there also
+gets the issue's text (`prompts/issue-workspace.md`). The user's checkout is untouched. Since a
+project's sandbox may keep Claude off GitHub, Quarterdeck does that side when a run finishes and no
+question on the item is open: it pushes commits the branch doesn't have and, for an issue, opens a
+PR closing it (titled from the first commit) and makes the item that PR's, in review, so syncs and
+CI results follow it. A push that fails is noted on the item and raised as urgent. Worktrees are
+removed once their item is done. Repos with no project get a run that can read CI but not change
+code. An answer or message that no session and no worktree can take is never dropped: the item
+stops showing Claude as holding it, its history says why, and it's raised as urgent.
+
+`[queue]` lists items Claude works on one at a time (`set_queue`, `get_queue`). The first not yet
+in review or done is current: when it's up next, Quarterdeck marks it in progress and delivers
+`prompts/queue.md` to it like a message; the next waits until it reaches review or done. The
+watchdog leaves an item alone while a run is still working on it.
 
 Default prompt files Quarterdeck wrote and nobody has edited follow newer defaults
 (`.quarterdeck-defaults` records what it wrote); edited ones, and `quarterdeck.toml`, are left alone.
+
+## Updates
+
+Every merge to `main` builds macOS, Windows and Linux in CI and publishes a signed release. Each
+installed app checks `releases/latest` every `[updates] check_minutes`, from the scheduler (no
+Claude), and installs a new one only when no Claude run is live and the window isn't in use, then
+restarts. So every machine runs the same build without rebuilding locally.
 
 ## Not built yet
 

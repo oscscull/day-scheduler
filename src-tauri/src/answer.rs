@@ -3,6 +3,7 @@
 //! changes at once: Claude has it if a session will get the answer, otherwise the answer stands.
 
 use chrono::Utc;
+use serde::Serialize;
 
 use crate::config::settings::Settings;
 use crate::domain::ask::Ask;
@@ -20,13 +21,26 @@ fn nonempty(text: &str) -> AppResult<&str> {
     Ok(text)
 }
 
-pub async fn give(db: &Db, settings: &Settings, ask_id: i64, answer: &str) -> AppResult<()> {
+/// What came of a reply. A screen can show a question after it was answered or dismissed
+/// elsewhere, so answering one that's gone is a normal outcome, not an error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Outcome {
+    Done,
+    /// The question was already answered or dismissed; nothing changed.
+    Gone,
+}
+
+pub async fn give(db: &Db, settings: &Settings, ask_id: i64, answer: &str) -> AppResult<Outcome> {
     let answer = nonempty(answer)?;
-    let ask = asks::get(db, ask_id).await?;
+    let Some(ask) = asks::find_open(db, ask_id).await? else {
+        return Ok(Outcome::Gone);
+    };
     let text = format!("You answered “{answer}” to: {}", ask.question);
     events::record(db, &ask.item_id, Utc::now(), &Change::Note { text }).await?;
     asks::answer(db, ask_id, answer).await?;
-    hand_over(db, settings, &ask, answer).await
+    hand_over(db, settings, &ask, answer).await?;
+    Ok(Outcome::Done)
 }
 
 /// A message about an item with no question behind it. Stored as an already-answered ask with no
@@ -151,5 +165,23 @@ mod tests {
             (b.status, b.state_label.as_str()),
             (None, "you answered: No")
         );
+    }
+
+    #[tokio::test]
+    async fn answering_a_question_that_is_gone_changes_nothing() {
+        let db = Db::in_memory().await;
+        let settings = Settings::default();
+        decision(&db, "a").await;
+        let answered = ask(&db, "a", None).await;
+        let dismissed = ask(&db, "a", None).await;
+        let first = give(&db, &settings, answered, "Yes").await.unwrap();
+        assert_eq!(first, Outcome::Done);
+        asks::remove(&db, dismissed).await.unwrap();
+        let history = events::for_item(&db, "a").await.unwrap().len();
+        let again = give(&db, &settings, answered, "No").await.unwrap();
+        assert_eq!(again, Outcome::Gone);
+        let after_dismiss = give(&db, &settings, dismissed, "No").await.unwrap();
+        assert_eq!(after_dismiss, Outcome::Gone);
+        assert_eq!(events::for_item(&db, "a").await.unwrap().len(), history);
     }
 }

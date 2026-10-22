@@ -215,6 +215,7 @@
   "ask.send": "Send",
   "ask.dismiss": "No longer needed",
   "ask.failed": "Couldn’t send: {error}",
+  "ask.gone": "That question was already answered or dismissed. Refreshing…",
   "item.asks": "Needs you",
   "item.history": "History",
   "history.created": "Created",

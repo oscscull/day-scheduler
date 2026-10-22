@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# dotenvx private keys: never committed
+.env.keys*
+*.env.keys

@@ -8,9 +8,7 @@ pub fn resolve(command: &str) -> PathBuf {
     if given.is_absolute() || command.contains('/') {
         return given;
     }
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_default();
+    let home = dirs::home_dir().unwrap_or_default();
     let candidates = [
         home.join(".local/bin").join(command),
         home.join(".claude/local").join(command),

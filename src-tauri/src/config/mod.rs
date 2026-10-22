@@ -12,9 +12,11 @@ pub mod inbox;
 pub mod pause;
 pub mod projects;
 pub mod prompts;
+pub mod queue;
 pub mod schedules;
 pub mod settings;
 pub mod sync;
+pub mod updates;
 pub mod watchdog;
 
 use std::path::{Path, PathBuf};

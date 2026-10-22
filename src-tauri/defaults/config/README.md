@@ -5,6 +5,7 @@ every refresh, so edits apply immediately.
 
 - `quarterdeck.toml`: mechanical settings, how long stored output lives, and your areas (e.g. Work,
   Projects, Life), each with the machine that runs its schedules.
+- `[queue]` in `quarterdeck.toml`: items Claude works on one at a time, in order.
 - `prompts/`: Quarterdeck's built-in agent jobs. `{{name}}` placeholders are filled in by the app.
 - `schedules/`: one file per recurring job; the file name is its id. TOML between `+++`
   lines, then the instructions Claude follows. Copy an existing file to start a new one.

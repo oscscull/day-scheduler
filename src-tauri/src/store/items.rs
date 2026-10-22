@@ -87,6 +87,11 @@ pub async fn delete(db: &Db, id: &str) -> AppResult<()> {
     if find(db, id).await?.is_some_and(|i| i.source != MANUAL) {
         return hide(db, id).await;
     }
+    purge(db, id).await
+}
+
+/// Deletes an item along with its asks, history and watch, whatever made it.
+pub async fn purge(db: &Db, id: &str) -> AppResult<()> {
     let input = client::DeleteItemInput { id: text_key(id) };
     gone_ok(
         db.api()

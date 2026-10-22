@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
 
+use super::fate::Fate;
 use super::fetch::Pr;
 use super::snapshot::{self, Snapshot};
 use crate::domain::event::Change;
@@ -89,29 +90,39 @@ async fn create(db: &Db, pr: &Pr, area: &str, now: DateTime<Utc>) -> AppResult<(
     items::save(db, &item).await
 }
 
-/// PRs no longer open were merged or closed: mark their items done, once.
-pub async fn close_missing(db: &Db, open: &HashSet<String>, now: DateTime<Utc>) -> AppResult<()> {
-    for item in items::from_source(db, SOURCE).await? {
-        let Some(ext) = item.external_id.clone() else {
-            continue;
-        };
-        if open.contains(&ext) || item.stage == Stage::Done {
-            continue;
-        }
-        let done = ItemInput {
-            id: item.id,
-            title: item.title,
-            state_label: "merged or closed".to_owned(),
-            stage: Stage::Done,
-            status: None,
-            holder: item.holder,
-            area: item.area,
-            link: item.link,
-        };
-        work::save(db, done, now).await?;
-        sync_state::forget(db, SOURCE, &ext).await?;
-    }
-    Ok(())
+/// External ids of open GitHub items whose PR wasn't in the open-PR search, to ask GitHub about.
+pub async fn unseen(db: &Db, open: &HashSet<String>) -> AppResult<Vec<String>> {
+    Ok(items::from_source(db, SOURCE)
+        .await?
+        .into_iter()
+        .filter(|i| i.stage != Stage::Done)
+        .filter_map(|i| i.external_id)
+        .filter(|ext| !open.contains(ext))
+        .collect())
+}
+
+/// Marks the item for a PR done, once GitHub says it was merged or closed. Open PRs stay as they are.
+pub async fn close(db: &Db, ext: &str, fate: Fate, now: DateTime<Utc>) -> AppResult<()> {
+    let label = match fate {
+        Fate::Open => return Ok(()),
+        Fate::Merged => "merged",
+        Fate::Closed => "closed without merging",
+    };
+    let Some(item) = items::by_external(db, SOURCE, ext).await? else {
+        return Ok(());
+    };
+    let done = ItemInput {
+        id: item.id,
+        title: item.title,
+        state_label: label.to_owned(),
+        stage: Stage::Done,
+        status: None,
+        holder: item.holder,
+        area: item.area,
+        link: item.link,
+    };
+    work::save(db, done, now).await?;
+    sync_state::forget(db, SOURCE, ext).await
 }
 
 #[cfg(test)]
@@ -148,9 +159,22 @@ mod tests {
             items::get(&db, "app#7").await.unwrap().state_label,
             "Sam is on holiday"
         );
-        close_missing(&db, &HashSet::new(), Utc::now())
+        // Missing from the search alone closes nothing; GitHub saying so does.
+        assert_eq!(unseen(&db, &HashSet::new()).await.unwrap(), ["me/app#7"]);
+        close(&db, "me/app#7", Fate::Open, Utc::now())
             .await
             .unwrap();
-        assert_eq!(items::get(&db, "app#7").await.unwrap().stage, Stage::Done);
+        assert_eq!(
+            items::get(&db, "app#7").await.unwrap().stage,
+            Stage::InReview
+        );
+        close(&db, "me/app#7", Fate::Merged, Utc::now())
+            .await
+            .unwrap();
+        let merged = items::get(&db, "app#7").await.unwrap();
+        assert_eq!(
+            (merged.stage, merged.state_label.as_str()),
+            (Stage::Done, "merged")
+        );
     }
 }

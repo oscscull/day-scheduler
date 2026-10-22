@@ -43,6 +43,7 @@ pub async fn tick(handle: &AppHandle) -> AppResult<()> {
     let urgent_count = urgent::list(&app.db).await?.len();
     crate::desktop::tray::show_urgent(handle, urgent_count)?;
     super::connectors::sync_if_due(handle, &settings).await?;
+    super::updates::check_if_due(handle, &settings).await?;
     // Answers go out even while paused: the user just gave them.
     super::answers::deliver(handle, &settings).await?;
     // Cleanup only; a failed removal is retried next tick.
@@ -58,6 +59,7 @@ pub async fn tick(handle: &AppHandle) -> AppResult<()> {
         return Ok(());
     }
     crate::watchdog::check(handle, &settings).await?;
+    super::queue::advance(handle, &settings).await?;
     for schedule in schedules::list(&app.config)?.schedules {
         if schedule.enabled && settings.node_for(&schedule.area) == settings.node {
             consider(handle, &settings, &schedule, Window { last, now }).await?;

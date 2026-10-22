@@ -18,9 +18,8 @@ pub fn same_opt<A: Serialize, B: DeserializeOwned>(value: Option<&A>) -> AppResu
 
 /// The key of a `serial` row.
 pub fn int<E>(id: &Id<E>) -> AppResult<i64> {
-    id.as_str()
-        .parse()
-        .map_err(|_| AppError::Db(format!("expected a number key, got {:?}", id.as_str())))
+    id.as_int()
+        .ok_or_else(|| AppError::Db(format!("expected a number key, got {:?}", id.as_str())))
 }
 
 pub fn key<E>(id: i64) -> Id<E> {

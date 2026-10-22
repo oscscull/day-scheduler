@@ -32,13 +32,15 @@ pub fn tools() -> Vec<Tool> {
         ),
         async_tool(
             "answer_ask",
-            "Answers an ask on the user's behalf, when they told you the answer.",
+            "Answers an ask on the user's behalf, when they told you the answer. Returns \"gone\" \
+             if it was already answered or dismissed, and changes nothing.",
             answer,
         ),
         async_tool(
             "tell_claude",
             "Passes the user's instruction about an item to Claude, e.g. \"merge develop in\". Quarterdeck \
-             resumes the session working on it, or starts one in the repo's project. Use when the \
+             resumes the session working on it, or starts one in the repo's project (for an item \
+             linking a GitHub issue: on a new branch, ending in a PR Quarterdeck opens). Use when the \
              user tells you what should happen to an item that you won't do yourself in this session.",
             tell,
         ),
@@ -97,7 +99,7 @@ struct AnswerArgs {
     answer: String,
 }
 
-async fn answer(ctx: Ctx, args: AnswerArgs) -> AppResult<()> {
+async fn answer(ctx: Ctx, args: AnswerArgs) -> AppResult<crate::answer::Outcome> {
     let settings = ctx.settings()?;
     crate::answer::give(&ctx.db, &settings, args.ask_id, &args.answer).await
 }

@@ -1,4 +1,5 @@
 use super::projects::Project;
+use super::queue::QueueSettings;
 use serde::{Deserialize, Serialize};
 
 use super::Config;
@@ -6,6 +7,7 @@ use super::alerts::AlertSettings;
 use super::calendar::CalendarSettings;
 use super::github::GithubSettings;
 use super::sync::SyncSettings;
+use super::updates::UpdateSettings;
 use super::watchdog::WatchdogSettings;
 use crate::error::AppResult;
 
@@ -46,6 +48,8 @@ pub struct Settings {
     /// Claude Code's `--permission-mode` for work in a project, e.g. `auto` (Claude decides what's
     /// safe, as in the user's own sessions) or `acceptEdits` (only the project's allow rules).
     pub project_permission_mode: String,
+    pub queue: QueueSettings,
+    pub updates: UpdateSettings,
 }
 
 impl Default for Settings {
@@ -68,6 +72,8 @@ impl Default for Settings {
             watchdog: WatchdogSettings::default(),
             projects: Vec::new(),
             project_permission_mode: "auto".to_owned(),
+            queue: QueueSettings::default(),
+            updates: UpdateSettings::default(),
         }
     }
 }
@@ -135,6 +141,8 @@ mod tests {
             watchdog: WatchdogSettings::default(),
             projects: Vec::new(),
             project_permission_mode: "auto".to_owned(),
+            queue: QueueSettings::default(),
+            updates: UpdateSettings::default(),
         }
     }
 

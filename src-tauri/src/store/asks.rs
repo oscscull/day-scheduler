@@ -56,11 +56,11 @@ pub async fn answered(db: &Db) -> AppResult<Vec<Answered>> {
     Ok(out)
 }
 
-pub async fn get(db: &Db, id: i64) -> AppResult<Ask> {
-    let input = client::AskInput { id: key(id) };
-    let row = db.api().ask(input, ()).await?;
-    let row = row.ok_or_else(|| AppError::NotFound(format!("ask {id}")))?;
-    Ok(from_row(row)?.0)
+/// The ask, if it still waits for an answer: not dismissed, delivered or already answered.
+pub async fn find_open(db: &Db, id: i64) -> AppResult<Option<Ask>> {
+    let input = client::OpenAskInput { id: key(id) };
+    let row = db.api().open_ask(input, ()).await?;
+    Ok(row.map(from_row).transpose()?.map(|(ask, _)| ask))
 }
 
 /// Returns the new ask's id.

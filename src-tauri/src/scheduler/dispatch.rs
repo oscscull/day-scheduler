@@ -10,7 +10,7 @@ use crate::domain::run::{Outcome, Run};
 use crate::domain::session::SessionRef;
 use crate::error::AppResult;
 use crate::store::runs;
-use crate::workspace::{self, Workspace};
+use crate::workspace::{self, Kind, Workspace};
 
 /// Whether a run continues a session or starts one Quarterdeck can come back to.
 #[derive(Debug, Clone)]
@@ -88,6 +88,17 @@ fn first_line(text: &str) -> String {
         .collect()
 }
 
+/// A new session on an issue starts with the issue's text, which Claude may not be able to fetch.
+async fn prompt_for(job: &Job) -> AppResult<String> {
+    match (&job.workspace, &job.thread) {
+        (Some(ws), Thread::Start(_)) if ws.kind == Kind::Issue => {
+            let issue = workspace::issue_text(ws).await?;
+            Ok(format!("{}\n\n---\n\n{issue}", job.prompt))
+        }
+        _ => Ok(job.prompt.clone()),
+    }
+}
+
 /// `mode` applies to work in a project's worktree.
 async fn ask(command: &str, job: &Job, mode: &str) -> String {
     if let Some(ws) = &job.workspace
@@ -95,6 +106,10 @@ async fn ask(command: &str, job: &Job, mode: &str) -> String {
     {
         return format!("failed: couldn't make the worktree: {e}");
     }
+    let prompt = match prompt_for(job).await {
+        Ok(p) => p,
+        Err(e) => return format!("failed: couldn't read the issue: {e}"),
+    };
     let s = job.thread.session();
     let session = match job.thread {
         Thread::Start(_) => Session::Start(&s.id),
@@ -106,7 +121,7 @@ async fn ask(command: &str, job: &Job, mode: &str) -> String {
         cwd: s.cwd.as_deref(),
         permission_mode: job.workspace.as_ref().map(|_| mode),
     };
-    match claude::ask_with(command, &job.prompt, &opts).await {
+    match claude::ask_with(command, &prompt, &opts).await {
         Ok(text) => first_line(&text),
         Err(e) => format!("failed: {e}"),
     }
@@ -124,6 +139,11 @@ pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult
         } else {
             Outcome::Ok
         };
+        if outcome == Outcome::Ok
+            && let Some(ws) = &job.workspace
+        {
+            super::handoff::after_run(&handle, &job.item_id, ws).await;
+        }
         // The run record is for display; losing it changes nothing about the item.
         drop(runs::finish(&handle.state::<App>().db, id, outcome, &summary).await);
     });

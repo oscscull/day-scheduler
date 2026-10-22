@@ -17,6 +17,7 @@ mod notify;
 mod paths;
 mod peers;
 mod priorities;
+mod queue;
 mod rename;
 mod scheduler;
 mod store;
@@ -50,9 +51,30 @@ fn settings_for_login(config: &config::Config) -> bool {
     config::settings::load(config).map_or(true, |s| s.launch_at_login)
 }
 
+/// The old database stays where it is if importing it failed, and the user is told.
+fn report_import(handle: &tauri::AppHandle, imported: error::AppResult<bool>) {
+    if let Err(e) = imported {
+        let flag = domain::urgent::Urgent {
+            id: 0,
+            title: "Couldn't bring over your old Quarterdeck data".to_owned(),
+            detail: format!("{e}. The old database is untouched; tell Claude to look into it."),
+            area: String::new(),
+            raised_at: chrono::Utc::now(),
+            schedule_id: None,
+        };
+        let db = &handle.state::<app::App>().db;
+        // Telling the user is best effort; the app opens either way.
+        drop(tauri::async_runtime::block_on(store::urgent::raise(
+            db, &flag,
+        )));
+    }
+}
+
 /// Opens the database and config folder, then hands both to every command.
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    let db = tauri::async_runtime::block_on(store::Db::open(&paths::data_dir()?))?;
+    let data = paths::data_dir()?;
+    let db = tauri::async_runtime::block_on(store::Db::open(&data))?;
+    let imported = tauri::async_runtime::block_on(store::legacy::import(&db, &data));
     // Only the app runs Claude, so anything still marked running is from before this start.
     tauri::async_runtime::block_on(store::runs::close_interrupted(&db, chrono::Utc::now()))?;
     let config = config::Config::open(paths::config_dir()?)?;
@@ -60,6 +82,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Serving peers is optional; a busy port must not stop the app opening.
     drop(start_sync(&config));
     app.manage(app::App { db, config });
+    report_import(app.handle(), imported);
     desktop::tray::build(app.handle())?;
     // Launch-at-login is a convenience; failing to set it must not stop the app opening.
     drop(desktop::login::apply(app.handle(), launch_at_login));
@@ -108,17 +131,21 @@ pub fn serve_peers() -> std::process::ExitCode {
     reason = "generate_context! expands to code calling process::exit; not ours"
 )]
 pub fn run() -> tauri::Result<()> {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
+        // Must come first. Launching Quarterdeck while it runs shows the running one, so there's
+        // never a second scheduler on the same database.
+        .plugin(tauri_plugin_single_instance::init(|handle, _, _| {
+            desktop::show_main(handle);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
         .on_window_event(desktop::on_window_event)
         .setup(setup)
-        .invoke_handler(commands::handler())
-        .build(tauri::generate_context!())?
-        .run(|handle, event| desktop::on_run_event(handle, &event));
-    Ok(())
+        .invoke_handler(commands::handler());
+    builder.run(tauri::generate_context!())
 }

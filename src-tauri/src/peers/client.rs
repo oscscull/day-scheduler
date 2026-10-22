@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 
 use serde_json::Value;
 
+use crate::cli;
 use crate::config::sync::Peer;
 use crate::error::{AppError, AppResult};
 
@@ -16,7 +17,7 @@ fn url(peer: &Peer, path: &str) -> String {
 
 fn request(peer: &Peer, path: &str, body: Option<&Value>) -> AppResult<Value> {
     let auth = format!("Authorization: Bearer {}", peer.token);
-    let mut cmd = Command::new("/usr/bin/curl");
+    let mut cmd = Command::new(cli::resolve("curl"));
     cmd.args([
         "-sS",
         "--max-time",

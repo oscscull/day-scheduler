@@ -1,4 +1,4 @@
-query recent_activity(limit: int) -> ActivityRow[] { list Activity limit ($limit); }
+query recent_activity(limit: int) -> ActivityRow[] { list Activity limit ($limit, max 500); }
 mutation add_activity(text, area, at: timestamp, unread: bool) -> ok {
   create Activity { text = $text, area = $area, at = $at, unread = $unread };
 }

@@ -1,13 +1,15 @@
-//! Takes the user's answers back to Claude. Work on a PR in a known project happens in that
+//! Takes the user's answers back to Claude. Work on a PR or issue in a known project happens in that
 //! project's worktree: the asking session is resumed if it ran there, otherwise a new session
 //! starts there with the question and answer. Elsewhere the session that asked, or the one holding
-//! the item, is resumed. With nobody to tell, the answer just stays on the item's history.
+//! the item, is resumed. With nobody to tell, the user is told instead (see `undelivered`).
 
 use std::collections::HashSet;
 
+use chrono::Utc;
 use tauri::{AppHandle, Manager as _};
 
 use super::dispatch::{self, Job, Thread};
+use super::undelivered;
 use crate::app::App;
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
@@ -38,18 +40,32 @@ pub async fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         }
         let known = known_session(&app, &answered, &item).await?;
         let ws = workspace::for_item(settings, &item)?;
-        if let Some(thread) = thread_for(known, ws.as_ref()) {
-            if let Thread::Start(session) = &thread {
-                watch::claim(&app.db, &item.id, Some(session)).await?;
+        match thread_for(known, ws.as_ref()) {
+            Some(thread) => {
+                start(handle, settings, (&answered, &item), (thread, ws)).await?;
+                busy.insert(item.id.clone());
             }
-            let prompt = prompt_for(&app, &answered, &item, ws.as_ref())?;
-            let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
-            dispatch::run(handle, settings, job).await?;
-            busy.insert(item.id.clone());
+            None => undelivered::report(&app.db, &answered, Utc::now()).await?,
         }
         asks::remove(&app.db, answered.ask.id).await?;
     }
     Ok(())
+}
+
+/// Hands the answer to Claude, claiming the item for a new session.
+async fn start(
+    handle: &AppHandle,
+    settings: &Settings,
+    (answered, item): (&Answered, &WorkItem),
+    (thread, ws): (Thread, Option<Workspace>),
+) -> AppResult<()> {
+    let app = handle.state::<App>();
+    if let Thread::Start(session) = &thread {
+        watch::claim(&app.db, &item.id, Some(session)).await?;
+    }
+    let prompt = prompt_for(&app, answered, item, ws.as_ref())?;
+    let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
+    dispatch::run(handle, settings, job).await
 }
 
 /// The session that asked, else the one holding the item.
@@ -99,4 +115,41 @@ fn prompt_for(
         Prompt::Answer
     };
     render(&app.config, prompt, &vars)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::workspace::Kind;
+
+    fn session(cwd: Option<&str>) -> SessionRef {
+        SessionRef {
+            id: "s".to_owned(),
+            cwd: cwd.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn only_items_with_no_session_and_no_workspace_have_nobody_to_tell() {
+        let ws = Workspace {
+            project: "/code/app".into(),
+            repo: "me/app".to_owned(),
+            number: 3,
+            kind: Kind::Issue,
+            dir: "/wt/app-3".into(),
+        };
+        assert!(thread_for(None, None).is_none());
+        assert!(matches!(
+            thread_for(Some(session(None)), None),
+            Some(Thread::Resume(_))
+        ));
+        assert!(matches!(
+            thread_for(None, Some(&ws)),
+            Some(Thread::Start(_))
+        ));
+        assert!(matches!(
+            thread_for(Some(session(Some("/wt/app-3"))), Some(&ws)),
+            Some(Thread::Resume(_))
+        ));
+    }
 }

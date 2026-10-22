@@ -14,6 +14,7 @@ pub mod commitments;
 pub mod events;
 pub mod expire;
 pub mod items;
+pub mod legacy;
 pub mod meta;
 pub mod run_requests;
 pub mod runs;

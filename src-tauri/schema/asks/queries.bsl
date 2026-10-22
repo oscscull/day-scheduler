@@ -2,7 +2,8 @@ query open_asks() -> AskRow[] { list Ask where (answer = null); }
 query open_asks_for(item: Item) -> AskRow[] { list Ask where (item = $item and answer = null); }
 # Answers not yet taken back to whoever asked.
 query answered_asks() -> AskRow[] { list Ask where (answer != null); }
-query ask(id) -> AskRow;
+# The ask, if it still waits for an answer.
+query open_ask(id) -> AskRow { get Ask where (id = $id and answer = null); }
 
 mutation add_ask(item: Item, question, context, options: json, session: text?,
                  cwd: text?) -> AskRow {

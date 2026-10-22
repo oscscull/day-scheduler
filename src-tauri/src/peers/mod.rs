@@ -26,9 +26,9 @@ pub fn new_token() -> AppResult<String> {
         .as_chunks::<2>()
         .0
         .iter()
-        .filter_map(|pair| {
+        .filter_map(|&[hi, lo]| {
             words
-                .get(usize::from(u16::from_be_bytes(*pair) & 0x03ff))
+                .get(usize::from(u16::from_be_bytes([hi, lo]) & 0x03ff))
                 .copied()
         })
         .collect();

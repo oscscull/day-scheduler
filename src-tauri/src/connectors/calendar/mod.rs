@@ -30,9 +30,12 @@ pub async fn sync(handle: &AppHandle) -> AppResult<()> {
         .iter()
         .filter(|f| all.node_for(&f.area) == all.node)
     {
-        match fetch::ics(&feed.url).await {
-            Ok(text) => {
-                let mut occurrences = parse::occurrences(&text, from, to);
+        // A feed that can't be fetched or read is an error, never an empty calendar.
+        match fetch::ics(&feed.url)
+            .await
+            .and_then(|text| parse::occurrences(&text, from, to))
+        {
+            Ok(mut occurrences) => {
                 occurrences.retain(|o| !settings.skips(feed, &o.title, o.all_day));
                 apply::apply(&app.db, feed, &occurrences, from).await?;
             }

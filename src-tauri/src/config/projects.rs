@@ -17,8 +17,8 @@ pub struct Project {
 impl Project {
     /// The checkout folder with `~` expanded.
     pub fn dir(&self) -> PathBuf {
-        match (self.path.strip_prefix("~/"), std::env::var_os("HOME")) {
-            (Some(rest), Some(home)) => PathBuf::from(home).join(rest),
+        match (self.path.strip_prefix("~/"), dirs::home_dir()) {
+            (Some(rest), Some(home)) => home.join(rest),
             _ => PathBuf::from(&self.path),
         }
     }

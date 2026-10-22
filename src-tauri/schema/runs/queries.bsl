@@ -3,7 +3,7 @@ query live_runs() -> RunRow[] { list Run where (finished_at = null) order (start
 # The latest finished runs of one schedule.
 query recent_runs(schedule_id: text, limit: int) -> RunRow[] {
   list Run where (schedule_id = $schedule_id and finished_at != null)
-    order (started_at desc, id desc) limit ($limit);
+    order (started_at desc, id desc) limit ($limit, max 100);
 }
 mutation add_run(schedule_id: text?, what, target, node, started_at: timestamp,
                  finished_at: timestamp?, outcome: Outcome?, summary: text?) -> RunRow {

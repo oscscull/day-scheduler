@@ -1,20 +1,25 @@
 //! GitHub: the user's open PRs become items, and changes on them fire event schedules.
 
+mod adopt;
 mod apply;
 mod checks;
+mod fate;
 mod fetch;
 mod snapshot;
 
 use std::collections::HashSet;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager as _};
 
 use crate::app::App;
+use crate::config::github::GithubSettings;
+use crate::config::settings::Settings;
 use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
 use crate::store::{Db, items};
 
+pub use adopt::{OpenedPr, adopt};
 pub use apply::SOURCE;
 
 /// One event on one PR, for starting event schedules.
@@ -64,33 +69,52 @@ fn with_checks(pr: &fetch::Pr, informational: &[String]) -> fetch::Pr {
 pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
     let app = handle.state::<App>();
     let all = app.settings()?;
-    let settings = all.github.clone();
     let prs = fetch::open_prs().await?;
     let now = Utc::now();
     let mut fired = Vec::new();
     let mut open = HashSet::new();
-    for pr in prs.iter().filter(|p| !settings.ignores(&p.repo)) {
-        let pr = &as_reviewed(pr, settings.self_reviews(&pr.repo));
-        let pr = &with_checks(pr, &settings.informational(&pr.repo));
-        let area = settings.area_for(&pr.repo);
-        // Another machine syncs the areas it runs, so two never duplicate a PR.
-        if all.node_for(area) != all.node {
-            continue;
-        }
-        fired.extend(sync_pr(&app.db, pr, area, now).await?);
+    for pr in prs.iter().filter(|p| !all.github.ignores(&p.repo)) {
+        // Open on GitHub whichever machine syncs it, so it must never be closed here.
         open.insert(apply::external_id(pr));
+        if let Some(area) = synced_here(&app.db, &all, pr).await? {
+            fired.extend(sync_pr(&app.db, &prepared(pr, &all.github), &area, now).await?);
+        }
     }
-    apply::close_missing(&app.db, &open, now).await?;
+    let unseen = apply::unseen(&app.db, &open).await?;
+    close_ended(&app.db, &unseen).await?;
     Ok(fired)
 }
 
+/// Asks GitHub what happened to each PR the search didn't return, and closes the merged or
+/// closed ones. One GitHub can't answer for stays as it is until the next sync.
+async fn close_ended(db: &Db, unseen: &[String]) -> AppResult<()> {
+    for ext in unseen {
+        if let Ok(ended) = fate::of(ext).await {
+            apply::close(db, ext, ended, Utc::now()).await?;
+        }
+    }
+    Ok(())
+}
+
+/// The area to sync `pr` into, if this machine syncs it: the area of the item already made for
+/// it, else the repo's. Another machine syncs the areas it runs, so two never duplicate a PR.
+async fn synced_here(db: &Db, all: &Settings, pr: &fetch::Pr) -> AppResult<Option<String>> {
+    let ext = apply::external_id(pr);
+    let area = items::by_external(db, SOURCE, &ext)
+        .await?
+        .map_or_else(|| all.github.area_for(&pr.repo).to_owned(), |i| i.area);
+    Ok((all.node_for(&area) == all.node).then_some(area))
+}
+
+/// The PR as the user sees it: their own review where they self-review, CI without
+/// informational checks.
+fn prepared(pr: &fetch::Pr, settings: &GithubSettings) -> fetch::Pr {
+    let pr = as_reviewed(pr, settings.self_reviews(&pr.repo));
+    with_checks(&pr, &settings.informational(&pr.repo))
+}
+
 /// Brings one PR's item up to date and returns the events it fired.
-async fn sync_pr(
-    db: &Db,
-    pr: &fetch::Pr,
-    area: &str,
-    now: chrono::DateTime<Utc>,
-) -> AppResult<Vec<Fired>> {
+async fn sync_pr(db: &Db, pr: &fetch::Pr, area: &str, now: DateTime<Utc>) -> AppResult<Vec<Fired>> {
     let ext = apply::external_id(pr);
     let kinds = apply::apply(db, pr, area, now).await?;
     let item_id = items::by_external(db, SOURCE, &ext)
@@ -106,4 +130,74 @@ async fn sync_pr(
             trigger: describe(kind, &ext, &pr.url),
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::settings::Area;
+
+    fn area(id: &str, node: &str) -> Area {
+        Area {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            color: String::new(),
+            node: node.to_owned(),
+        }
+    }
+
+    /// This machine runs `projects`; `work`, the repo's default area, runs elsewhere.
+    fn settings() -> Settings {
+        Settings {
+            node: "home".to_owned(),
+            areas: vec![area("work", "office"), area("projects", "home")],
+            github: GithubSettings {
+                default_area: "work".to_owned(),
+                ..GithubSettings::default()
+            },
+            ..Settings::default()
+        }
+    }
+
+    fn pr(number: u64) -> fetch::Pr {
+        fetch::Pr {
+            repo: "me/lib".to_owned(),
+            number,
+            title: "Fix".to_owned(),
+            url: format!("https://github.com/me/lib/pull/{number}"),
+            draft: false,
+            review: None,
+            ci: None,
+            checks: Vec::new(),
+            notes: Vec::new(),
+            comments: 0,
+            reviewers: fetch::Reviewers::Requested,
+            reviewer_names: Vec::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_pr_syncs_where_its_item_is_held() {
+        let db = Db::in_memory().await;
+        // A PR in another machine's area with no item here is that machine's to sync.
+        assert_eq!(synced_here(&db, &settings(), &pr(1)).await.unwrap(), None);
+        // One that this machine already holds an item for (e.g. opened for a queued issue)
+        // stays here, in that item's area.
+        apply::apply(&db, &pr(2), "projects", Utc::now())
+            .await
+            .unwrap();
+        assert_eq!(
+            synced_here(&db, &settings(), &pr(2))
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("projects")
+        );
+        // Seen in the open-PR search, so nothing asks GitHub whether it ended.
+        let open = HashSet::from([apply::external_id(&pr(2))]);
+        assert_eq!(
+            apply::unseen(&db, &open).await.unwrap(),
+            Vec::<String>::new()
+        );
+    }
 }

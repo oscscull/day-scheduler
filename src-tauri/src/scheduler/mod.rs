@@ -6,7 +6,12 @@ mod connectors;
 mod dispatch;
 mod due;
 mod events;
+mod focus;
+mod handoff;
+mod queue;
 mod tick;
+mod undelivered;
+mod updates;
 
 use crate::domain::schedule::Schedule;
 
@@ -22,6 +27,8 @@ const LAST_ERROR: &str = "scheduler.last_error";
 const EVERY: Duration = Duration::from_secs(30);
 
 /// Runs a schedule now, in the background.
+pub use focus::sync_on_focus;
+
 pub fn run_now(handle: &AppHandle, schedule: Schedule) {
     tick::start(handle, schedule, None);
 }

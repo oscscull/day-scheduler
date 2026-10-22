@@ -18,13 +18,22 @@ use crate::domain::session::SessionRef;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 use crate::store::watch::{self, Watch};
-use crate::store::{Db, events, items, urgent};
+use crate::store::{Db, events, items, runs, urgent};
 use decide::{Action, Limits, decide, refreshed};
 
 /// The last time anything was heard about an item: a state change or a history note.
 pub async fn last_heard(db: &Db, item: &WorkItem) -> AppResult<DateTime<Utc>> {
     let latest = events::for_item(db, &item.id).await?.first().map(|e| e.at);
     Ok(latest.map_or(item.state_since, |at| at.max(item.state_since)))
+}
+
+/// Items a run is working on now.
+async fn busy(app: &App) -> AppResult<Vec<String>> {
+    Ok(runs::live(&app.db)
+        .await?
+        .into_iter()
+        .map(|r| r.target)
+        .collect())
 }
 
 /// Checks every item this machine's Claude holds. Runs from the scheduler tick.
@@ -49,11 +58,13 @@ pub async fn check(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         watch::release(&app.db, &item.id).await?;
     }
     // Only claimed work is watched: checking in on items no agent took on would spend tokens on
-    // runs that can't help.
+    // runs that can't help. A run still working on the item isn't quiet, just busy.
+    let running = busy(&app).await?;
     let held: Vec<&WorkItem> = all
         .iter()
         .filter(|i| {
             watches.contains_key(&i.id)
+                && !running.contains(&i.id)
                 && held_by_claude(i)
                 && settings.node_for(&i.area) == settings.node
         })
