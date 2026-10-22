@@ -28,7 +28,6 @@
 
   const shown = $derived(fresh ?? runs);
   const openRun = $derived(shown.find((r) => runKey(r) === openKey));
-  /** The agent's turns with no run here yet: in a session elsewhere, or starting. */
   const waiting = $derived(
     turns.filter((a) => !shown.some((r) => r.target === a.itemId && (r.node ?? "") === (a.node ?? ""))),
   );
