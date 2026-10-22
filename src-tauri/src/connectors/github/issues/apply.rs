@@ -24,11 +24,11 @@ struct Snapshot {
     covered_by: Option<String>,
 }
 
-/// An issue's item that nobody has picked up: as synced, with no holder.
+/// An issue's item that nobody has picked up: as synced, its turn never passed.
 pub fn untriaged(item: &WorkItem) -> bool {
     item.source == SOURCE
         && item.stage == Stage::UpNext
-        && item.holder.is_empty()
+        && item.turn_until.is_none()
         && item.status.is_none()
 }
 
@@ -49,7 +49,6 @@ fn input(item: &WorkItem, title: String, stage: Stage, label: String) -> ItemInp
         state_label: label,
         stage,
         status: item.status,
-        holder: item.holder.clone(),
         area: item.area.clone(),
         link: item.link.clone(),
     }
@@ -120,7 +119,6 @@ async fn create(db: &Db, issue: &Issue, area: &str, now: DateTime<Utc>) -> AppRe
             state_label: TRIAGE.to_owned(),
             stage: Stage::UpNext,
             status: None,
-            holder: String::new(),
             area: area.to_owned(),
             link: Some(issue.url.clone()),
         };
@@ -175,6 +173,7 @@ pub async fn close(db: &Db, ext: &str, now: DateTime<Utc>) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::turn::Turn;
 
     fn issue(title: &str) -> Issue {
         Issue {
@@ -199,19 +198,20 @@ mod tests {
         let mut item = the_item(&db).await.unwrap();
         assert_eq!(item.id, "app#7");
         assert!(untriaged(&item));
-        item.holder = "Claude".to_owned();
+        item.turn = Turn::Agent;
+        item.turn_until = Some(Utc::now());
         items::save(&db, &item).await.unwrap();
         apply(&db, &issue("Breaks"), "projects", Utc::now())
             .await
             .unwrap();
-        assert_eq!(the_item(&db).await.unwrap().holder, "Claude");
+        assert_eq!(the_item(&db).await.unwrap().turn, Turn::Agent);
         apply(&db, &issue("Breaks badly"), "projects", Utc::now())
             .await
             .unwrap();
         let retitled = the_item(&db).await.unwrap();
         assert_eq!(
-            (retitled.title.as_str(), retitled.holder.as_str()),
-            ("Breaks badly", "Claude")
+            (retitled.title.as_str(), retitled.turn),
+            ("Breaks badly", Turn::Agent)
         );
         close(&db, "me/app#7", Utc::now()).await.unwrap();
         assert_eq!(the_item(&db).await.unwrap().stage, Stage::Done);
@@ -230,7 +230,6 @@ mod tests {
             state_label: "Claude on it".to_owned(),
             stage: Stage::InProgress,
             status: None,
-            holder: "Claude".to_owned(),
             area: "projects".to_owned(),
             link: Some("https://github.com/me/app/issues/7".to_owned()),
         };

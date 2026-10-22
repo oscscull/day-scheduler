@@ -7,6 +7,7 @@ mod fate;
 mod fetch;
 pub mod issues;
 mod snapshot;
+mod turn;
 
 use std::collections::HashSet;
 
@@ -16,6 +17,7 @@ use tauri::{AppHandle, Manager as _};
 use crate::app::App;
 use crate::config::github::GithubSettings;
 use crate::config::settings::Settings;
+use crate::config::turns::TurnSettings;
 use crate::connectors::status;
 use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
@@ -79,7 +81,15 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
         // Open on GitHub whichever machine syncs it, so it must never be closed here.
         open.insert(apply::external_id(pr));
         if let Some(area) = synced_here(&app.db, &all, pr).await? {
-            fired.extend(sync_pr(&app.db, &prepared(pr, &all.github), &area, now).await?);
+            fired.extend(
+                sync_pr(
+                    &app.db,
+                    &prepared(pr, &all.github),
+                    (&area, &all.turns),
+                    now,
+                )
+                .await?,
+            );
         }
     }
     let unseen = apply::unseen(&app.db, &open).await?;
@@ -125,9 +135,14 @@ fn prepared(pr: &fetch::Pr, settings: &GithubSettings) -> fetch::Pr {
 }
 
 /// Brings one PR's item up to date and returns the events it fired.
-async fn sync_pr(db: &Db, pr: &fetch::Pr, area: &str, now: DateTime<Utc>) -> AppResult<Vec<Fired>> {
+async fn sync_pr(
+    db: &Db,
+    pr: &fetch::Pr,
+    (area, limits): (&str, &TurnSettings),
+    now: DateTime<Utc>,
+) -> AppResult<Vec<Fired>> {
     let ext = apply::external_id(pr);
-    let kinds = apply::apply(db, pr, area, now).await?;
+    let kinds = apply::apply(db, pr, (area, limits), now).await?;
     let item_id = items::by_external(db, SOURCE, &ext)
         .await?
         .map(|i| i.id)
@@ -195,9 +210,14 @@ mod tests {
         assert_eq!(synced_here(&db, &settings(), &pr(1)).await.unwrap(), None);
         // One that this machine already holds an item for (e.g. opened for a queued issue)
         // stays here, in that item's area.
-        apply::apply(&db, &pr(2), "projects", Utc::now())
-            .await
-            .unwrap();
+        apply::apply(
+            &db,
+            &pr(2),
+            ("projects", &TurnSettings::default()),
+            Utc::now(),
+        )
+        .await
+        .unwrap();
         assert_eq!(
             synced_here(&db, &settings(), &pr(2))
                 .await

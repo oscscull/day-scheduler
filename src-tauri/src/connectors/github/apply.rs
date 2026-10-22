@@ -7,11 +7,14 @@ use chrono::{DateTime, Utc};
 use super::fate::Fate;
 use super::fetch::Pr;
 use super::snapshot::{self, Snapshot};
+use super::turn;
+use crate::config::turns::TurnSettings;
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, Stage, WorkItem};
 use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
 use crate::store::{Db, events, items, sync_state};
+use crate::turns::Clock;
 use crate::work;
 
 pub const SOURCE: &str = "github";
@@ -36,23 +39,31 @@ fn input(id: String, s: &Snapshot, area: String, link: Option<String>) -> ItemIn
         state_label: s.owned.label.clone(),
         stage: s.owned.stage,
         status: s.owned.status,
-        holder: s.owned.holder.clone(),
         area,
         link,
     }
 }
 
 /// Creates or updates the item for one PR and returns the events it fired.
-pub async fn apply(db: &Db, pr: &Pr, area: &str, now: DateTime<Utc>) -> AppResult<Vec<EventKind>> {
+pub async fn apply(
+    db: &Db,
+    pr: &Pr,
+    (area, limits): (&str, &TurnSettings),
+    now: DateTime<Utc>,
+) -> AppResult<Vec<EventKind>> {
     let ext = external_id(pr);
     let new = snapshot::of(pr);
     let old: Option<Snapshot> = sync_state::get(db, SOURCE, &ext)
         .await?
         .and_then(|json| serde_json::from_str(&json).ok());
     match items::by_external(db, SOURCE, &ext).await? {
-        None => create(db, pr, area, now).await?,
+        None => {
+            let id = create(db, pr, area, now).await?;
+            turn::follow(db, &id, &new.owned, Clock { limits, now }).await?;
+        }
         Some(item) if old.as_ref().map(|o| &o.owned) != Some(&new.owned) => {
-            work::save(db, input(item.id, &new, item.area, item.link), now).await?;
+            let id = work::save(db, input(item.id, &new, item.area, item.link), now).await?;
+            turn::follow(db, &id, &new.owned, Clock { limits, now }).await?;
         }
         Some(_) => {}
     }
@@ -78,7 +89,7 @@ async fn note_changes(
     Ok(())
 }
 
-async fn create(db: &Db, pr: &Pr, area: &str, now: DateTime<Utc>) -> AppResult<()> {
+async fn create(db: &Db, pr: &Pr, area: &str, now: DateTime<Utc>) -> AppResult<String> {
     let s = &snapshot::of(pr);
     let fields = input(display_id(pr), s, area.to_owned(), Some(pr.url.clone()));
     let id = work::save(db, fields, now).await?;
@@ -87,7 +98,8 @@ async fn create(db: &Db, pr: &Pr, area: &str, now: DateTime<Utc>) -> AppResult<(
         external_id: Some(external_id(pr)),
         ..items::get(db, &id).await?
     };
-    items::save(db, &item).await
+    items::save(db, &item).await?;
+    Ok(id)
 }
 
 /// External ids of open GitHub items whose PR wasn't in the open-PR search, to ask GitHub about.
@@ -117,7 +129,6 @@ pub async fn close(db: &Db, ext: &str, fate: Fate, now: DateTime<Utc>) -> AppRes
         state_label: label.to_owned(),
         stage: Stage::Done,
         status: None,
-        holder: item.holder,
         area: item.area,
         link: item.link,
     };
@@ -150,11 +161,21 @@ mod tests {
     #[tokio::test]
     async fn syncs_keep_edits_until_github_changes() {
         let db = Db::in_memory().await;
-        apply(&db, &pr(0), "work", Utc::now()).await.unwrap();
+        let limits = TurnSettings::default();
+        apply(&db, &pr(0), ("work", &limits), Utc::now())
+            .await
+            .unwrap();
+        let waiting = items::get(&db, "app#7").await.unwrap();
+        assert_eq!(
+            (waiting.turn, waiting.waiting_on.as_deref()),
+            (crate::domain::turn::Turn::Others, Some("reviewers"))
+        );
         let mut edited = items::get(&db, "app#7").await.unwrap();
         edited.state_label = "Sam is on holiday".to_owned();
         items::save(&db, &edited).await.unwrap();
-        let events = apply(&db, &pr(1), "work", Utc::now()).await.unwrap();
+        let events = apply(&db, &pr(1), ("work", &limits), Utc::now())
+            .await
+            .unwrap();
         assert_eq!(events, [EventKind::PrNewComments]);
         assert_eq!(
             items::get(&db, "app#7").await.unwrap().state_label,

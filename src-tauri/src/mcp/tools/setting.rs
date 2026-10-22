@@ -12,7 +12,7 @@ use crate::error::AppResult;
 const SET_SETTING: &str = "Changes one of Quarterdeck's plain settings on this machine: limits, how long \
 things are kept, sync intervals, alerts, updates. Each key says what value it takes. A value that doesn't \
 suit the setting is refused and nothing changes. Other settings have their own tools (areas, calendars, \
-GitHub areas, ignores and issues, projects, queue, sync, watchdog).";
+GitHub areas, ignores and issues, projects, queue, sync, turn limits).";
 
 pub fn tools() -> Vec<Tool> {
     vec![tool("set_setting", SET_SETTING, set)]

@@ -4,7 +4,7 @@
   import Chip from "../components/Chip.svelte";
   import LoadError from "../components/LoadError.svelte";
   import { t } from "../lib/copy";
-  import { WAITING, isInFlight, waitingOn } from "../lib/groups";
+  import { TURNS, isInFlight } from "../lib/groups";
   import { areas, inArea } from "../lib/areas.svelte";
   import { chatContext } from "../lib/chat.svelte";
   import { openItem } from "../lib/detail.svelte";
@@ -25,7 +25,7 @@
     inFlight.reduce<string | null>((min, i) => (min === null || i.openedAt < min ? i.openedAt : min), null),
   );
   const groups = $derived(
-    WAITING.map((g) => ({ ...g, items: inFlight.filter((i) => waitingOn(i) === g.id) })).filter(
+    TURNS.map((g) => ({ ...g, items: inFlight.filter((i) => i.turn === g.id) })).filter(
       (g) => g.items.length > 0,
     ),
   );

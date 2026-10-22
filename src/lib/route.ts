@@ -64,7 +64,6 @@ export const route = {
       title: item.title,
       area: item.area,
       stage: item.stage,
-      holder: item.holder,
       state_label: item.stateLabel,
       link: item.link,
     };

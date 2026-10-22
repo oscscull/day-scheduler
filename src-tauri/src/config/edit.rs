@@ -8,6 +8,7 @@ use super::calendar::{Feed, Origin};
 use super::projects::Project;
 use super::settings::{self, Area};
 use super::sync::Peer;
+use super::turns::TurnChange;
 use crate::error::{AppError, AppResult};
 
 fn path(config: &Config) -> std::path::PathBuf {
@@ -170,22 +171,24 @@ pub fn map_github(config: &Config, owner_or_repo: &str, area: &str) -> AppResult
     })
 }
 
-pub fn set_watchdog(
-    config: &Config,
-    enabled: Option<bool>,
-    quiet_minutes: Option<i64>,
-    max_nudges: Option<u32>,
-) -> AppResult<()> {
+pub fn set_turns(config: &Config, change: TurnChange) -> AppResult<()> {
+    change.check()?;
     edit(config, |doc| {
-        let w = table(doc.as_table_mut(), "watchdog")?;
-        if let Some(on) = enabled {
-            w.insert("enabled", value(on));
+        let t = table(doc.as_table_mut(), "turns")?;
+        let numbers = [
+            ("agent_hours", change.agent_hours),
+            ("you_remind_hours", change.you_remind_hours),
+            ("others_hours", change.others_hours),
+            ("later_hours", change.later_hours),
+            ("quiet_minutes", change.quiet_minutes),
+        ];
+        for (key, n) in numbers {
+            if let Some(n) = n {
+                t.insert(key, value(n));
+            }
         }
-        if let Some(minutes) = quiet_minutes {
-            w.insert("quiet_minutes", value(minutes));
-        }
-        if let Some(n) = max_nudges {
-            w.insert("max_nudges", value(i64::from(n)));
+        if let Some(turn) = change.others_then {
+            t.insert("others_then", value(turn.as_str()));
         }
         Ok(())
     })

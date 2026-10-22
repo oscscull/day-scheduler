@@ -8,6 +8,7 @@
   import { editItem } from "../../lib/detail.svelte";
   import { changed, refresh } from "../../lib/refresh.svelte";
   import { age } from "../../lib/time";
+  import { turnWithClock } from "../../lib/turn";
   import type { ItemDetail } from "../../lib/types";
   import Chip from "../Chip.svelte";
   import Modal from "../Modal.svelte";
@@ -74,7 +75,7 @@
       {#if findArea(item.area)}<span class="area"><span class="dot" style:background={findArea(item.area)?.color}></span>{findArea(item.area)?.name}</span>{/if}
       {#if item.status}<Chip status={item.status} />{/if}
       {#if item.stateLabel}<span class="label">{item.stateLabel}</span>{/if}
-      {#if item.holder}<span class="hint">· {item.holder}</span>{/if}
+      {#if item.stage !== "done" && item.stage !== "up_next"}<span class="hint">· {turnWithClock(item, now)}</span>{/if}
     </div>
     {#if item.link}<Links link={item.link} />{/if}
     {#if item.source !== "manual"}<p class="hint small">{t("item.synced", { source: item.source })}</p>{/if}

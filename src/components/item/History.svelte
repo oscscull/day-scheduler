@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from "../../lib/copy";
   import { dayClock } from "../../lib/time";
+  import { passText } from "../../lib/turn";
   import type { Change, ItemEvent } from "../../lib/types";
 
   interface Props {
@@ -24,6 +25,8 @@
         return t("history.label", { label: change.label });
       case "note":
         return t("history.note", { text: change.text });
+      case "turn":
+        return passText(change.turn, change.why);
     }
   }
 </script>

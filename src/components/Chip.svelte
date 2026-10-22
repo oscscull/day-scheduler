@@ -31,6 +31,5 @@
   .ci_failed { background: var(--urgent-bg); color: var(--urgent-fg); }
   .dependency { background: var(--chip-dependency-bg); color: var(--chip-dependency-fg); }
   .approved { background: var(--chip-approved-bg); color: var(--chip-approved-fg); }
-  .proceeding { background: var(--chip-proceeding-bg); color: var(--chip-proceeding-fg); }
   .queued { background: var(--chip-queued-bg); color: var(--chip-queued-fg); }
 </style>

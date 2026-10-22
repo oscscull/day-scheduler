@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, WorkItem};
+use crate::domain::turn::Turn;
 use crate::error::AppResult;
 use crate::store::{Db, events, items};
 
@@ -51,6 +52,10 @@ async fn update(
         rank: old.rank,
         source: old.source.clone(),
         external_id: old.external_id.clone(),
+        turn: old.turn,
+        turn_until: old.turn_until,
+        waiting_on: old.waiting_on.clone(),
+        then_turn: old.then_turn,
         ..from_input(input)
     };
     let changes = diff(old, &item);
@@ -72,7 +77,10 @@ fn from_input(input: ItemInput) -> WorkItem {
         state_label: input.state_label,
         stage: input.stage,
         status: input.status,
-        holder: input.holder,
+        turn: Turn::You,
+        turn_until: None,
+        waiting_on: None,
+        then_turn: None,
         area: input.area,
         link: input.link.filter(|l| !l.trim().is_empty()),
         source: items::MANUAL.to_owned(),
@@ -83,7 +91,7 @@ fn from_input(input: ItemInput) -> WorkItem {
     }
 }
 
-/// Changes worth a line in the history. Title, holder and link edits are housekeeping.
+/// Changes worth a line in the history. Title and link edits are housekeeping.
 fn diff(old: &WorkItem, new: &WorkItem) -> Vec<Change> {
     let mut changes = Vec::new();
     if old.stage != new.stage {
@@ -120,8 +128,7 @@ mod tests {
             title: "Thing".to_owned(),
             state_label: "starting".to_owned(),
             stage,
-            status: Some(Status::Proceeding),
-            holder: "Claude".to_owned(),
+            status: Some(Status::Review),
             area: "work".to_owned(),
             link: Some(String::new()),
         }
