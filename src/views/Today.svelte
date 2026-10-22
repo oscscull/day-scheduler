@@ -116,7 +116,9 @@
             <li class="answer-row"><TellClaude itemId={p.itemId} node={p.node} link={p.link} /></li>
           {/if}
         {:else}
-          <li class="hint">{t("today.noPriorities")}</li>
+          {#if triage.length === 0}
+            <li class="hint">{t("today.noPriorities")}</li>
+          {/if}
         {/each}
       </ul>
       {#if hiddenPriorities > 0}
