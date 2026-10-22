@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::super::ctx::Ctx;
-use super::super::tool::{Tool, tool};
+use super::super::tool::{Tool, async_tool};
 use super::in_area;
 use crate::domain::ask::Ask;
 use crate::domain::session::SessionRef;
@@ -14,13 +14,13 @@ use crate::priorities::{Priority, priorities};
 
 pub fn tools() -> Vec<Tool> {
     vec![
-        tool(
+        async_tool(
             "list_asks",
             "Everything that needs the user, in order: asks and items waiting on their decision by \
              item rank, then nudges for items waiting on reviewers too long. Today shows the first few.",
             list,
         ),
-        tool(
+        async_tool(
             "add_ask",
             "Asks the user something about an item: a design fork, a question you can't answer. \
              It appears in their Priorities if the item ranks high enough. Put the question in one \
@@ -30,19 +30,19 @@ pub fn tools() -> Vec<Tool> {
              for it. Answers are also kept on the item's history.",
             add,
         ),
-        tool(
+        async_tool(
             "answer_ask",
             "Answers an ask on the user's behalf, when they told you the answer.",
             answer,
         ),
-        tool(
+        async_tool(
             "tell_claude",
             "Passes the user's instruction about an item to Claude, e.g. \"merge develop in\". Quarterdeck \
              resumes the session working on it, or starts one in the repo's project. Use when the \
              user tells you what should happen to an item that you won't do yourself in this session.",
             tell,
         ),
-        tool(
+        async_tool(
             "dismiss_ask",
             "Removes an ask that no longer matters, without answering it.",
             dismiss,
@@ -56,11 +56,10 @@ struct ListArgs {
     area: Option<String>,
 }
 
-fn list(ctx: &Ctx, args: ListArgs) -> AppResult<Vec<Priority>> {
+async fn list(ctx: Ctx, args: ListArgs) -> AppResult<Vec<Priority>> {
     let rules = ctx.settings()?.priority_rules(Utc::now());
-    let mut all = ctx
-        .db
-        .with(|c| Ok(priorities(&items::list(c)?, &asks::list(c)?, rules)))?;
+    let ranked = items::list(&ctx.db).await?;
+    let mut all = priorities(&ranked, &asks::list(&ctx.db).await?, rules);
     all.retain(|p| in_area(args.area.as_ref(), &p.area));
     Ok(all)
 }
@@ -79,7 +78,7 @@ struct AddArgs {
     session: Option<SessionRef>,
 }
 
-fn add(ctx: &Ctx, args: AddArgs) -> AppResult<()> {
+async fn add(ctx: Ctx, args: AddArgs) -> AppResult<()> {
     let ask = Ask {
         id: 0,
         item_id: args.item_id,
@@ -88,10 +87,8 @@ fn add(ctx: &Ctx, args: AddArgs) -> AppResult<()> {
         options: args.options,
         asker: args.session,
     };
-    ctx.db.with(|c| {
-        items::get(c, &ask.item_id)?;
-        asks::insert(c, &ask).map(drop)
-    })
+    items::get(&ctx.db, &ask.item_id).await?;
+    asks::insert(&ctx.db, &ask).await.map(drop)
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -100,10 +97,9 @@ struct AnswerArgs {
     answer: String,
 }
 
-fn answer(ctx: &Ctx, args: AnswerArgs) -> AppResult<()> {
+async fn answer(ctx: Ctx, args: AnswerArgs) -> AppResult<()> {
     let settings = ctx.settings()?;
-    ctx.db
-        .with(|c| crate::answer::give(c, &settings, args.ask_id, &args.answer))
+    crate::answer::give(&ctx.db, &settings, args.ask_id, &args.answer).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -111,8 +107,8 @@ struct AskIdArgs {
     ask_id: i64,
 }
 
-fn dismiss(ctx: &Ctx, args: AskIdArgs) -> AppResult<()> {
-    ctx.db.with(|c| asks::remove(c, args.ask_id))
+async fn dismiss(ctx: Ctx, args: AskIdArgs) -> AppResult<()> {
+    asks::remove(&ctx.db, args.ask_id).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -121,8 +117,7 @@ struct TellArgs {
     text: String,
 }
 
-fn tell(ctx: &Ctx, args: TellArgs) -> AppResult<()> {
+async fn tell(ctx: Ctx, args: TellArgs) -> AppResult<()> {
     let settings = ctx.settings()?;
-    ctx.db
-        .with(|c| crate::answer::tell(c, &settings, &args.item_id, &args.text))
+    crate::answer::tell(&ctx.db, &settings, &args.item_id, &args.text).await
 }

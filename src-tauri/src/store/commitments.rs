@@ -1,100 +1,102 @@
-use rusqlite::{Connection, OptionalExtension as _, Row, params};
-
+use super::client::{self, CommitmentRow};
+use super::convert::{int, key};
+use super::db::{Db, gone_ok};
+use super::time;
 use crate::domain::commitment::Commitment;
 use crate::error::{AppError, AppResult};
 
-const COLUMNS: &str =
-    "id, title, area, starts_at, ends_at, location, join_url, source, external_id, hidden";
-
-fn from_row(row: &Row<'_>) -> rusqlite::Result<Commitment> {
+fn from_row(row: CommitmentRow) -> AppResult<Commitment> {
     Ok(Commitment {
-        id: row.get(0)?,
-        title: row.get(1)?,
-        area: row.get(2)?,
-        starts_at: row.get(3)?,
-        ends_at: row.get(4)?,
-        location: row.get(5)?,
-        join_url: row.get(6)?,
-        source: row.get(7)?,
-        external_id: row.get(8)?,
-        hidden: row.get(9)?,
+        id: int(&row.id)?,
+        title: row.title,
+        area: row.area,
+        starts_at: time::get(&row.starts_at)?,
+        ends_at: time::get(&row.ends_at)?,
+        location: row.location,
+        join_url: row.join_url,
+        source: row.source,
+        external_id: row.external_id,
+        hidden: row.hidden,
     })
 }
 
-fn query(conn: &Connection, sql: &str, args: impl rusqlite::Params) -> AppResult<Vec<Commitment>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(args, from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+fn from_rows(rows: Vec<CommitmentRow>) -> AppResult<Vec<Commitment>> {
+    rows.into_iter().map(from_row).collect()
 }
 
-/// Commitments that are not hidden.
-pub fn list(conn: &Connection) -> AppResult<Vec<Commitment>> {
-    query(
-        conn,
-        &format!("SELECT {COLUMNS} FROM commitments WHERE hidden = 0"),
-        [],
+/// Commitments that are not hidden, soonest first.
+pub async fn list(db: &Db) -> AppResult<Vec<Commitment>> {
+    from_rows(
+        db.api()
+            .commitments(client::CommitmentsInput {}, ())
+            .await?,
     )
 }
 
 /// Everything from one source, hidden ones included, for syncing.
-pub fn from_source(conn: &Connection, source: &str) -> AppResult<Vec<Commitment>> {
-    query(
-        conn,
-        &format!("SELECT {COLUMNS} FROM commitments WHERE source = ?1"),
-        [source],
-    )
+pub async fn from_source(db: &Db, source: &str) -> AppResult<Vec<Commitment>> {
+    let input = client::CommitmentsFromInput {
+        source: source.to_owned(),
+    };
+    from_rows(db.api().commitments_from(input, ()).await?)
 }
 
-pub fn by_external(
-    conn: &Connection,
+pub async fn by_external(
+    db: &Db,
     source: &str,
     external_id: &str,
 ) -> AppResult<Option<Commitment>> {
-    let sql = format!("SELECT {COLUMNS} FROM commitments WHERE source = ?1 AND external_id = ?2");
-    Ok(conn
-        .query_row(&sql, [source, external_id], from_row)
-        .optional()?)
+    let input = client::CommitmentByExternalInput {
+        source: source.to_owned(),
+        external_id: external_id.to_owned(),
+    };
+    let row = db.api().commitment_by_external(input, ()).await?;
+    row.map(from_row).transpose()
 }
 
-pub fn get(conn: &Connection, id: i64) -> AppResult<Commitment> {
-    conn.query_row(
-        &format!("SELECT {COLUMNS} FROM commitments WHERE id = ?1"),
-        [id],
-        from_row,
-    )
-    .optional()?
-    .ok_or_else(|| AppError::NotFound(format!("meeting {id}")))
+pub async fn get(db: &Db, id: i64) -> AppResult<Commitment> {
+    let input = client::CommitmentInput { id: key(id) };
+    let row = db.api().commitment(input, ()).await?;
+    from_row(row.ok_or_else(|| AppError::NotFound(format!("meeting {id}")))?)
 }
 
 /// Stores a new commitment; its `id` is ignored and assigned by the database.
-pub fn insert(conn: &Connection, c: &Commitment) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO commitments (title, area, starts_at, ends_at, location, join_url, source, external_id, hidden)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![c.title, c.area, c.starts_at, c.ends_at, c.location, c.join_url, c.source, c.external_id, c.hidden],
-    )?;
-    Ok(())
+pub async fn insert(db: &Db, c: &Commitment) -> AppResult<()> {
+    let input = client::AddCommitmentInput {
+        title: c.title.clone(),
+        area: c.area.clone(),
+        starts_at: time::put(c.starts_at),
+        ends_at: time::put(c.ends_at),
+        location: c.location.clone(),
+        join_url: c.join_url.clone(),
+        source: c.source.clone(),
+        external_id: c.external_id.clone(),
+        hidden: c.hidden,
+    };
+    Ok(db.api().add_commitment(input, ()).await?)
 }
 
-pub fn update(conn: &Connection, c: &Commitment) -> AppResult<()> {
-    conn.execute(
-        "UPDATE commitments SET title = ?1, area = ?2, starts_at = ?3, ends_at = ?4, location = ?5,
-         join_url = ?6, hidden = ?7 WHERE id = ?8",
-        params![
-            c.title,
-            c.area,
-            c.starts_at,
-            c.ends_at,
-            c.location,
-            c.join_url,
-            c.hidden,
-            c.id
-        ],
-    )?;
-    Ok(())
+pub async fn update(db: &Db, c: &Commitment) -> AppResult<()> {
+    let input = client::UpdateCommitmentInput {
+        id: key(c.id),
+        title: c.title.clone(),
+        area: c.area.clone(),
+        starts_at: time::put(c.starts_at),
+        ends_at: time::put(c.ends_at),
+        location: c.location.clone(),
+        join_url: c.join_url.clone(),
+        hidden: c.hidden,
+    };
+    Ok(db.api().update_commitment(input, ()).await?)
 }
 
-pub fn delete(conn: &Connection, id: i64) -> AppResult<()> {
-    conn.execute("DELETE FROM commitments WHERE id = ?1", [id])?;
-    Ok(())
+/// Deletes a meeting and its alert state.
+pub async fn delete(db: &Db, id: i64) -> AppResult<()> {
+    let input = client::DeleteCommitmentInput { id: key(id) };
+    gone_ok(
+        db.api()
+            .delete_commitment(input, ())
+            .await
+            .map_err(AppError::from),
+    )
 }

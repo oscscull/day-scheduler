@@ -1,41 +1,44 @@
 //! Small key-value facts about the app itself, e.g. when the scheduler last ran.
 
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, OptionalExtension as _, params};
 
-use crate::error::AppResult;
+use super::client;
+use super::convert::text_key;
+use super::db::{Db, gone_ok};
+use super::time;
+use crate::error::{AppError, AppResult};
 
-pub fn time(conn: &Connection, key: &str) -> AppResult<Option<DateTime<Utc>>> {
-    Ok(conn
-        .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
-        .optional()?)
+pub async fn time(db: &Db, key: &str) -> AppResult<Option<DateTime<Utc>>> {
+    text(db, key)
+        .await?
+        .map(|stored| time::get(&stored))
+        .transpose()
 }
 
-pub fn set_time(conn: &Connection, key: &str, at: DateTime<Utc>) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO meta (key, value) VALUES (?1, ?2)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![key, at],
-    )?;
-    Ok(())
+pub async fn set_time(db: &Db, key: &str, at: DateTime<Utc>) -> AppResult<()> {
+    set_text(db, key, &time::put(at)).await
 }
 
-pub fn text(conn: &Connection, key: &str) -> AppResult<Option<String>> {
-    Ok(conn
-        .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
-        .optional()?)
+pub async fn text(db: &Db, key: &str) -> AppResult<Option<String>> {
+    let input = client::MetaInput { key: text_key(key) };
+    let row = db.api().meta(input, ()).await?;
+    Ok(row.map(|r| r.value))
 }
 
-pub fn set_text(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO meta (key, value) VALUES (?1, ?2)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![key, value],
-    )?;
-    Ok(())
+pub async fn set_text(db: &Db, key: &str, value: &str) -> AppResult<()> {
+    let input = client::SetMetaInput {
+        key: text_key(key),
+        value: value.to_owned(),
+    };
+    Ok(db.api().set_meta(input, ()).await?)
 }
 
-pub fn forget(conn: &Connection, key: &str) -> AppResult<()> {
-    conn.execute("DELETE FROM meta WHERE key = ?1", [key])?;
-    Ok(())
+pub async fn forget(db: &Db, key: &str) -> AppResult<()> {
+    let input = client::ForgetMetaInput { key: text_key(key) };
+    gone_ok(
+        db.api()
+            .forget_meta(input, ())
+            .await
+            .map_err(AppError::from),
+    )
 }

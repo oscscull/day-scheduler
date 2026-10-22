@@ -4,10 +4,13 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, params};
 
+use super::client;
+use super::convert::text_key;
+use super::db::{Db, gone_ok};
+use super::time;
 use crate::domain::session::SessionRef;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Watch {
@@ -17,50 +20,49 @@ pub struct Watch {
     pub last_nudge: Option<DateTime<Utc>>,
 }
 
-pub fn all(conn: &Connection) -> AppResult<HashMap<String, Watch>> {
-    let mut stmt = conn.prepare("SELECT item_id, session, cwd, nudges, last_nudge FROM watch")?;
-    let rows = stmt.query_map([], |r| {
-        let id: Option<String> = r.get(1)?;
-        let cwd: Option<String> = r.get(2)?;
-        Ok((
-            r.get(0)?,
-            Watch {
-                session: id.map(|id| SessionRef { id, cwd }),
-                nudges: r.get(3)?,
-                last_nudge: r.get(4)?,
-            },
-        ))
-    })?;
-    Ok(rows.collect::<Result<_, _>>()?)
+pub async fn all(db: &Db) -> AppResult<HashMap<String, Watch>> {
+    let rows = db.api().watches(client::WatchesInput {}, ()).await?;
+    rows.into_iter()
+        .map(|r| {
+            let cwd = r.cwd;
+            let watch = Watch {
+                session: r.session.map(|id| SessionRef { id, cwd }),
+                nudges: u32::try_from(r.nudges).unwrap_or_default(),
+                last_nudge: time::get_opt(r.last_nudge.as_deref())?,
+            };
+            Ok((r.item_id.into_raw(), watch))
+        })
+        .collect()
 }
 
-/// An agent took the item on; a fresh start for the watchdog.
-pub fn claim(conn: &Connection, item_id: &str, session: Option<&SessionRef>) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO watch (item_id, session, cwd, nudges, last_nudge) VALUES (?1, ?2, ?3, 0, NULL)
-         ON CONFLICT(item_id) DO UPDATE SET session = COALESCE(excluded.session, watch.session),
-         cwd = CASE WHEN excluded.session IS NULL THEN watch.cwd ELSE excluded.cwd END,
-         nudges = 0, last_nudge = NULL",
-        params![
-            item_id,
-            session.map(|s| s.id.as_str()),
-            session.and_then(|s| s.cwd.as_deref())
-        ],
-    )?;
-    Ok(())
+/// An agent took the item on; a fresh start for the watchdog, keeping any session already known.
+pub async fn claim(db: &Db, item_id: &str, session: Option<&SessionRef>) -> AppResult<()> {
+    let api = db.api();
+    let item = text_key(item_id);
+    if let Some(s) = session {
+        let input = client::ClaimWithSessionInput {
+            item,
+            session: s.id.clone(),
+            cwd: s.cwd.clone(),
+        };
+        return Ok(api.claim_with_session(input, ()).await?);
+    }
+    Ok(api.claim(client::ClaimInput { item }, ()).await?)
 }
 
-pub fn record(conn: &Connection, item_id: &str, w: &Watch) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO watch (item_id, nudges, last_nudge) VALUES (?1, ?2, ?3)
-         ON CONFLICT(item_id) DO UPDATE SET nudges = excluded.nudges, last_nudge = excluded.last_nudge",
-        params![item_id, w.nudges, w.last_nudge],
-    )?;
-    Ok(())
+pub async fn record(db: &Db, item_id: &str, w: &Watch) -> AppResult<()> {
+    let input = client::RecordNudgesInput {
+        item: text_key(item_id),
+        nudges: i64::from(w.nudges),
+        last_nudge: time::put_opt(w.last_nudge),
+    };
+    Ok(db.api().record_nudges(input, ()).await?)
 }
 
 /// Stops watching an item once nobody is carrying it.
-pub fn release(conn: &Connection, item_id: &str) -> AppResult<()> {
-    conn.execute("DELETE FROM watch WHERE item_id = ?1", [item_id])?;
-    Ok(())
+pub async fn release(db: &Db, item_id: &str) -> AppResult<()> {
+    let input = client::ReleaseInput {
+        item: text_key(item_id),
+    };
+    gone_ok(db.api().release(input, ()).await.map_err(AppError::from))
 }

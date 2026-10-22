@@ -44,8 +44,11 @@ Connectors and schedules only act for areas this machine runs.
   `schedules/<id>.md` (TOML front matter + instructions), `inbox/` (agent-raised urgent items,
   ingested and deleted), `pause.toml` (only while paused). Tools edit `quarterdeck.toml` in place,
   keeping comments, and roll back edits that would break it.
-- **Database** (SQLite, WAL, versioned migrations): live state only. Activity, finished runs, done
-  to-dos, done items with their history, and past meetings all expire.
+- **Database** (`quarterdeck.db`, SQLite through [Based](https://github.com/oscscull/baseddsl)): live
+  state only. Tables and every query are declared in `src-tauri/schema/`; migrations in
+  `src-tauri/migrations/` are built into the binary and applied when the app or MCP server opens
+  the database. Activity, finished runs, done to-dos, done items with their history, and past
+  meetings all expire.
 
 ## Connectors
 
@@ -95,5 +98,4 @@ Default prompt files Quarterdeck wrote and nobody has edited follow newer defaul
 
 ## Not built yet
 
-- A database layer on baseddsl, once it can adopt existing databases.
 - Slack as a native connector.

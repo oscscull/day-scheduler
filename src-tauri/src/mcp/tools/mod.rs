@@ -1,7 +1,7 @@
 //! Every tool the MCP server offers, grouped by what it acts on.
 #![allow(
     clippy::needless_pass_by_value,
-    reason = "every handler has the same shape, fn(&Ctx, Args), so args arrive by value"
+    reason = "every handler has the same shape, (Ctx or &Ctx, Args), so both arrive by value"
 )]
 
 mod asks;

@@ -34,8 +34,7 @@ pub async fn sync(handle: &AppHandle) -> AppResult<()> {
             Ok(text) => {
                 let mut occurrences = parse::occurrences(&text, from, to);
                 occurrences.retain(|o| !settings.skips(feed, &o.title, o.all_day));
-                app.db
-                    .with(|conn| apply::apply(conn, feed, &occurrences, from))?;
+                apply::apply(&app.db, feed, &occurrences, from).await?;
             }
             Err(e) => errors.push(format!("{}: {e}", feed.name)),
         }

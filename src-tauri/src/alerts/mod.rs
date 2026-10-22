@@ -13,7 +13,7 @@ use crate::store::{alert_state, commitments};
 pub const WINDOW: &str = "alert";
 
 /// The meeting whose alert should be showing now, if any.
-pub fn current(app: &App) -> AppResult<Option<Commitment>> {
+pub async fn current(app: &App) -> AppResult<Option<Commitment>> {
     let settings = app.settings()?.alerts;
     if !settings.enabled {
         return Ok(None);
@@ -22,17 +22,15 @@ pub fn current(app: &App) -> AppResult<Option<Commitment>> {
         lead: Duration::minutes(settings.lead_minutes),
         linger: Duration::minutes(settings.linger_minutes),
     };
-    app.db.with(|conn| {
-        let meetings = commitments::list(conn)?;
-        let states = alert_state::all(conn)?;
-        Ok(due::due(&meetings, &states, Utc::now(), window).cloned())
-    })
+    let meetings = commitments::list(&app.db).await?;
+    let states = alert_state::all(&app.db).await?;
+    Ok(due::due(&meetings, &states, Utc::now(), window).cloned())
 }
 
 /// Opens the alert window when a meeting is close, and closes it when none is.
-pub fn check(handle: &AppHandle) -> AppResult<()> {
-    let showing = handle.get_webview_window(WINDOW);
-    match (current(&handle.state::<App>())?, showing) {
+pub async fn check(handle: &AppHandle) -> AppResult<()> {
+    let due = current(&handle.state::<App>()).await?;
+    match (due, handle.get_webview_window(WINDOW)) {
         (Some(_), None) => open(handle),
         (None, Some(_)) => close(handle),
         (Some(_) | None, _) => Ok(()),

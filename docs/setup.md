@@ -10,7 +10,7 @@ when setup changes.
 3. Run it with `npm run tauri dev`, or build an app with `npm run tauri build` and open the bundle in
    `src-tauri/target/release/bundle/macos/`.
 4. First start creates `~/.config/quarterdeck/` (settings, prompts, schedules, inbox) and the database
-   in `~/Library/Application Support/com.oscscull.quarterdeck/`.
+   (`quarterdeck.db`) in `~/Library/Application Support/com.oscscull.quarterdeck/`.
 5. In `~/.config/quarterdeck/quarterdeck.toml`, set `node` to this machine's name, check the `[[areas]]`
    (each area's `node` is the machine that runs it), map GitHub owners to areas under
    `[github.areas]`, and add calendars' private iCal links under `[[calendar.feeds]]`.

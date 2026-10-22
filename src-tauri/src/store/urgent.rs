@@ -1,56 +1,60 @@
-use rusqlite::{Connection, OptionalExtension as _, Row, params};
-
+use super::client::{self, UrgentRow};
+use super::convert::{int, key};
+use super::db::{Db, gone_ok};
+use super::time;
 use crate::domain::urgent::Urgent;
 use crate::error::{AppError, AppResult};
 
-const COLUMNS: &str = "id, title, detail, area, raised_at, schedule_id";
-
-fn from_row(row: &Row<'_>) -> rusqlite::Result<Urgent> {
+fn from_row(row: UrgentRow) -> AppResult<Urgent> {
     Ok(Urgent {
-        id: row.get(0)?,
-        title: row.get(1)?,
-        detail: row.get(2)?,
-        area: row.get(3)?,
-        raised_at: row.get(4)?,
-        schedule_id: row.get(5)?,
+        id: int(&row.id)?,
+        title: row.title,
+        detail: row.detail,
+        area: row.area,
+        raised_at: time::get(&row.raised_at)?,
+        schedule_id: row.schedule_id,
     })
 }
 
 /// Open urgent items, newest first.
-pub fn list(conn: &Connection) -> AppResult<Vec<Urgent>> {
-    let mut stmt = conn.prepare(&format!(
-        "SELECT {COLUMNS} FROM urgent ORDER BY raised_at DESC"
-    ))?;
-    let rows = stmt.query_map([], from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+pub async fn list(db: &Db) -> AppResult<Vec<Urgent>> {
+    let rows = db
+        .api()
+        .urgent_items(client::UrgentItemsInput {}, ())
+        .await?;
+    rows.into_iter().map(from_row).collect()
 }
 
-pub fn find(conn: &Connection, id: i64) -> AppResult<Urgent> {
-    conn.query_row(
-        &format!("SELECT {COLUMNS} FROM urgent WHERE id = ?1"),
-        [id],
-        from_row,
-    )
-    .optional()?
-    .ok_or_else(|| AppError::NotFound(format!("urgent item {id}")))
+pub async fn find(db: &Db, id: i64) -> AppResult<Urgent> {
+    let input = client::UrgentInput { id: key(id) };
+    let row = db.api().urgent(input, ()).await?;
+    from_row(row.ok_or_else(|| AppError::NotFound(format!("urgent item {id}")))?)
 }
 
 /// Stores a new urgent item; its `id` is ignored and assigned by the database.
-pub fn raise(conn: &Connection, item: &Urgent) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO urgent (title, detail, area, raised_at, schedule_id) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![item.title, item.detail, item.area, item.raised_at, item.schedule_id],
-    )?;
-    Ok(())
+pub async fn raise(db: &Db, item: &Urgent) -> AppResult<()> {
+    let input = client::RaiseUrgentInput {
+        title: item.title.clone(),
+        detail: item.detail.clone(),
+        area: item.area.clone(),
+        raised_at: time::put(item.raised_at),
+        schedule_id: item.schedule_id.clone(),
+    };
+    Ok(db.api().raise_urgent(input, ()).await?)
 }
 
 /// Dismissing deletes: an urgent item has no life after it is dealt with.
-pub fn dismiss(conn: &Connection, id: i64) -> AppResult<()> {
-    conn.execute("DELETE FROM urgent WHERE id = ?1", [id])?;
-    Ok(())
+pub async fn dismiss(db: &Db, id: i64) -> AppResult<()> {
+    let input = client::DismissUrgentInput { id: key(id) };
+    gone_ok(
+        db.api()
+            .dismiss_urgent(input, ())
+            .await
+            .map_err(AppError::from),
+    )
 }
 
-pub fn dismiss_all(conn: &Connection) -> AppResult<()> {
-    conn.execute("DELETE FROM urgent", [])?;
-    Ok(())
+pub async fn dismiss_all(db: &Db) -> AppResult<()> {
+    let input = client::DismissAllUrgentInput {};
+    Ok(db.api().dismiss_all_urgent(input, ()).await?)
 }

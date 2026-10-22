@@ -85,23 +85,19 @@ async fn ask(app: &App, schedule: &Schedule, node: &str, trigger: &str) -> AppRe
 pub async fn run(handle: &AppHandle, schedule: &Schedule, trigger: Option<&str>) -> AppResult<()> {
     let app = handle.state::<App>();
     let node = app.settings()?.node_for(&schedule.area).to_owned();
-    let id = app
-        .db
-        .with(|conn| runs::start(conn, &started(schedule, &node)))?;
+    let id = runs::start(&app.db, &started(schedule, &node)).await?;
     let why = trigger.unwrap_or("its schedule came due, or someone asked to run it now");
     let (outcome, summary) = match ask(&app, schedule, &node, why).await {
         Ok(text) => (Outcome::Ok, summary_of(&text)),
         Err(e) => (Outcome::Failed, summary_of(&e.to_string())),
     };
-    app.db.with(|conn| {
-        runs::finish(conn, id, outcome, &summary)?;
-        match outcome {
-            Outcome::Ok => activity::insert(conn, &note(schedule, &summary)),
-            Outcome::Failed | Outcome::Missed => {
-                urgent::raise(conn, &failure(schedule, summary.clone()))
-            }
+    runs::finish(&app.db, id, outcome, &summary).await?;
+    match outcome {
+        Outcome::Ok => activity::insert(&app.db, &note(schedule, &summary)).await?,
+        Outcome::Failed | Outcome::Missed => {
+            urgent::raise(&app.db, &failure(schedule, summary.clone())).await?;
         }
-    })?;
+    }
     let title = match outcome {
         Outcome::Ok => schedule.name.clone(),
         Outcome::Failed | Outcome::Missed => format!("{} failed", schedule.name),

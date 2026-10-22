@@ -58,7 +58,7 @@ fn free_name(taken: &[Feed], base: &str) -> String {
 }
 
 #[tauri::command]
-pub fn add_calendar(app: State<'_, App>, url: String, area: String) -> AppResult<()> {
+pub async fn add_calendar(app: State<'_, App>, url: String, area: String) -> AppResult<()> {
     let settings = app.settings()?;
     let area = settings.known_area(&area);
     let label = settings
@@ -73,13 +73,13 @@ pub fn add_calendar(app: State<'_, App>, url: String, area: String) -> AppResult
         ignore_titles: Vec::new(),
     };
     edit::upsert_feed(&app.config, &feed)?;
-    app.db.with(|c| status::sync_soon(c, calendar::SOURCE))
+    status::sync_soon(&app.db, calendar::SOURCE).await
 }
 
 #[tauri::command]
-pub fn remove_calendar(app: State<'_, App>, name: String) -> AppResult<()> {
+pub async fn remove_calendar(app: State<'_, App>, name: String) -> AppResult<()> {
     edit::remove_feed(&app.config, &name)?;
-    app.db.with(|c| status::sync_soon(c, calendar::SOURCE))
+    status::sync_soon(&app.db, calendar::SOURCE).await
 }
 
 #[cfg(test)]

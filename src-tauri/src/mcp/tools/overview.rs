@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::super::ctx::Ctx;
-use super::super::tool::{NoArgs, Tool, tool};
+use super::super::tool::{NoArgs, Tool, async_tool, tool};
 use super::in_area;
 use crate::config::settings::Area;
 use crate::error::AppResult;
@@ -11,7 +11,7 @@ use crate::views::today::{self, TodayView};
 
 pub fn tools() -> Vec<Tool> {
     vec![
-        tool(
+        async_tool(
             "get_overview",
             "Everything on the user's Today screen: upcoming meetings, the asks that need them on \
              their highest-ranked work, to-dos, urgent items and recent updates. Start here.",
@@ -38,11 +38,11 @@ struct OverviewArgs {
     area: Option<String>,
 }
 
-fn overview(ctx: &Ctx, args: OverviewArgs) -> AppResult<TodayView> {
+async fn overview(ctx: Ctx, args: OverviewArgs) -> AppResult<TodayView> {
     let settings = ctx.settings()?;
     let limit = settings.priority_limit;
     let rules = settings.priority_rules(Utc::now());
-    let mut view = ctx.db.with(|c| today::build(c, limit, rules))?;
+    let mut view = today::build(&ctx.db, limit, rules).await?;
     let keep = |a: &str| in_area(args.area.as_ref(), a);
     view.upcoming.retain(|c| keep(&c.area));
     view.priorities.retain(|p| keep(&p.area));

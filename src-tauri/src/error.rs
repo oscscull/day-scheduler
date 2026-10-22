@@ -4,7 +4,7 @@ use serde::{Serialize, Serializer};
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("database error: {0}")]
-    Db(#[from] rusqlite::Error),
+    Db(String),
     #[error("invalid cron expression: {0}")]
     Cron(#[from] croner::errors::CronError),
     #[error("bad data: {0}")]
@@ -29,8 +29,6 @@ pub enum AppError {
     BadInput(String),
     #[error("not found: {0}")]
     NotFound(String),
-    #[error("the database lock was poisoned")]
-    Lock,
 }
 
 /// Errors cross the IPC boundary as plain messages.

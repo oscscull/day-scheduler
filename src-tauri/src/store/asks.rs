@@ -1,119 +1,125 @@
 //! Open questions for the user. Answering keeps the row only until the answer is delivered.
 
-use rusqlite::{Connection, Row, params};
-
+use super::client::{self, AskRow};
+use super::convert::{int, key, text_key};
+use super::db::{Db, gone_ok};
 use crate::domain::ask::{Answered, Ask};
 use crate::domain::session::SessionRef;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 /// An ask and its answer, if given.
 type WithAnswer = (Ask, Option<String>);
 
-const COLUMNS: &str = "id, item_id, question, context, options, session, cwd, answer";
-
-fn from_row(row: &Row<'_>) -> rusqlite::Result<WithAnswer> {
-    let options: String = row.get(4)?;
-    let session: Option<String> = row.get(5)?;
+fn from_row(row: AskRow) -> AppResult<WithAnswer> {
+    let cwd = row.cwd;
     let ask = Ask {
-        id: row.get(0)?,
-        item_id: row.get(1)?,
-        question: row.get(2)?,
-        context: row.get(3)?,
-        options: serde_json::from_str(&options).unwrap_or_default(),
-        asker: session.map(|id| SessionRef { id, cwd: None }),
+        id: int(&row.id)?,
+        item_id: row.item_id.into_raw(),
+        question: row.question,
+        context: row.context,
+        options: serde_json::from_value(row.options).unwrap_or_default(),
+        asker: row.session.map(|id| SessionRef { id, cwd }),
     };
-    let cwd: Option<String> = row.get(6)?;
-    let ask = Ask {
-        asker: ask.asker.map(|s| SessionRef { cwd, ..s }),
-        ..ask
-    };
-    Ok((ask, row.get(7)?))
+    Ok((ask, row.answer))
 }
 
-fn query(conn: &Connection, filter: &str, arg: &str) -> AppResult<Vec<WithAnswer>> {
-    let sql = format!("SELECT {COLUMNS} FROM asks WHERE {filter} ORDER BY id");
-    let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map([arg], from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+fn asks(rows: Vec<AskRow>) -> AppResult<Vec<Ask>> {
+    rows.into_iter()
+        .map(|r| from_row(r).map(|(a, _)| a))
+        .collect()
 }
 
 /// Open asks, not yet answered.
-pub fn list(conn: &Connection) -> AppResult<Vec<Ask>> {
-    let all = query(conn, "answer IS NULL AND ?1 = ?1", "")?;
-    Ok(all.into_iter().map(|(a, _)| a).collect())
+pub async fn list(db: &Db) -> AppResult<Vec<Ask>> {
+    asks(db.api().open_asks(client::OpenAsksInput {}, ()).await?)
 }
 
-pub fn for_item(conn: &Connection, item_id: &str) -> AppResult<Vec<Ask>> {
-    let all = query(conn, "answer IS NULL AND item_id = ?1", item_id)?;
-    Ok(all.into_iter().map(|(a, _)| a).collect())
+pub async fn for_item(db: &Db, item_id: &str) -> AppResult<Vec<Ask>> {
+    let input = client::OpenAsksForInput {
+        item: text_key(item_id),
+    };
+    asks(db.api().open_asks_for(input, ()).await?)
 }
 
 /// Answers not yet taken back to whoever asked.
-pub fn answered(conn: &Connection) -> AppResult<Vec<Answered>> {
-    let all = query(conn, "answer IS NOT NULL AND ?1 = ?1", "")?;
-    Ok(all
-        .into_iter()
-        .filter_map(|(ask, answer)| {
-            Some(Answered {
-                ask,
-                answer: answer?,
-            })
-        })
-        .collect())
+pub async fn answered(db: &Db) -> AppResult<Vec<Answered>> {
+    let rows = db
+        .api()
+        .answered_asks(client::AnsweredAsksInput {}, ())
+        .await?;
+    let mut out = Vec::with_capacity(rows.len());
+    for row in rows {
+        if let (ask, Some(answer)) = from_row(row)? {
+            out.push(Answered { ask, answer });
+        }
+    }
+    Ok(out)
 }
 
-pub fn get(conn: &Connection, id: i64) -> AppResult<Ask> {
-    let mut stmt = conn.prepare(&format!("SELECT {COLUMNS} FROM asks WHERE id = ?1"))?;
-    Ok(stmt.query_row([id], from_row)?.0)
+pub async fn get(db: &Db, id: i64) -> AppResult<Ask> {
+    let input = client::AskInput { id: key(id) };
+    let row = db.api().ask(input, ()).await?;
+    let row = row.ok_or_else(|| AppError::NotFound(format!("ask {id}")))?;
+    Ok(from_row(row)?.0)
 }
 
 /// Returns the new ask's id.
-pub fn insert(conn: &Connection, ask: &Ask) -> AppResult<i64> {
+pub async fn insert(db: &Db, ask: &Ask) -> AppResult<i64> {
     let asker = ask.asker.as_ref();
-    conn.execute(
-        "INSERT INTO asks (item_id, question, context, options, session, cwd)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![
-            ask.item_id,
-            ask.question,
-            ask.context,
-            serde_json::to_string(&ask.options)?,
-            asker.map(|s| s.id.as_str()),
-            asker.and_then(|s| s.cwd.as_deref()),
-        ],
-    )?;
-    Ok(conn.last_insert_rowid())
+    let input = client::AddAskInput {
+        item: text_key(&ask.item_id),
+        question: ask.question.clone(),
+        context: ask.context.clone(),
+        options: serde_json::to_value(&ask.options)?,
+        session: asker.map(|s| s.id.clone()),
+        cwd: asker.and_then(|s| s.cwd.clone()),
+    };
+    let row = db.api().add_ask(input, ()).await?;
+    int(&row.id)
 }
 
-pub fn answer(conn: &Connection, id: i64, answer: &str) -> AppResult<()> {
-    conn.execute(
-        "UPDATE asks SET answer = ?2 WHERE id = ?1",
-        params![id, answer],
-    )?;
-    Ok(())
+pub async fn answer(db: &Db, id: i64, answer: &str) -> AppResult<()> {
+    let input = client::AnswerAskInput {
+        id: key(id),
+        answer: answer.to_owned(),
+    };
+    Ok(db.api().answer_ask(input, ()).await?)
 }
 
 /// Removes an ask: dismissed, or its answer delivered.
-pub fn remove(conn: &Connection, id: i64) -> AppResult<()> {
-    conn.execute("DELETE FROM asks WHERE id = ?1", [id])?;
-    Ok(())
+pub async fn remove(db: &Db, id: i64) -> AppResult<()> {
+    let input = client::RemoveAskInput { id: key(id) };
+    gone_ok(db.api().remove_ask(input, ()).await.map_err(AppError::from))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::store::schema;
+    use chrono::Utc;
 
-    #[test]
-    fn answered_asks_leave_the_open_list_until_delivered() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::migrate(&conn).unwrap();
-        conn.execute(
-            "INSERT INTO items (id, title, state_label, stage, holder, area, rank, state_since, opened_at, source)
-             VALUES ('a', 't', '', 'in_progress', '', 'work', 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'quarterdeck')",
-            [],
-        )
-        .unwrap();
+    use super::*;
+    use crate::domain::item::{Stage, WorkItem};
+    use crate::store::items;
+
+    #[tokio::test]
+    async fn answered_asks_leave_the_open_list_until_delivered() {
+        let db = Db::in_memory().await;
+        let now = Utc::now();
+        let item = WorkItem {
+            id: "a".to_owned(),
+            title: "t".to_owned(),
+            state_label: String::new(),
+            stage: Stage::InProgress,
+            status: None,
+            holder: String::new(),
+            area: "work".to_owned(),
+            link: None,
+            source: items::MANUAL.to_owned(),
+            external_id: None,
+            opened_at: now,
+            state_since: now,
+            rank: 0,
+        };
+        items::save(&db, &item).await.unwrap();
         let ask = Ask {
             item_id: "a".to_owned(),
             question: "Merge?".to_owned(),
@@ -124,12 +130,12 @@ mod tests {
             }),
             ..Ask::default()
         };
-        insert(&conn, &ask).unwrap();
-        let open = list(&conn).unwrap();
+        insert(&db, &ask).await.unwrap();
+        let open = list(&db).await.unwrap();
         assert_eq!(open.first().unwrap().options, ["Yes", "No"]);
-        answer(&conn, open.first().unwrap().id, "Yes").unwrap();
-        assert!(list(&conn).unwrap().is_empty());
-        let done = answered(&conn).unwrap();
+        answer(&db, open.first().unwrap().id, "Yes").await.unwrap();
+        assert!(list(&db).await.unwrap().is_empty());
+        let done = answered(&db).await.unwrap();
         let first = done.first().unwrap();
         assert_eq!(first.answer, "Yes");
         assert_eq!(

@@ -18,13 +18,12 @@ use crate::error::AppResult;
 use crate::store::{asks, items, runs, watch};
 use crate::workspace::{self, Workspace};
 
-pub fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
+pub async fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     let app = handle.state::<App>();
-    let waiting = app.db.with(asks::answered)?;
+    let waiting = asks::answered(&app.db).await?;
     // One run per item at a time: a second answer waits for the first run, then resumes its session.
-    let mut busy: HashSet<String> = app
-        .db
-        .with(runs::live)?
+    let mut busy: HashSet<String> = runs::live(&app.db)
+        .await?
         .into_iter()
         .map(|r| r.target)
         .collect();
@@ -32,35 +31,38 @@ pub fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         if busy.contains(&answered.ask.item_id) {
             continue;
         }
-        let item = app.db.with(|c| items::get(c, &answered.ask.item_id))?;
+        let item = items::get(&app.db, &answered.ask.item_id).await?;
         // Another machine runs this area's agents and delivers there.
         if settings.node_for(&item.area) != settings.node {
             continue;
         }
-        let known = known_session(&app, &answered, &item)?;
+        let known = known_session(&app, &answered, &item).await?;
         let ws = workspace::for_item(settings, &item)?;
         if let Some(thread) = thread_for(known, ws.as_ref()) {
             if let Thread::Start(session) = &thread {
-                app.db.with(|c| watch::claim(c, &item.id, Some(session)))?;
+                watch::claim(&app.db, &item.id, Some(session)).await?;
             }
             let prompt = prompt_for(&app, &answered, &item, ws.as_ref())?;
             let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
-            dispatch::run(handle, settings, job)?;
+            dispatch::run(handle, settings, job).await?;
             busy.insert(item.id.clone());
         }
-        app.db.with(|c| asks::remove(c, answered.ask.id))?;
+        asks::remove(&app.db, answered.ask.id).await?;
     }
     Ok(())
 }
 
 /// The session that asked, else the one holding the item.
-fn known_session(app: &App, answered: &Answered, item: &WorkItem) -> AppResult<Option<SessionRef>> {
+async fn known_session(
+    app: &App,
+    answered: &Answered,
+    item: &WorkItem,
+) -> AppResult<Option<SessionRef>> {
     if answered.ask.asker.is_some() {
         return Ok(answered.ask.asker.clone());
     }
-    Ok(app
-        .db
-        .with(watch::all)?
+    Ok(watch::all(&app.db)
+        .await?
         .remove(&item.id)
         .and_then(|w| w.session))
 }

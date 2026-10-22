@@ -1,9 +1,10 @@
 //! Deletes stored agent output once it has outlived its TTL.
 
 use chrono::{DateTime, Duration, Utc};
-use rusqlite::{Connection, params};
 
-use super::items;
+use super::client;
+use super::db::Db;
+use super::{items, time};
 use crate::error::AppResult;
 
 /// Meetings are only useful until shortly after they end.
@@ -18,37 +19,43 @@ pub struct Ttl {
     pub done_items: Duration,
 }
 
-/// Removes stored output past its TTL: activity, finished runs, done to-dos, and done items with
-/// their history. Live runs are kept.
-pub fn expire(conn: &Connection, now: DateTime<Utc>, ttl: Ttl) -> AppResult<()> {
-    conn.execute(
-        "DELETE FROM activity WHERE at < ?1",
-        params![now - ttl.activity],
-    )?;
-    conn.execute(
-        "DELETE FROM runs WHERE finished_at IS NOT NULL AND finished_at < ?1",
-        params![now - ttl.runs],
-    )?;
-    conn.execute(
-        "DELETE FROM todos WHERE done_at IS NOT NULL AND done_at < ?1",
-        params![now - ttl.done_todos],
-    )?;
-    conn.execute(
-        "DELETE FROM commitments WHERE ends_at < ?1",
-        params![now - PAST_MEETINGS],
-    )?;
-    conn.execute(
-        "DELETE FROM alert_state WHERE commitment_id NOT IN (SELECT id FROM commitments)",
-        [],
-    )?;
-    conn.execute(
-        "DELETE FROM sync_state WHERE source LIKE 'calendar:%' AND NOT EXISTS (
-             SELECT 1 FROM commitments c
-             WHERE c.source = sync_state.source AND c.external_id = sync_state.external_id)",
-        [],
-    )?;
-    for id in items::done_before(conn, now - ttl.done_items)? {
-        items::delete(conn, &id)?;
+/// Removes stored output past its TTL: activity, finished runs, done to-dos, past meetings and
+/// their alerts and calendar snapshots, and done items with their history. Live runs are kept.
+pub async fn expire(db: &Db, now: DateTime<Utc>, ttl: Ttl) -> AppResult<()> {
+    let api = db.api();
+    let before = |age: Duration| time::put(now - age);
+    api.expire_activity(
+        client::ExpireActivityInput {
+            before: before(ttl.activity),
+        },
+        (),
+    )
+    .await?;
+    api.expire_runs(
+        client::ExpireRunsInput {
+            before: before(ttl.runs),
+        },
+        (),
+    )
+    .await?;
+    api.expire_todos(
+        client::ExpireTodosInput {
+            before: before(ttl.done_todos),
+        },
+        (),
+    )
+    .await?;
+    api.expire_commitments(
+        client::ExpireCommitmentsInput {
+            before: before(PAST_MEETINGS),
+        },
+        (),
+    )
+    .await?;
+    api.expire_sync_snapshots(client::ExpireSyncSnapshotsInput {}, ())
+        .await?;
+    for id in items::done_before(db, now - ttl.done_items).await? {
+        items::delete(db, &id).await?;
     }
     Ok(())
 }

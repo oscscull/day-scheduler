@@ -52,9 +52,9 @@ fn settings_for_login(config: &config::Config) -> bool {
 
 /// Opens the database and config folder, then hands both to every command.
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    let db = store::Db::open(&paths::data_dir()?)?;
+    let db = tauri::async_runtime::block_on(store::Db::open(&paths::data_dir()?))?;
     // Only the app runs Claude, so anything still marked running is from before this start.
-    db.with(|c| store::runs::close_interrupted(c, chrono::Utc::now()))?;
+    tauri::async_runtime::block_on(store::runs::close_interrupted(&db, chrono::Utc::now()))?;
     let config = config::Config::open(paths::config_dir()?)?;
     let launch_at_login = settings_for_login(&config);
     // Serving peers is optional; a busy port must not stop the app opening.

@@ -1,24 +1,27 @@
+use std::sync::Arc;
+
 use crate::config::Config;
 use crate::config::settings::{self, Settings};
 use crate::error::AppResult;
 use crate::paths;
 use crate::store::Db;
 
-/// What every tool works with: the shared database and config folder.
-#[derive(Debug)]
+/// What every tool works with: the shared database and config folder. Cheap to clone, so each
+/// tool call owns one.
+#[derive(Debug, Clone)]
 pub struct Ctx {
-    pub db: Db,
+    pub db: Arc<Db>,
     pub config: Config,
 }
 
 impl Ctx {
-    pub fn open() -> AppResult<Self> {
-        Self::at(&paths::data_dir()?, paths::config_dir()?)
+    pub async fn open() -> AppResult<Self> {
+        Self::at(&paths::data_dir()?, paths::config_dir()?).await
     }
 
-    pub fn at(data: &std::path::Path, config: std::path::PathBuf) -> AppResult<Self> {
+    pub async fn at(data: &std::path::Path, config: std::path::PathBuf) -> AppResult<Self> {
         Ok(Self {
-            db: Db::open(data)?,
+            db: Arc::new(Db::open(data).await?),
             config: Config::open(config)?,
         })
     }

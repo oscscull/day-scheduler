@@ -47,7 +47,7 @@ mod tests {
             .map(|t| t.with_timezone(&Local).format("%H:%M").to_string())
             .collect();
         assert_eq!(hours, ["15:00", "16:00", "17:00"]);
-        assert!(!out.when.is_empty());
+        assert_ne!(out.when, "");
     }
 
     #[test]

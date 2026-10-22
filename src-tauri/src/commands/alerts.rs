@@ -11,25 +11,19 @@ const SNOOZE: Duration = Duration::minutes(1);
 
 /// The meeting the alert window should show.
 #[tauri::command]
-pub fn due_alert(app: State<'_, App>) -> AppResult<Option<Commitment>> {
-    alerts::current(&app)
+pub async fn due_alert(app: State<'_, App>) -> AppResult<Option<Commitment>> {
+    alerts::current(&app).await
 }
 
 /// Joined or skipped: this meeting won't alert again.
 #[tauri::command]
-pub fn alert_done(handle: AppHandle, id: i64) -> AppResult<()> {
-    handle
-        .state::<App>()
-        .db
-        .with(|conn| alert_state::done(conn, id))?;
+pub async fn alert_done(handle: AppHandle, id: i64) -> AppResult<()> {
+    alert_state::done(&handle.state::<App>().db, id).await?;
     alerts::close(&handle)
 }
 
 #[tauri::command]
-pub fn alert_snooze(handle: AppHandle, id: i64) -> AppResult<()> {
-    handle
-        .state::<App>()
-        .db
-        .with(|conn| alert_state::snooze(conn, id, Utc::now() + SNOOZE))?;
+pub async fn alert_snooze(handle: AppHandle, id: i64) -> AppResult<()> {
+    alert_state::snooze(&handle.state::<App>().db, id, Utc::now() + SNOOZE).await?;
     alerts::close(&handle)
 }

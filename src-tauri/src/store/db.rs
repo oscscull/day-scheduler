@@ -1,0 +1,101 @@
+use std::path::Path;
+
+use based_runtime::id::UuidGen;
+use based_runtime::migrate::{self, ApplyOpts};
+use based_runtime::{Compiled, Dialect, Engine, RusqliteBackend, TxOptions};
+
+use super::client::{self, Client, ClientError, Embedded, TxError};
+use crate::error::{AppError, AppResult};
+
+/// `based.toml`, `schema/` and `migrations/`, checked and embedded by `build.rs`.
+mod embedded {
+    include!(concat!(env!("OUT_DIR"), "/schema.rs"));
+}
+
+const FILE: &str = "quarterdeck.db";
+
+/// A client whose calls run in one transaction.
+pub type TxApi = Client<based_runtime::TxTransport>;
+
+/// The app's database, shared through Tauri state. The app and the MCP server open the same file.
+pub struct Db {
+    engine: Engine,
+}
+
+impl std::fmt::Debug for Db {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Db").finish_non_exhaustive()
+    }
+}
+
+impl Db {
+    /// Opens (or creates) the database in `dir` and applies any pending migrations.
+    pub async fn open(dir: &Path) -> AppResult<Self> {
+        std::fs::create_dir_all(dir)?;
+        let path = dir.join(FILE);
+        let path = path
+            .to_str()
+            .ok_or_else(|| AppError::Db("the data folder's path isn't UTF-8".to_owned()))?;
+        Self::start(RusqliteBackend::open(path).map_err(db_error)?).await
+    }
+
+    /// A fresh, empty database for tests.
+    #[cfg(test)]
+    pub async fn in_memory() -> Self {
+        let backend = RusqliteBackend::in_memory().expect("in-memory database");
+        Self::start(backend).await.expect("fresh database migrates")
+    }
+
+    async fn start(backend: RusqliteBackend) -> AppResult<Self> {
+        let compiled =
+            Compiled::from_sources(embedded::MANIFEST, embedded::SOURCES).map_err(db_error)?;
+        let migrations =
+            migrate::from_sources(Dialect::Sqlite, embedded::MIGRATIONS).map_err(db_error)?;
+        migrate::apply(&backend, Dialect::Sqlite, &migrations, &ApplyOpts::default())
+            .await
+            .map_err(db_error)?;
+        Ok(Self {
+            engine: Engine::new(compiled, backend, UuidGen),
+        })
+    }
+
+    pub(super) fn api(&self) -> Client<Embedded<'_>> {
+        client::embedded(&self.engine)
+    }
+
+    /// Runs client calls in one transaction: all of them land, or none.
+    pub(super) async fn tx<T, F, Fut>(&self, f: F) -> AppResult<T>
+    where
+        F: FnOnce(TxApi) -> Fut,
+        Fut: Future<Output = Result<T, TxError>>,
+    {
+        client::transaction(&self.engine, TxOptions::new(), f)
+            .await
+            .map_err(|e| match e {
+                TxError::Client(e) => AppError::from(e),
+                other => db_error(other),
+            })
+    }
+}
+
+fn db_error(e: impl std::fmt::Display) -> AppError {
+    AppError::Db(e.to_string())
+}
+
+impl From<ClientError> for AppError {
+    fn from(e: ClientError) -> Self {
+        if e.code() == "not_found" {
+            Self::NotFound(e.to_string())
+        } else {
+            Self::Db(e.to_string())
+        }
+    }
+}
+
+/// Removing something that is already gone is fine.
+pub fn gone_ok(result: AppResult<()>) -> AppResult<()> {
+    match result {
+        Err(AppError::NotFound(_)) => Ok(()),
+        other => other,
+    }
+}

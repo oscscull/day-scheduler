@@ -7,7 +7,7 @@ use crate::error::AppResult;
 use crate::store::todos;
 
 #[tauri::command]
-pub fn add_todo(
+pub async fn add_todo(
     app: State<'_, App>,
     title: String,
     area: String,
@@ -21,14 +21,14 @@ pub fn add_todo(
         due,
         done_at: None,
     };
-    app.db.with(|conn| todos::insert(conn, &todo))
+    todos::insert(&app.db, &todo).await
 }
 
 /// Ticking a to-do off keeps it briefly, so a mis-click can be undone; expiry removes it later.
 #[tauri::command]
-pub fn set_todo_done(app: State<'_, App>, id: i64, done: bool) -> AppResult<()> {
+pub async fn set_todo_done(app: State<'_, App>, id: i64, done: bool) -> AppResult<()> {
     let at = done.then(Utc::now);
-    app.db.with(|conn| todos::set_done(conn, id, at))
+    todos::set_done(&app.db, id, at).await
 }
 
 /// What the edit form sends: the whole to-do, so clearing the date clears it.
@@ -41,21 +41,19 @@ pub struct TodoEdit {
 }
 
 #[tauri::command]
-pub fn update_todo(app: State<'_, App>, todo: TodoEdit) -> AppResult<()> {
+pub async fn update_todo(app: State<'_, App>, todo: TodoEdit) -> AppResult<()> {
     let area = app.settings()?.known_area(&todo.area);
-    app.db.with(|conn| {
-        let old = todos::get(conn, todo.id)?;
-        let new = Todo {
-            title: todo.title,
-            area,
-            due: todo.due,
-            ..old
-        };
-        todos::update(conn, &new)
-    })
+    let old = todos::get(&app.db, todo.id).await?;
+    let new = Todo {
+        title: todo.title,
+        area,
+        due: todo.due,
+        ..old
+    };
+    todos::update(&app.db, &new).await
 }
 
 #[tauri::command]
-pub fn delete_todo(app: State<'_, App>, id: i64) -> AppResult<()> {
-    app.db.with(|conn| todos::delete(conn, id))
+pub async fn delete_todo(app: State<'_, App>, id: i64) -> AppResult<()> {
+    todos::delete(&app.db, id).await
 }

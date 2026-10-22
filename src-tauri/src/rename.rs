@@ -5,8 +5,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use rusqlite::Connection;
-
 use crate::cli;
 use crate::error::AppResult;
 use crate::paths;
@@ -65,7 +63,7 @@ fn session_folder(home: &Path, dir: &Path) -> PathBuf {
     home.join(".claude/projects").join(key)
 }
 
-/// Worktrees moved with the data folder: tell git, point stored sessions at the new paths, and
+/// Worktrees moved with the data folder: tell git, and
 /// move Claude's session history so those sessions can still be resumed.
 fn move_worktrees(home: &Path, old: &Path, new: &Path) -> AppResult<()> {
     let Ok(entries) = std::fs::read_dir(new.join("worktrees")) else {
@@ -83,12 +81,6 @@ fn move_worktrees(home: &Path, old: &Path, new: &Path) -> AppResult<()> {
         );
         let was = old.join("worktrees").join(entry.file_name());
         move_once(&session_folder(home, &was), &session_folder(home, &moved))?;
-    }
-    let conn = Connection::open(new.join("quarterdeck.sqlite"))?;
-    let (old, new) = (old.display().to_string(), new.display().to_string());
-    for table in ["watch", "asks"] {
-        let sql = format!("UPDATE {table} SET cwd = replace(cwd, ?1, ?2) WHERE cwd LIKE ?1 || '%'");
-        conn.execute(&sql, [&old, &new])?;
     }
     Ok(())
 }

@@ -12,20 +12,20 @@ use crate::work;
 
 /// Saves a new priority order; `ids` is every item, most important first.
 #[tauri::command]
-pub fn reorder_items(app: State<'_, App>, ids: Vec<String>) -> AppResult<()> {
-    app.db.with(|conn| items::reorder(conn, &ids))
+pub async fn reorder_items(app: State<'_, App>, ids: Vec<String>) -> AppResult<()> {
+    items::reorder(&app.db, &ids).await
 }
 
 /// Creates or edits an item and returns its id.
 #[tauri::command]
-pub fn save_item(app: State<'_, App>, mut item: ItemInput) -> AppResult<String> {
+pub async fn save_item(app: State<'_, App>, mut item: ItemInput) -> AppResult<String> {
     item.area = app.settings()?.known_area(&item.area);
-    app.db.with(|conn| work::save(conn, item, Utc::now()))
+    work::save(&app.db, item, Utc::now()).await
 }
 
 #[tauri::command]
-pub fn delete_item(app: State<'_, App>, id: String) -> AppResult<()> {
-    app.db.with(|conn| items::delete(conn, &id))
+pub async fn delete_item(app: State<'_, App>, id: String) -> AppResult<()> {
+    items::delete(&app.db, &id).await
 }
 
 /// What the user does about something that needs them.
@@ -52,13 +52,18 @@ pub enum Response {
 }
 
 #[tauri::command]
-pub fn respond(app: State<'_, App>, response: Response) -> AppResult<()> {
+pub async fn respond(app: State<'_, App>, response: Response) -> AppResult<()> {
     let settings = app.settings()?;
-    app.db.with(|conn| match response {
-        Response::Answer { ask_id, text } => crate::answer::give(conn, &settings, ask_id, &text),
-        Response::Dismiss { ask_id } => asks::remove(conn, ask_id),
-        Response::Tell { item_id, text } => crate::answer::tell(conn, &settings, &item_id, &text),
-    })
+    let db = &app.db;
+    match response {
+        Response::Answer { ask_id, text } => {
+            crate::answer::give(db, &settings, ask_id, &text).await
+        }
+        Response::Dismiss { ask_id } => asks::remove(db, ask_id).await,
+        Response::Tell { item_id, text } => {
+            crate::answer::tell(db, &settings, &item_id, &text).await
+        }
+    }
 }
 
 /// One item with its open asks and history, for the detail view.
@@ -70,12 +75,10 @@ pub struct ItemDetail {
 }
 
 #[tauri::command]
-pub fn item_detail(app: State<'_, App>, id: String) -> AppResult<ItemDetail> {
-    app.db.with(|conn| {
-        Ok(ItemDetail {
-            item: items::get(conn, &id)?,
-            asks: asks::for_item(conn, &id)?,
-            history: events::for_item(conn, &id)?,
-        })
+pub async fn item_detail(app: State<'_, App>, id: String) -> AppResult<ItemDetail> {
+    Ok(ItemDetail {
+        item: items::get(&app.db, &id).await?,
+        asks: asks::for_item(&app.db, &id).await?,
+        history: events::for_item(&app.db, &id).await?,
     })
 }

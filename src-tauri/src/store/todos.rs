@@ -1,65 +1,70 @@
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, OptionalExtension as _, Row, params};
 
+use super::client::{self, TodoRow};
+use super::convert::{int, key};
+use super::db::{Db, gone_ok};
+use super::time;
 use crate::domain::todo::Todo;
 use crate::error::{AppError, AppResult};
 
-fn from_row(row: &Row<'_>) -> rusqlite::Result<Todo> {
+fn from_row(row: TodoRow) -> AppResult<Todo> {
     Ok(Todo {
-        id: row.get(0)?,
-        title: row.get(1)?,
-        area: row.get(2)?,
-        due: row.get(3)?,
-        done_at: row.get(4)?,
+        id: int(&row.id)?,
+        title: row.title,
+        area: row.area,
+        due: row.due.as_deref().map(time::get_date).transpose()?,
+        done_at: time::get_opt(row.done_at.as_deref())?,
     })
 }
 
-/// Open to-dos (soonest due first, undated last), then recently done ones.
-pub fn list(conn: &Connection) -> AppResult<Vec<Todo>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, title, area, due, done_at FROM todos
-         ORDER BY done_at IS NOT NULL, due IS NULL, due, id",
-    )?;
-    let rows = stmt.query_map([], from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+/// Open to-dos (soonest due first, undated last), then done ones, latest first.
+pub async fn list(db: &Db) -> AppResult<Vec<Todo>> {
+    let rows = db.api().todos(client::TodosInput {}, ()).await?;
+    rows.into_iter().map(from_row).collect()
 }
 
 /// Stores a new to-do; its `id` is ignored and assigned by the database.
-pub fn insert(conn: &Connection, todo: &Todo) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO todos (title, area, due, done_at) VALUES (?1, ?2, ?3, ?4)",
-        params![todo.title, todo.area, todo.due, todo.done_at],
-    )?;
-    Ok(())
+pub async fn insert(db: &Db, todo: &Todo) -> AppResult<()> {
+    let input = client::AddTodoInput {
+        title: todo.title.clone(),
+        area: todo.area.clone(),
+        due: todo.due.map(time::put_date),
+        done_at: time::put_opt(todo.done_at),
+    };
+    Ok(db.api().add_todo(input, ()).await?)
 }
 
-pub fn set_done(conn: &Connection, id: i64, done_at: Option<DateTime<Utc>>) -> AppResult<()> {
-    conn.execute(
-        "UPDATE todos SET done_at = ?1 WHERE id = ?2",
-        params![done_at, id],
-    )?;
-    Ok(())
+pub async fn set_done(db: &Db, id: i64, done_at: Option<DateTime<Utc>>) -> AppResult<()> {
+    let input = client::SetTodoDoneInput {
+        id: key(id),
+        done_at: time::put_opt(done_at),
+    };
+    Ok(db.api().set_todo_done(input, ()).await?)
 }
 
-pub fn get(conn: &Connection, id: i64) -> AppResult<Todo> {
-    conn.query_row(
-        "SELECT id, title, area, due, done_at FROM todos WHERE id = ?1",
-        [id],
-        from_row,
+pub async fn get(db: &Db, id: i64) -> AppResult<Todo> {
+    let input = client::TodoInput { id: key(id) };
+    let row = db.api().todo(input, ()).await?;
+    from_row(row.ok_or_else(|| AppError::NotFound(format!("to-do {id}")))?)
+}
+
+pub async fn update(db: &Db, todo: &Todo) -> AppResult<()> {
+    let input = client::UpdateTodoInput {
+        id: key(todo.id),
+        title: todo.title.clone(),
+        area: todo.area.clone(),
+        due: todo.due.map(time::put_date),
+        done_at: time::put_opt(todo.done_at),
+    };
+    Ok(db.api().update_todo(input, ()).await?)
+}
+
+pub async fn delete(db: &Db, id: i64) -> AppResult<()> {
+    let input = client::DeleteTodoInput { id: key(id) };
+    gone_ok(
+        db.api()
+            .delete_todo(input, ())
+            .await
+            .map_err(AppError::from),
     )
-    .optional()?
-    .ok_or_else(|| AppError::NotFound(format!("to-do {id}")))
-}
-
-pub fn update(conn: &Connection, todo: &Todo) -> AppResult<()> {
-    conn.execute(
-        "UPDATE todos SET title = ?1, area = ?2, due = ?3, done_at = ?4 WHERE id = ?5",
-        params![todo.title, todo.area, todo.due, todo.done_at, todo.id],
-    )?;
-    Ok(())
-}
-
-pub fn delete(conn: &Connection, id: i64) -> AppResult<()> {
-    conn.execute("DELETE FROM todos WHERE id = ?1", [id])?;
-    Ok(())
 }
