@@ -1,6 +1,4 @@
-//! The login shell's answers, kept so it's asked once per tool: a path while it still exists, a
-//! miss for a while, and a shell that didn't answer for a shorter while, so a hung profile only
-//! costs its deadline now and then.
+//! Caches the login shell's answers so each tool is asked for once, not on every use.
 
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -55,15 +55,14 @@ fn missing(cmd: &Command, e: std::io::Error) -> AppError {
     let cmd = cmd.as_std();
     if let Some(dir) = cmd.get_current_dir().filter(|d| !d.exists()) {
         return AppError::Claude(format!(
-            "the folder this run belongs in is gone: {} ({e})",
+            "send it again to start afresh: the folder this run belonged in is gone ({})",
             dir.display()
         ));
     }
     let program = cmd.get_program().to_string_lossy().into_owned();
     AppError::Claude(format!(
-        "can't find your agent: `{program}` isn't installed where Quarterdeck looks or on your \
-         login shell's PATH, or the shell was too slow to say ({e}). Set claude_command in \
-         quarterdeck.toml to its full path."
+        "set claude_command in quarterdeck.toml to its full path: `{program}` wasn't found \
+         ({e})"
     ))
 }
 
