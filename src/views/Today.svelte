@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import AnswerBox from "../components/AnswerBox.svelte";
   import AreaDot from "../components/AreaDot.svelte";
   import TellClaude from "../components/TellClaude.svelte";
@@ -83,6 +84,7 @@
           <span class="mono">{clock(next.startsAt)}</span>
           <span class="muted">{t("today.in", { when: until(next.startsAt, now) })}</span>
           {#if next.location}<span class="muted">{t("today.where", { location: next.location })}</span>{/if}
+          {#if next.joinUrl}{@const url = next.joinUrl}<button type="button" class="link" onclick={() => openUrl(url)}>{t("today.join")}</button>{/if}
           <button type="button" class="quiet" aria-label={t("today.hideHint", { title: next.title })} onclick={() => hide(next)}>{t("today.hide")}</button>
         </p>
         <p class="hint">
@@ -212,6 +214,11 @@
     flex-wrap: wrap;
     gap: 8px;
     font-size: 18px;
+  }
+
+  .when .link {
+    padding: 0;
+    font-size: inherit;
   }
 
   .muted {

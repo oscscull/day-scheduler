@@ -26,6 +26,7 @@
   "today.next": "Next",
   "today.in": "· {when}",
   "today.where": "on {location}",
+  "today.join": "Join",
   "today.then": "Then nothing fixed until {title}, {when}.",
   "today.nothingAfter": "Nothing else fixed today.",
   "today.noCommitments": "No meetings coming up.",
