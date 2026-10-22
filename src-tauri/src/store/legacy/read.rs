@@ -91,7 +91,8 @@ fn status(r: &Row<'_>) -> Sql<Option<Status>> {
     named(r, 4)
 }
 
-/// An old item's turn, from its status and holder, as `migrations/0002_turns` does.
+/// An old item's turn, from its status and holder: waiting statuses held by someone other than the
+/// user or Claude are others' turn.
 fn turn(status: Option<Status>, holder: String) -> (Turn, Option<String>) {
     let waits = matches!(
         status,

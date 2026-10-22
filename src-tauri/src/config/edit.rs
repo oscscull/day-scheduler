@@ -191,20 +191,22 @@ fn check_turns(change: &TurnChange) -> AppResult<()> {
         change.others_hours,
         change.later_hours,
     ];
-    let minutes_ok = change
-        .quiet_minutes
-        .is_none_or(|m| (1..=MAX_TURN_HOURS * 60).contains(&m));
-    if hours
-        .into_iter()
-        .flatten()
-        .all(|h| (1..=MAX_TURN_HOURS).contains(&h))
-        && minutes_ok
-    {
-        return Ok(());
+    let in_range = |h: &i64| (1..=MAX_TURN_HOURS).contains(h);
+    if !hours.iter().flatten().all(in_range) {
+        return Err(AppError::BadInput(format!(
+            "turn lengths must be between 1 and {MAX_TURN_HOURS} hours"
+        )));
     }
-    Err(AppError::BadInput(format!(
-        "turn lengths must be at least 1 and at most {MAX_TURN_HOURS} hours"
-    )))
+    let max_minutes = MAX_TURN_HOURS * 60;
+    if change
+        .quiet_minutes
+        .is_some_and(|m| !(1..=max_minutes).contains(&m))
+    {
+        return Err(AppError::BadInput(format!(
+            "quiet_minutes must be between 1 and {max_minutes}"
+        )));
+    }
+    Ok(())
 }
 
 pub fn set_turns(config: &Config, change: TurnChange) -> AppResult<()> {

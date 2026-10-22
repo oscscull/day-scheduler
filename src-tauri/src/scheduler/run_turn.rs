@@ -17,11 +17,6 @@ pub async fn take(db: &Db, (item_id, what): (&str, &str), limits: &TurnSettings)
     turns::pass(db, item_id, Pass::to(Turn::Agent, what), Clock::now(limits)).await
 }
 
-/// Hands the turn back without raising anything: the build may not run the agent, by design.
-pub async fn give_back(db: &Db, item_id: &str, why: &str, limits: &TurnSettings) -> AppResult<()> {
-    turns::pass(db, item_id, Pass::to(Turn::You, why), Clock::now(limits)).await
-}
-
 /// A run about an item that finished: when it started, and what it said last.
 #[derive(Debug, Clone, Copy)]
 pub struct Finished<'a> {
@@ -34,7 +29,7 @@ pub struct Finished<'a> {
 pub async fn end(db: &Db, run: Finished<'_>, limits: &TurnSettings) -> AppResult<()> {
     let item_id = run.item_id;
     let still_agents = items::get(db, item_id).await?.turn == Turn::Agent;
-    if !still_agents || turns::passed_since(db, item_id, run.started).await? {
+    if !still_agents || turns::history::passed_since(db, item_id, run.started).await? {
         return Ok(());
     }
     let why = format!("the agent stopped without handing over: {}", run.said);

@@ -14,7 +14,7 @@ use crate::store::watch;
 use crate::turns;
 use crate::workspace::{self, Workspace};
 
-/// The session to carry on in, claimed for the item, and the worktree it runs in.
+/// The session to carry on in, and the worktree it runs in.
 async fn thread(
     app: &App,
     settings: &Settings,
@@ -24,14 +24,11 @@ async fn thread(
     let known = watch::session_for(&app.db, &item.id).await?;
     let thread = thread::thread_for(known, ws.as_ref())
         .unwrap_or_else(|| Thread::Start(thread::fresh_session()));
-    if let Thread::Start(session) = &thread {
-        watch::claim(&app.db, &item.id, session).await?;
-    }
     Ok((thread, ws))
 }
 
 async fn prompt_for(app: &App, item: &WorkItem, ws: Option<&Workspace>) -> AppResult<String> {
-    let why = turns::last_why(&app.db, &item.id)
+    let why = turns::history::last_why(&app.db, &item.id)
         .await?
         .unwrap_or_default();
     let link = item.link.clone().unwrap_or_default();

@@ -1,5 +1,4 @@
-//! Whose turn a PR is, by what GitHub says. GitHub never takes the turn from the agent, which
-//! hands it on through `pass_turn`.
+//! Whose turn a PR is, by what GitHub says. GitHub never takes the turn from the agent.
 
 use super::snapshot::Owned;
 use crate::domain::turn::Turn;

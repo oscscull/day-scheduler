@@ -2,6 +2,7 @@
 //! history with its reason.
 
 pub mod due;
+pub mod history;
 
 use chrono::{DateTime, TimeDelta, Utc};
 
@@ -20,7 +21,8 @@ pub struct Pass {
     pub why: String,
     /// For others' turn: who it waits on.
     pub waiting_on: Option<String>,
-    /// When the turn runs out; the configured length when unset.
+    /// When the turn runs out. Unset, it's the configured length from now, or, for an agent handing
+    /// the turn to itself, the deadline it already has.
     pub until: Option<DateTime<Utc>>,
     /// For others' or a later turn: who gets it after.
     pub then: Option<Turn>,
@@ -106,25 +108,4 @@ pub async fn reset_clock(db: &Db, item_id: &str, until: DateTime<Utc>) -> AppRes
     let mut item = items::get(db, item_id).await?;
     item.turn_until = Some(until);
     items::save(db, &item).await
-}
-
-/// Why the item last changed hands, if it ever did.
-pub async fn last_why(db: &Db, item_id: &str) -> AppResult<Option<String>> {
-    let history = events::for_item(db, item_id).await?;
-    Ok(history.into_iter().find_map(|e| match e.change {
-        Change::Turn { why, .. } => Some(why),
-        Change::Created
-        | Change::Stage { .. }
-        | Change::Status { .. }
-        | Change::Label { .. }
-        | Change::Note { .. } => None,
-    }))
-}
-
-/// Whether the turn was passed by anyone since `since`.
-pub async fn passed_since(db: &Db, item_id: &str, since: DateTime<Utc>) -> AppResult<bool> {
-    let history = events::for_item(db, item_id).await?;
-    Ok(history
-        .iter()
-        .any(|e| e.at > since && matches!(e.change, Change::Turn { .. })))
 }

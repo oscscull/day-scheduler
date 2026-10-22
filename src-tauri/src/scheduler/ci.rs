@@ -39,7 +39,6 @@ pub async fn react(
             let session = ws
                 .as_ref()
                 .map_or_else(thread::fresh_session, Workspace::new_session);
-            watch::claim(&app.db, &item.id, &session).await?;
             let place = workspace::describe(&app.config, ws.as_ref())?;
             let prompt = prompt_for(&app, Prompt::FixCi, &item, &[("workspace", place.as_str())])?;
             Job::new("Fix CI", item.id, prompt, Thread::Start(session)).in_workspace(ws)

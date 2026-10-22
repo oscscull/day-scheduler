@@ -7,12 +7,15 @@ use super::thread::Thread;
 use super::{failed, run_turn};
 use crate::app::App;
 use crate::claude::{self, Ask, Session};
+use crate::config::Config;
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
 use crate::config::turns::TurnSettings;
 use crate::domain::run::{Outcome, Run};
+use crate::domain::turn::Turn;
 use crate::error::AppResult;
-use crate::store::runs;
+use crate::store::{runs, watch};
+use crate::turns::{self, Clock, Pass};
 use crate::workspace::{self, Kind, Workspace};
 
 #[derive(Debug, Clone)]
@@ -159,7 +162,8 @@ async fn after(
         return run_turn::end(&app.db, run, limits).await;
     };
     if !ended.may_run {
-        return run_turn::give_back(&app.db, &job.item_id, detail, limits).await;
+        let pass = Pass::to(Turn::You, detail);
+        return turns::pass(&app.db, &job.item_id, pass, Clock::now(limits)).await;
     }
     let failure = failed::Failure {
         item_id: &job.item_id,
@@ -193,14 +197,16 @@ async fn work(handle: AppHandle, job: Job, how: How) {
     drop(after(&handle, &job, &ended, &how.limits).await);
 }
 
-pub async fn run(handle: &AppHandle, settings: &Settings, mut job: Job) -> AppResult<()> {
+/// The job's prompt with the rule for handing the turn on after it.
+fn with_hand_over(config: &Config, job: Job) -> AppResult<Job> {
+    let rule = render(config, Prompt::HandOver, &[("item", job.item_id.as_str())])?;
+    let prompt = format!("{}\n\n{rule}", job.prompt);
+    Ok(Job { prompt, ..job })
+}
+
+pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult<()> {
     let app = handle.state::<App>();
-    let rule = render(
-        &app.config,
-        Prompt::HandOver,
-        &[("item", job.item_id.as_str())],
-    )?;
-    job.prompt = format!("{}\n\n{rule}", job.prompt);
+    let job = with_hand_over(&app.config, job)?;
     run_turn::take(&app.db, (&job.item_id, job.what), &settings.turns).await?;
     let started = Utc::now();
     let how = How {
@@ -210,6 +216,10 @@ pub async fn run(handle: &AppHandle, settings: &Settings, mut job: Job) -> AppRe
         started,
         limits: settings.turns.clone(),
     };
+    // A new session is the item's from now on, so later answers and CI results resume it.
+    if let Thread::Start(session) = &job.thread {
+        watch::claim(&app.db, &job.item_id, session).await?;
+    }
     tauri::async_runtime::spawn(work(handle.clone(), job, how));
     Ok(())
 }

@@ -92,9 +92,9 @@ async fn add(ctx: Ctx, args: AddArgs) -> AppResult<()> {
         asker: args.session,
     };
     items::get(&ctx.db, &ask.item_id).await?;
+    let limits = ctx.settings()?.turns;
     asks::insert(&ctx.db, &ask).await?;
     let why = format!("asked: {}", ask.question);
-    let limits = ctx.settings()?.turns;
     turns::pass(
         &ctx.db,
         &ask.item_id,

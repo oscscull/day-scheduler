@@ -53,7 +53,7 @@ pub async fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     Ok(())
 }
 
-/// Hands the answer to Claude, claiming the item for a new session.
+/// Hands the answer to the agent.
 async fn start(
     handle: &AppHandle,
     settings: &Settings,
@@ -61,9 +61,6 @@ async fn start(
     (thread, ws): (Thread, Option<Workspace>),
 ) -> AppResult<()> {
     let app = handle.state::<App>();
-    if let Thread::Start(session) = &thread {
-        watch::claim(&app.db, &item.id, session).await?;
-    }
     let prompt = prompt_for(&app, answered, item, ws.as_ref())?;
     let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
     dispatch::run(handle, settings, job).await
