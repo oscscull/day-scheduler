@@ -3,13 +3,12 @@
 //! progress. Starting one hands Claude `prompts/queue.md` the way `tell_claude` hands it a message.
 
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
 
 use crate::domain::ask::Ask;
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, Stage, Status, WorkItem};
 use crate::error::AppResult;
-use crate::store::{asks, events};
+use crate::store::{Db, asks, events};
 use crate::work;
 
 #[derive(Debug, Clone, Copy)]
@@ -38,20 +37,15 @@ pub fn next<'a>(queue: &[String], items: &'a [WorkItem]) -> Next<'a> {
 
 /// Leaves `message` for the scheduler to take to Claude, and marks the item in progress so the
 /// queue waits for it.
-pub fn start(
-    conn: &Connection,
-    item: &WorkItem,
-    message: &str,
-    now: DateTime<Utc>,
-) -> AppResult<()> {
+pub async fn start(db: &Db, item: &WorkItem, message: &str, now: DateTime<Utc>) -> AppResult<()> {
     let ask = Ask {
         item_id: item.id.clone(),
         ..Ask::default()
     };
-    let id = asks::insert(conn, &ask)?;
-    asks::answer(conn, id, message)?;
+    let id = asks::insert(db, &ask).await?;
+    asks::answer(db, id, message).await?;
     let text = "Started from the queue".to_owned();
-    events::record(conn, &item.id, now, &Change::Note { text })?;
+    events::record(db, &item.id, now, &Change::Note { text }).await?;
     let input = ItemInput {
         id: item.id.clone(),
         title: item.title.clone(),
@@ -62,13 +56,13 @@ pub fn start(
         area: item.area.clone(),
         link: item.link.clone(),
     };
-    work::save(conn, input, now).map(drop)
+    work::save(db, input, now).await.map(drop)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::{items, schema};
+    use crate::store::items;
 
     fn item(id: &str, stage: Stage) -> WorkItem {
         WorkItem {
@@ -92,8 +86,8 @@ mod tests {
         list.iter().map(|s| (*s).to_owned()).collect()
     }
 
-    #[test]
-    fn works_through_items_one_at_a_time_in_order() {
+    #[tokio::test]
+    async fn works_through_items_one_at_a_time_in_order() {
         let all = [
             item("a", Stage::InReview),
             item("b", Stage::UpNext),
@@ -108,16 +102,15 @@ mod tests {
         assert!(matches!(next(&[], &all), Next::Finished));
     }
 
-    #[test]
-    fn starting_leaves_a_message_and_holds_the_queue() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::migrate(&conn).unwrap();
+    #[tokio::test]
+    async fn starting_leaves_a_message_and_holds_the_queue() {
+        let db = Db::in_memory().await;
         let up = item("b", Stage::UpNext);
-        items::save(&conn, &up).unwrap();
-        start(&conn, &up, "Fix it.", Utc::now()).unwrap();
-        let waiting = asks::answered(&conn).unwrap();
+        items::save(&db, &up).await.unwrap();
+        start(&db, &up, "Fix it.", Utc::now()).await.unwrap();
+        let waiting = asks::answered(&db).await.unwrap();
         assert_eq!(waiting.first().unwrap().answer, "Fix it.");
-        let all = items::list(&conn).unwrap();
+        let all = items::list(&db).await.unwrap();
         assert!(matches!(next(&ids(&["b"]), &all), Next::Wait(_)));
     }
 }

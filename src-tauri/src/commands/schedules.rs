@@ -21,9 +21,9 @@ pub fn set_schedule_enabled(app: State<'_, App>, id: String, enabled: bool) -> A
 
 /// Deletes a schedule file and its run history.
 #[tauri::command]
-pub fn delete_schedule(app: State<'_, App>, id: String) -> AppResult<()> {
+pub async fn delete_schedule(app: State<'_, App>, id: String) -> AppResult<()> {
     schedules::delete(&app.config, &id)?;
-    app.db.with(|conn| runs::delete_for(conn, &id))
+    runs::delete_for(&app.db, &id).await
 }
 
 /// Writes a schedule file. An empty id creates a new one.

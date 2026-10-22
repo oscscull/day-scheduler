@@ -2,14 +2,13 @@
 //! it rather than adding a second one.
 
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
 
 use super::apply::SOURCE;
 use crate::domain::activity::Activity;
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, Stage, Status, WorkItem};
 use crate::error::AppResult;
-use crate::store::{activity, events, items};
+use crate::store::{Db, activity, events, items};
 use crate::work;
 
 /// The PR that the item's work became.
@@ -21,20 +20,15 @@ pub struct OpenedPr<'a> {
     pub url: &'a str,
 }
 
-pub fn adopt(
-    conn: &Connection,
-    item_id: &str,
-    pr: OpenedPr<'_>,
-    now: DateTime<Utc>,
-) -> AppResult<()> {
+pub async fn adopt(db: &Db, item_id: &str, pr: OpenedPr<'_>, now: DateTime<Utc>) -> AppResult<()> {
     let ext = format!("{}#{}", pr.repo, pr.number);
     // A sync between opening the PR and now made an item of its own for it.
-    if let Some(twin) = items::by_external(conn, SOURCE, &ext)?
+    if let Some(twin) = items::by_external(db, SOURCE, &ext).await?
         && twin.id != item_id
     {
-        items::purge(conn, &twin.id)?;
+        items::purge(db, &twin.id).await?;
     }
-    let item = items::get(conn, item_id)?;
+    let item = items::get(db, item_id).await?;
     let input = ItemInput {
         id: item.id.clone(),
         title: item.title.clone(),
@@ -45,15 +39,15 @@ pub fn adopt(
         area: item.area.clone(),
         link: Some(pr.url.to_owned()),
     };
-    work::save(conn, input, now)?;
+    work::save(db, input, now).await?;
     let synced = WorkItem {
         source: SOURCE.to_owned(),
         external_id: Some(ext),
-        ..items::get(conn, item_id)?
+        ..items::get(db, item_id).await?
     };
-    items::save(conn, &synced)?;
+    items::save(db, &synced).await?;
     let text = format!("Quarterdeck opened {}", pr.url);
-    events::record(conn, item_id, now, &Change::Note { text })?;
+    events::record(db, item_id, now, &Change::Note { text }).await?;
     let update = Activity {
         id: 0,
         text: format!("Opened PR #{} for {item_id}: {}", pr.number, item.title),
@@ -61,15 +55,14 @@ pub fn adopt(
         at: now,
         unread: true,
     };
-    activity::insert(conn, &update)
+    activity::insert(db, &update).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::schema;
 
-    fn save(conn: &Connection, id: &str, link: &str) {
+    async fn save(db: &Db, id: &str, link: &str) {
         let input = ItemInput {
             id: id.to_owned(),
             title: "Upsert breaks".to_owned(),
@@ -80,43 +73,45 @@ mod tests {
             area: "projects".to_owned(),
             link: Some(link.to_owned()),
         };
-        work::save(conn, input, Utc::now()).unwrap();
+        work::save(db, input, Utc::now()).await.unwrap();
     }
 
-    #[test]
-    fn the_issue_item_becomes_the_prs_and_its_twin_goes() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::migrate(&conn).unwrap();
+    #[tokio::test]
+    async fn the_issue_item_becomes_the_prs_and_its_twin_goes() {
+        let db = Db::in_memory().await;
         save(
-            &conn,
+            &db,
             "baseddsl#178",
             "https://github.com/o/baseddsl/issues/178",
-        );
+        )
+        .await;
         save(
-            &conn,
+            &db,
             "baseddsl#190",
             "https://github.com/o/baseddsl/pull/190",
-        );
+        )
+        .await;
         let twin = WorkItem {
             source: SOURCE.to_owned(),
             external_id: Some("o/baseddsl#190".to_owned()),
-            ..items::get(&conn, "baseddsl#190").unwrap()
+            ..items::get(&db, "baseddsl#190").await.unwrap()
         };
-        items::save(&conn, &twin).unwrap();
+        items::save(&db, &twin).await.unwrap();
 
         let pr = OpenedPr {
             repo: "o/baseddsl",
             number: 190,
             url: "https://github.com/o/baseddsl/pull/190",
         };
-        adopt(&conn, "baseddsl#178", pr, Utc::now()).unwrap();
+        adopt(&db, "baseddsl#178", pr, Utc::now()).await.unwrap();
 
-        let item = items::by_external(&conn, SOURCE, "o/baseddsl#190")
+        let item = items::by_external(&db, SOURCE, "o/baseddsl#190")
+            .await
             .unwrap()
             .unwrap();
         assert_eq!(item.id, "baseddsl#178");
         assert_eq!(item.stage, Stage::InReview);
         assert_eq!(item.link.as_deref(), Some(pr.url));
-        assert!(items::find(&conn, "baseddsl#190").unwrap().is_none());
+        assert!(items::find(&db, "baseddsl#190").await.unwrap().is_none());
     }
 }

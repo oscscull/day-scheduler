@@ -1,5 +1,4 @@
 use chrono::Local;
-use rusqlite::Connection;
 use serde::Serialize;
 
 use crate::config::pause::Pause;
@@ -9,7 +8,7 @@ use crate::cron::explain::{Explanation, explain};
 use crate::domain::run::Run;
 use crate::domain::schedule::{Schedule, Trigger};
 use crate::error::AppResult;
-use crate::store::runs;
+use crate::store::{Db, runs};
 
 const NEXT_RUNS: usize = 3;
 const RECENT_RUNS: u32 = 3;
@@ -36,7 +35,7 @@ pub struct AgentView {
     pub connections: Vec<status::Status>,
 }
 
-pub fn build(conn: &Connection, loaded: Loaded, pause: Option<Pause>) -> AppResult<AgentView> {
+pub async fn build(db: &Db, loaded: Loaded, pause: Option<Pause>) -> AppResult<AgentView> {
     let mut problems = loaded.problems;
     let mut schedules = Vec::with_capacity(loaded.schedules.len());
     for schedule in loaded.schedules {
@@ -46,7 +45,7 @@ pub fn build(conn: &Connection, loaded: Loaded, pause: Option<Pause>) -> AppResu
                 .ok(),
             Trigger::Event { .. } => None,
         };
-        let recent = runs::recent_for(conn, &schedule.id, RECENT_RUNS)?;
+        let recent = runs::recent_for(db, &schedule.id, RECENT_RUNS).await?;
         schedules.push(ScheduleView {
             schedule,
             explanation,
@@ -54,13 +53,13 @@ pub fn build(conn: &Connection, loaded: Loaded, pause: Option<Pause>) -> AppResu
         });
     }
     Ok(AgentView {
-        live: runs::live(conn)?,
+        live: runs::live(db).await?,
         schedules,
         problems,
         pause,
         connections: vec![
-            status::read(conn, github::SOURCE)?,
-            status::read(conn, calendar::SOURCE)?,
+            status::read(db, github::SOURCE).await?,
+            status::read(db, calendar::SOURCE).await?,
         ],
     })
 }

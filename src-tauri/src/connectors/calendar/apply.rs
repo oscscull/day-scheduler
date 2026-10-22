@@ -3,14 +3,13 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 use super::parse::Occurrence;
 use crate::config::calendar::Feed;
 use crate::domain::commitment::Commitment;
 use crate::error::AppResult;
-use crate::store::{commitments, sync_state};
+use crate::store::{Db, commitments, sync_state};
 
 pub fn source(feed: &Feed) -> String {
     format!("calendar:{}", feed.name)
@@ -37,45 +36,49 @@ fn snapshot(o: &Occurrence) -> Snapshot {
     }
 }
 
-fn upsert(conn: &Connection, src: &str, feed: &Feed, o: &Occurrence) -> AppResult<()> {
+async fn upsert(db: &Db, src: &str, feed: &Feed, o: &Occurrence) -> AppResult<()> {
     let new = snapshot(o);
-    let old: Option<Snapshot> =
-        sync_state::get(conn, src, &o.id)?.and_then(|json| serde_json::from_str(&json).ok());
-    match commitments::by_external(conn, src, &o.id)? {
-        None => commitments::insert(
-            conn,
-            &Commitment {
-                id: 0,
-                title: new.title.clone(),
-                area: feed.area.clone(),
-                starts_at: new.start,
-                ends_at: new.end,
-                location: new.location.clone(),
-                join_url: new.join_url.clone(),
-                source: src.to_owned(),
-                external_id: Some(o.id.clone()),
-                hidden: false,
-            },
-        )?,
-        Some(c) if old.as_ref() != Some(&new) => commitments::update(
-            conn,
-            &Commitment {
+    let old: Option<Snapshot> = sync_state::get(db, src, &o.id)
+        .await?
+        .and_then(|json| serde_json::from_str(&json).ok());
+    match commitments::by_external(db, src, &o.id).await? {
+        None => {
+            commitments::insert(
+                db,
+                &Commitment {
+                    id: 0,
+                    title: new.title.clone(),
+                    area: feed.area.clone(),
+                    starts_at: new.start,
+                    ends_at: new.end,
+                    location: new.location.clone(),
+                    join_url: new.join_url.clone(),
+                    source: src.to_owned(),
+                    external_id: Some(o.id.clone()),
+                    hidden: false,
+                },
+            )
+            .await?;
+        }
+        Some(c) if old.as_ref() != Some(&new) => {
+            let moved = Commitment {
                 title: new.title.clone(),
                 starts_at: new.start,
                 ends_at: new.end,
                 location: new.location.clone(),
                 join_url: new.join_url.clone(),
                 ..c
-            },
-        )?,
+            };
+            commitments::update(db, &moved).await?;
+        }
         Some(_) => {}
     }
-    sync_state::set(conn, src, &o.id, &serde_json::to_string(&new)?)
+    sync_state::set(db, src, &o.id, &serde_json::to_string(&new)?).await
 }
 
 /// Syncs one feed's occurrences. Events in the window that are gone upstream are removed.
-pub fn apply(
-    conn: &Connection,
+pub async fn apply(
+    db: &Db,
     feed: &Feed,
     occurrences: &[Occurrence],
     from: DateTime<Utc>,
@@ -83,14 +86,14 @@ pub fn apply(
     let src = source(feed);
     let mut seen = HashSet::new();
     for o in occurrences {
-        upsert(conn, &src, feed, o)?;
+        upsert(db, &src, feed, o).await?;
         seen.insert(o.id.clone());
     }
-    for c in commitments::from_source(conn, &src)? {
+    for c in commitments::from_source(db, &src).await? {
         let Some(ext) = c.external_id else { continue };
         if !seen.contains(&ext) && c.starts_at >= from {
-            commitments::delete(conn, c.id)?;
-            sync_state::forget(conn, &src, &ext)?;
+            commitments::delete(db, c.id).await?;
+            sync_state::forget(db, &src, &ext).await?;
         }
     }
     Ok(())
@@ -101,7 +104,6 @@ mod tests {
     use chrono::Duration;
 
     use super::*;
-    use crate::store::schema;
 
     fn occ(title: &str, start: DateTime<Utc>) -> Occurrence {
         Occurrence {
@@ -115,10 +117,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn hides_and_area_moves_survive_resyncs() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::migrate(&conn).unwrap();
+    #[tokio::test]
+    async fn hides_and_area_moves_survive_resyncs() {
+        let db = Db::in_memory().await;
         let feed = Feed {
             name: "home".to_owned(),
             url: String::new(),
@@ -126,21 +127,28 @@ mod tests {
             ignore_titles: vec![],
         };
         let now = Utc::now();
-        apply(&conn, &feed, &[occ("Dentist", now)], now).unwrap();
-        let mut c = commitments::from_source(&conn, "calendar:home")
+        apply(&db, &feed, &[occ("Dentist", now)], now)
+            .await
+            .unwrap();
+        let mut c = commitments::from_source(&db, "calendar:home")
+            .await
             .unwrap()
             .remove(0);
         c.hidden = true;
         c.area = "work".to_owned();
-        commitments::update(&conn, &c).unwrap();
-        apply(&conn, &feed, &[occ("Dentist (moved)", now)], now).unwrap();
-        let after = commitments::from_source(&conn, "calendar:home")
+        commitments::update(&db, &c).await.unwrap();
+        apply(&db, &feed, &[occ("Dentist (moved)", now)], now)
+            .await
+            .unwrap();
+        let after = commitments::from_source(&db, "calendar:home")
+            .await
             .unwrap()
             .remove(0);
         assert!(after.hidden && after.area == "work" && after.title == "Dentist (moved)");
-        apply(&conn, &feed, &[], now).unwrap();
+        apply(&db, &feed, &[], now).await.unwrap();
         assert!(
-            commitments::from_source(&conn, "calendar:home")
+            commitments::from_source(&db, "calendar:home")
+                .await
                 .unwrap()
                 .is_empty()
         );

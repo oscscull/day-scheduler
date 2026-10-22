@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::super::ctx::Ctx;
-use super::super::tool::{NoArgs, Tool, tool};
+use super::super::tool::{NoArgs, Tool, async_tool};
 use crate::config::edit;
 use crate::domain::item::Stage;
 use crate::error::{AppError, AppResult};
@@ -18,13 +18,13 @@ An empty list clears the queue.";
 
 pub fn tools() -> Vec<Tool> {
     vec![
-        tool(
+        async_tool(
             "get_queue",
             "The items Claude works on one at a time, in order, with each one's stage, and which \
              is current.",
             get,
         ),
-        tool("set_queue", SET, set),
+        async_tool("set_queue", SET, set),
     ]
 }
 
@@ -43,9 +43,9 @@ struct Queue {
     current: Option<String>,
 }
 
-fn get(ctx: &Ctx, _: NoArgs) -> AppResult<Queue> {
+async fn get(ctx: Ctx, _: NoArgs) -> AppResult<Queue> {
     let ids = ctx.settings()?.queue.items;
-    let all = ctx.db.with(items::list)?;
+    let all = items::list(&ctx.db).await?;
     let current = match next(&ids, &all) {
         Next::Start(i) | Next::Wait(i) => Some(i.id.clone()),
         Next::Finished => None,
@@ -73,16 +73,13 @@ struct SetArgs {
     items: Vec<String>,
 }
 
-fn set(ctx: &Ctx, args: SetArgs) -> AppResult<()> {
-    let unknown: Vec<&str> = ctx.db.with(|c| {
-        let mut missing = Vec::new();
-        for id in &args.items {
-            if items::find(c, id)?.is_none() {
-                missing.push(id.as_str());
-            }
+async fn set(ctx: Ctx, args: SetArgs) -> AppResult<()> {
+    let mut unknown = Vec::new();
+    for id in &args.items {
+        if items::find(&ctx.db, id).await?.is_none() {
+            unknown.push(id.as_str());
         }
-        Ok(missing)
-    })?;
+    }
     if !unknown.is_empty() {
         return Err(AppError::BadInput(format!(
             "no such item: {}",

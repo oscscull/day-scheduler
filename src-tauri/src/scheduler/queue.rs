@@ -10,12 +10,12 @@ use crate::error::AppResult;
 use crate::queue::{self, Next};
 use crate::store::items;
 
-pub fn advance(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
+pub async fn advance(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     if settings.queue.items.is_empty() {
         return Ok(());
     }
     let app = handle.state::<App>();
-    let all = app.db.with(items::list)?;
+    let all = items::list(&app.db).await?;
     let Next::Start(item) = queue::next(&settings.queue.items, &all) else {
         return Ok(());
     };
@@ -24,5 +24,5 @@ pub fn advance(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         return Ok(());
     }
     let message = render(&app.config, Prompt::Queue, &[])?;
-    app.db.with(|c| queue::start(c, item, &message, Utc::now()))
+    queue::start(&app.db, item, &message, Utc::now()).await
 }

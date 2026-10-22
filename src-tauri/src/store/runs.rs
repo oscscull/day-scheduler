@@ -1,97 +1,91 @@
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, Row, params};
 
-use super::codec::{column, encode};
-
+use super::client::{self, RunRow};
+use super::convert::{int, key, same, same_opt};
+use super::db::{Db, gone_ok};
+use super::time;
 use crate::domain::run::{Outcome, Run};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
-const COLUMNS: &str =
-    "id, schedule_id, what, target, node, started_at, finished_at, outcome, summary";
-
-fn from_row(row: &Row<'_>) -> rusqlite::Result<Run> {
+fn from_row(row: RunRow) -> AppResult<Run> {
     Ok(Run {
-        id: row.get(0)?,
-        schedule_id: row.get(1)?,
-        what: row.get(2)?,
-        target: row.get(3)?,
-        node: row.get(4)?,
-        started_at: row.get(5)?,
-        finished_at: row.get(6)?,
-        outcome: column(row, 7)?,
-        summary: row.get(8)?,
+        id: int(&row.id)?,
+        schedule_id: row.schedule_id,
+        what: row.what,
+        target: row.target,
+        node: row.node,
+        started_at: time::get(&row.started_at)?,
+        finished_at: time::get_opt(row.finished_at.as_deref())?,
+        outcome: same_opt(row.outcome.as_ref())?,
+        summary: row.summary,
     })
 }
 
-fn query(conn: &Connection, sql: &str, args: impl rusqlite::Params) -> AppResult<Vec<Run>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(args, from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+fn from_rows(rows: Vec<RunRow>) -> AppResult<Vec<Run>> {
+    rows.into_iter().map(from_row).collect()
 }
 
 /// Runs that have started but not finished.
-pub fn live(conn: &Connection) -> AppResult<Vec<Run>> {
-    let sql = format!("SELECT {COLUMNS} FROM runs WHERE finished_at IS NULL ORDER BY started_at");
-    query(conn, &sql, [])
+pub async fn live(db: &Db) -> AppResult<Vec<Run>> {
+    from_rows(db.api().live_runs(client::LiveRunsInput {}, ()).await?)
 }
 
 /// Runs still marked as going when the app starts can't be: their process ended with the app.
-pub fn close_interrupted(conn: &Connection, at: DateTime<Utc>) -> AppResult<()> {
-    conn.execute(
-        "UPDATE runs SET finished_at = ?1, outcome = 'failed', summary = 'stopped when Quarterdeck quit'
-         WHERE finished_at IS NULL",
-        params![at],
-    )?;
-    Ok(())
+pub async fn close_interrupted(db: &Db, at: DateTime<Utc>) -> AppResult<()> {
+    let input = client::CloseInterruptedRunsInput { at: time::put(at) };
+    Ok(db.api().close_interrupted_runs(input, ()).await?)
 }
 
 /// The latest finished runs of one schedule.
-pub fn recent_for(conn: &Connection, schedule_id: &str, limit: u32) -> AppResult<Vec<Run>> {
-    let sql = format!(
-        "SELECT {COLUMNS} FROM runs WHERE schedule_id = ?1 AND finished_at IS NOT NULL
-         ORDER BY started_at DESC LIMIT ?2"
-    );
-    query(conn, &sql, params![schedule_id, limit])
+pub async fn recent_for(db: &Db, schedule_id: &str, limit: u32) -> AppResult<Vec<Run>> {
+    let input = client::RecentRunsInput {
+        schedule_id: schedule_id.to_owned(),
+        limit: i64::from(limit),
+    };
+    from_rows(db.api().recent_runs(input, ()).await?)
 }
 
 /// Forgets the history of a deleted schedule.
-pub fn delete_for(conn: &Connection, schedule_id: &str) -> AppResult<()> {
-    conn.execute(
-        "DELETE FROM runs WHERE schedule_id = ?1",
-        params![schedule_id],
-    )?;
-    Ok(())
+pub async fn delete_for(db: &Db, schedule_id: &str) -> AppResult<()> {
+    let input = client::ForgetRunsInput {
+        schedule_id: schedule_id.to_owned(),
+    };
+    gone_ok(
+        db.api()
+            .forget_runs(input, ())
+            .await
+            .map_err(AppError::from),
+    )
 }
 
-pub fn insert(conn: &Connection, run: &Run) -> AppResult<()> {
-    let sql = format!("INSERT INTO runs ({COLUMNS}) VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)");
-    conn.execute(
-        &sql,
-        params![
-            run.schedule_id,
-            run.what,
-            run.target,
-            run.node,
-            run.started_at,
-            run.finished_at,
-            run.outcome.map(|o| encode(&o)).transpose()?,
-            run.summary
-        ],
-    )?;
-    Ok(())
+/// Records a run and returns its id.
+pub async fn insert(db: &Db, run: &Run) -> AppResult<i64> {
+    let input = client::AddRunInput {
+        schedule_id: run.schedule_id.clone(),
+        what: run.what.clone(),
+        target: run.target.clone(),
+        node: run.node.clone(),
+        started_at: time::put(run.started_at),
+        finished_at: time::put_opt(run.finished_at),
+        outcome: same_opt(run.outcome.as_ref())?,
+        summary: run.summary.clone(),
+    };
+    let row = db.api().add_run(input, ()).await?;
+    int(&row.id)
 }
 
 /// Records that a run has started and returns its id.
-pub fn start(conn: &Connection, run: &Run) -> AppResult<i64> {
-    insert(conn, run)?;
-    Ok(conn.last_insert_rowid())
+pub async fn start(db: &Db, run: &Run) -> AppResult<i64> {
+    insert(db, run).await
 }
 
 /// Marks a run finished now.
-pub fn finish(conn: &Connection, id: i64, outcome: Outcome, summary: &str) -> AppResult<()> {
-    conn.execute(
-        "UPDATE runs SET finished_at = ?1, outcome = ?2, summary = ?3 WHERE id = ?4",
-        params![Utc::now(), encode(&outcome)?, summary, id],
-    )?;
-    Ok(())
+pub async fn finish(db: &Db, id: i64, outcome: Outcome, summary: &str) -> AppResult<()> {
+    let input = client::FinishRunInput {
+        id: key(id),
+        at: time::put(Utc::now()),
+        outcome: same(&outcome)?,
+        summary: summary.to_owned(),
+    };
+    Ok(db.api().finish_run(input, ()).await?)
 }

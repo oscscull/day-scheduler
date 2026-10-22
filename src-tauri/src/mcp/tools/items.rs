@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::super::ctx::Ctx;
-use super::super::tool::{Tool, tool};
+use super::super::tool::{Tool, async_tool};
 use super::in_area;
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, Stage, Status, WorkItem};
@@ -27,13 +27,13 @@ const ADD_NOTE: &str = "Adds a line to an item's history, e.g. \"opened PR #821\
 
 pub fn tools() -> Vec<Tool> {
     vec![
-        tool("list_items", LIST_ITEMS, list),
-        tool("get_item", GET_ITEM, get),
-        tool("create_item", CREATE_ITEM, create),
-        tool("update_item", UPDATE_ITEM, update),
-        tool("delete_item", DELETE_ITEM, delete),
-        tool("move_item", MOVE_ITEM, move_to),
-        tool("add_note", ADD_NOTE, note),
+        async_tool("list_items", LIST_ITEMS, list),
+        async_tool("get_item", GET_ITEM, get),
+        async_tool("create_item", CREATE_ITEM, create),
+        async_tool("update_item", UPDATE_ITEM, update),
+        async_tool("delete_item", DELETE_ITEM, delete),
+        async_tool("move_item", MOVE_ITEM, move_to),
+        async_tool("add_note", ADD_NOTE, note),
     ]
 }
 
@@ -48,8 +48,8 @@ struct ListArgs {
     include_done: bool,
 }
 
-fn list(ctx: &Ctx, args: ListArgs) -> AppResult<Vec<WorkItem>> {
-    let mut all = ctx.db.with(items::list)?;
+async fn list(ctx: Ctx, args: ListArgs) -> AppResult<Vec<WorkItem>> {
+    let mut all = items::list(&ctx.db).await?;
     all.retain(|i| {
         in_area(args.area.as_ref(), &i.area)
             && args.stage.is_none_or(|s| s == i.stage)
@@ -63,14 +63,12 @@ struct IdArgs {
     id: String,
 }
 
-fn get(ctx: &Ctx, args: IdArgs) -> AppResult<serde_json::Value> {
-    ctx.db.with(|c| {
-        Ok(serde_json::json!({
-            "item": items::get(c, &args.id)?,
-            "asks": asks::for_item(c, &args.id)?,
-            "history": events::for_item(c, &args.id)?,
-        }))
-    })
+async fn get(ctx: Ctx, args: IdArgs) -> AppResult<serde_json::Value> {
+    Ok(serde_json::json!({
+        "item": items::get(&ctx.db, &args.id).await?,
+        "asks": asks::for_item(&ctx.db, &args.id).await?,
+        "history": events::for_item(&ctx.db, &args.id).await?,
+    }))
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -91,7 +89,7 @@ struct CreateArgs {
     link: Option<String>,
 }
 
-fn create(ctx: &Ctx, args: CreateArgs) -> AppResult<String> {
+async fn create(ctx: Ctx, args: CreateArgs) -> AppResult<String> {
     let input = ItemInput {
         id: args.key.unwrap_or_default(),
         title: args.title,
@@ -102,7 +100,7 @@ fn create(ctx: &Ctx, args: CreateArgs) -> AppResult<String> {
         area: ctx.area(&args.area)?,
         link: args.link,
     };
-    ctx.db.with(|c| work::save(c, input, Utc::now()))
+    work::save(&ctx.db, input, Utc::now()).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -120,30 +118,28 @@ struct UpdateArgs {
     link: Option<String>,
 }
 
-fn update(ctx: &Ctx, args: UpdateArgs) -> AppResult<String> {
+async fn update(ctx: Ctx, args: UpdateArgs) -> AppResult<String> {
     let area = args.area.as_deref().map(|a| ctx.area(a)).transpose()?;
-    ctx.db.with(|c| {
-        let old = items::get(c, &args.id)?;
-        let input = ItemInput {
-            status: if args.clear_status {
-                None
-            } else {
-                args.status.or(old.status)
-            },
-            id: old.id,
-            title: args.title.unwrap_or(old.title),
-            state_label: args.state_label.unwrap_or(old.state_label),
-            stage: args.stage.unwrap_or(old.stage),
-            holder: args.holder.unwrap_or(old.holder),
-            area: area.unwrap_or(old.area),
-            link: args.link.or(old.link),
-        };
-        work::save(c, input, Utc::now())
-    })
+    let old = items::get(&ctx.db, &args.id).await?;
+    let input = ItemInput {
+        status: if args.clear_status {
+            None
+        } else {
+            args.status.or(old.status)
+        },
+        id: old.id,
+        title: args.title.unwrap_or(old.title),
+        state_label: args.state_label.unwrap_or(old.state_label),
+        stage: args.stage.unwrap_or(old.stage),
+        holder: args.holder.unwrap_or(old.holder),
+        area: area.unwrap_or(old.area),
+        link: args.link.or(old.link),
+    };
+    work::save(&ctx.db, input, Utc::now()).await
 }
 
-fn delete(ctx: &Ctx, args: IdArgs) -> AppResult<()> {
-    ctx.db.with(|c| items::delete(c, &args.id))
+async fn delete(ctx: Ctx, args: IdArgs) -> AppResult<()> {
+    items::delete(&ctx.db, &args.id).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -153,20 +149,19 @@ struct MoveArgs {
     position: usize,
 }
 
-fn move_to(ctx: &Ctx, args: MoveArgs) -> AppResult<()> {
-    ctx.db.with(|c| {
-        let mut ids: Vec<String> = items::list(c)?
-            .into_iter()
-            .map(|i| i.id)
-            .filter(|i| *i != args.id)
-            .collect();
-        items::get(c, &args.id)?;
-        ids.insert(
-            args.position.saturating_sub(1).min(ids.len()),
-            args.id.clone(),
-        );
-        items::reorder(c, &ids)
-    })
+async fn move_to(ctx: Ctx, args: MoveArgs) -> AppResult<()> {
+    let mut ids: Vec<String> = items::list(&ctx.db)
+        .await?
+        .into_iter()
+        .map(|i| i.id)
+        .filter(|i| *i != args.id)
+        .collect();
+    items::get(&ctx.db, &args.id).await?;
+    ids.insert(
+        args.position.saturating_sub(1).min(ids.len()),
+        args.id.clone(),
+    );
+    items::reorder(&ctx.db, &ids).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -175,14 +170,13 @@ struct NoteArgs {
     text: String,
 }
 
-fn note(ctx: &Ctx, args: NoteArgs) -> AppResult<()> {
-    ctx.db.with(|c| {
-        items::get(c, &args.item_id)?;
-        events::record(
-            c,
-            &args.item_id,
-            Utc::now(),
-            &Change::Note { text: args.text },
-        )
-    })
+async fn note(ctx: Ctx, args: NoteArgs) -> AppResult<()> {
+    items::get(&ctx.db, &args.item_id).await?;
+    events::record(
+        &ctx.db,
+        &args.item_id,
+        Utc::now(),
+        &Change::Note { text: args.text },
+    )
+    .await
 }

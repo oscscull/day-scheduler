@@ -1,29 +1,28 @@
 //! Creating and editing work items, recording each change in the item's history.
 
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
 
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, WorkItem};
 use crate::error::AppResult;
-use crate::store::{events, items};
+use crate::store::{Db, events, items};
 
 /// Saves an item from the UI or an agent and returns its id. Unknown or empty ids create one.
-pub fn save(conn: &Connection, input: ItemInput, now: DateTime<Utc>) -> AppResult<String> {
+pub async fn save(db: &Db, input: ItemInput, now: DateTime<Utc>) -> AppResult<String> {
     let existing = if input.id.is_empty() {
         None
     } else {
-        items::find(conn, &input.id)?
+        items::find(db, &input.id).await?
     };
     match existing {
-        Some(old) => update(conn, &old, input, now),
-        None => create(conn, input, now),
+        Some(old) => update(db, &old, input, now).await,
+        None => create(db, input, now).await,
     }
 }
 
-fn create(conn: &Connection, input: ItemInput, now: DateTime<Utc>) -> AppResult<String> {
+async fn create(db: &Db, input: ItemInput, now: DateTime<Utc>) -> AppResult<String> {
     let id = if input.id.trim().is_empty() {
-        fresh_id(conn)?
+        fresh_id(db).await?
     } else {
         input.id.trim().to_owned()
     };
@@ -31,16 +30,16 @@ fn create(conn: &Connection, input: ItemInput, now: DateTime<Utc>) -> AppResult<
         id: id.clone(),
         opened_at: now,
         state_since: now,
-        rank: items::next_rank(conn)?,
+        rank: items::next_rank(db).await?,
         ..from_input(input)
     };
-    items::save(conn, &item)?;
-    events::record(conn, &id, now, &Change::Created)?;
+    items::save(db, &item).await?;
+    events::record(db, &id, now, &Change::Created).await?;
     Ok(id)
 }
 
-fn update(
-    conn: &Connection,
+async fn update(
+    db: &Db,
     old: &WorkItem,
     input: ItemInput,
     now: DateTime<Utc>,
@@ -58,9 +57,9 @@ fn update(
     if !changes.is_empty() {
         item.state_since = now;
     }
-    items::save(conn, &item)?;
+    items::save(db, &item).await?;
     for change in &changes {
-        events::record(conn, &item.id, now, change)?;
+        events::record(db, &item.id, now, change).await?;
     }
     Ok(item.id)
 }
@@ -102,9 +101,9 @@ fn diff(old: &WorkItem, new: &WorkItem) -> Vec<Change> {
 }
 
 /// "B-1", "B-2"… for items made without a ticket key.
-fn fresh_id(conn: &Connection) -> AppResult<String> {
-    let mut n = conn.query_row("SELECT COUNT(*) + 1 FROM items", [], |r| r.get::<_, i64>(0))?;
-    while items::find(conn, &format!("B-{n}"))?.is_some() {
+async fn fresh_id(db: &Db) -> AppResult<String> {
+    let mut n = items::count(db).await? + 1;
+    while items::find(db, &format!("B-{n}")).await?.is_some() {
         n += 1;
     }
     Ok(format!("B-{n}"))
@@ -114,13 +113,6 @@ fn fresh_id(conn: &Connection) -> AppResult<String> {
 mod tests {
     use super::*;
     use crate::domain::item::{Stage, Status};
-    use crate::store::schema;
-
-    fn db() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::migrate(&conn).unwrap();
-        conn
-    }
 
     fn input(id: &str, stage: Stage) -> ItemInput {
         ItemInput {
@@ -135,27 +127,34 @@ mod tests {
         }
     }
 
-    #[test]
-    fn creates_with_generated_ids_at_the_bottom() {
-        let conn = db();
+    #[tokio::test]
+    async fn creates_with_generated_ids_at_the_bottom() {
+        let db = Db::in_memory().await;
         let now = Utc::now();
-        assert_eq!(save(&conn, input("", Stage::UpNext), now).unwrap(), "B-1");
-        assert_eq!(
-            save(&conn, input("JD-1", Stage::UpNext), now).unwrap(),
-            "JD-1"
-        );
-        let ranks: Vec<i64> = items::list(&conn).unwrap().iter().map(|i| i.rank).collect();
+        let first = save(&db, input("", Stage::UpNext), now).await.unwrap();
+        assert_eq!(first, "B-1");
+        let keyed = save(&db, input("JD-1", Stage::UpNext), now).await.unwrap();
+        assert_eq!(keyed, "JD-1");
+        let listed = items::list(&db).await.unwrap();
+        let ranks: Vec<i64> = listed.iter().map(|i| i.rank).collect();
         assert_eq!(ranks, [0, 1]);
-        assert_eq!(items::get(&conn, "B-1").unwrap().link, None);
+        assert_eq!(items::get(&db, "B-1").await.unwrap().link, None);
     }
 
-    #[test]
-    fn records_stage_changes_only_when_they_happen() {
-        let conn = db();
-        let id = save(&conn, input("", Stage::UpNext), Utc::now()).unwrap();
-        save(&conn, input(&id, Stage::UpNext), Utc::now()).unwrap();
-        save(&conn, input(&id, Stage::InReview), Utc::now()).unwrap();
-        let history: Vec<Change> = events::for_item(&conn, &id)
+    #[tokio::test]
+    async fn records_stage_changes_only_when_they_happen() {
+        let db = Db::in_memory().await;
+        let id = save(&db, input("", Stage::UpNext), Utc::now())
+            .await
+            .unwrap();
+        save(&db, input(&id, Stage::UpNext), Utc::now())
+            .await
+            .unwrap();
+        save(&db, input(&id, Stage::InReview), Utc::now())
+            .await
+            .unwrap();
+        let history: Vec<Change> = events::for_item(&db, &id)
+            .await
             .unwrap()
             .into_iter()
             .map(|e| e.change)

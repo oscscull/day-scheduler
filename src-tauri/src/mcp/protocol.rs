@@ -23,7 +23,7 @@ struct Request {
 }
 
 /// Handles one line of input. Notifications get no reply.
-pub fn handle(ctx: &Ctx, tools: &[Tool], line: &str) -> Option<String> {
+pub async fn handle(ctx: &Ctx, tools: &[Tool], line: &str) -> Option<String> {
     let request: Request = match serde_json::from_str(line) {
         Ok(r) => r,
         Err(e) => return Some(error(&Value::Null, -32700, &e.to_string())),
@@ -33,7 +33,7 @@ pub fn handle(ctx: &Ctx, tools: &[Tool], line: &str) -> Option<String> {
         "initialize" => ok(&id, &initialize(&request.params)),
         "ping" => ok(&id, &json!({})),
         "tools/list" => ok(&id, &list(tools)),
-        "tools/call" => ok(&id, &call(ctx, tools, &request.params)),
+        "tools/call" => ok(&id, &call(ctx, tools, &request.params).await),
         other => error(&id, -32601, &format!("unknown method {other}")),
     };
     Some(reply)
@@ -61,7 +61,7 @@ fn list(tools: &[Tool]) -> Value {
 }
 
 /// Tool failures are results the agent can read and react to, not protocol errors.
-fn call(ctx: &Ctx, tools: &[Tool], params: &Value) -> Value {
+async fn call(ctx: &Ctx, tools: &[Tool], params: &Value) -> Value {
     let name = params
         .get("name")
         .and_then(Value::as_str)
@@ -70,10 +70,10 @@ fn call(ctx: &Ctx, tools: &[Tool], params: &Value) -> Value {
         .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
-    let outcome = tools.iter().find(|t| t.name == name).map_or_else(
-        || Err(format!("no tool called {name}")),
-        |t| (t.call)(ctx, args).map_err(|e| e.to_string()),
-    );
+    let outcome = match tools.iter().find(|t| t.name == name) {
+        Some(t) => (t.call)(ctx.clone(), args).await.map_err(|e| e.to_string()),
+        None => Err(format!("no tool called {name}")),
+    };
     match outcome {
         Ok(value) => json!({ "content": [{ "type": "text", "text": pretty(&value) }] }),
         Err(message) => {

@@ -30,7 +30,6 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
         drop(window.minimize());
     }
     if matches!(event, WindowEvent::Focused(true)) {
-        // The regular poll still runs if this fails.
-        drop(crate::scheduler::sync_on_focus(window.app_handle()));
+        crate::scheduler::sync_on_focus(window.app_handle());
     }
 }

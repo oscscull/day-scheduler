@@ -15,8 +15,9 @@ when setup changes.
    && cd quarterdeck && npm install`, then `npm run tauri dev`. A local build is version 0.1.0, so the
    next release replaces it.
 4. First start creates `~/.config/quarterdeck/` (settings, prompts, schedules, inbox) and the database
-   in the system's app-data folder (macOS `~/Library/Application Support/com.oscscull.quarterdeck/`,
-   Windows `%APPDATA%\com.oscscull.quarterdeck\`, Linux `~/.local/share/com.oscscull.quarterdeck/`).
+   (`quarterdeck.db`) in the system's app-data folder (macOS
+   `~/Library/Application Support/com.oscscull.quarterdeck/`, Windows `%APPDATA%\com.oscscull.quarterdeck\`,
+   Linux `~/.local/share/com.oscscull.quarterdeck/`).
 5. In `~/.config/quarterdeck/quarterdeck.toml`, set `node` to this machine's name, check the `[[areas]]`
    (each area's `node` is the machine that runs it), map GitHub owners to areas under
    `[github.areas]`, and add calendars' private iCal links under `[[calendar.feeds]]`.

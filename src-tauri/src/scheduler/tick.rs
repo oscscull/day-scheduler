@@ -26,10 +26,10 @@ struct Window {
     now: DateTime<Utc>,
 }
 
-pub fn tick(handle: &AppHandle) -> AppResult<()> {
+pub async fn tick(handle: &AppHandle) -> AppResult<()> {
     let app = handle.state::<App>();
     let settings = app.settings()?;
-    let raised = app.take_inbox(&settings)?;
+    let raised = app.take_inbox(&settings).await?;
     if raised > 0 {
         // Notifications are a courtesy; a failure must not stop the scheduler.
         drop(notify::send(
@@ -38,37 +38,37 @@ pub fn tick(handle: &AppHandle) -> AppResult<()> {
             &format!("{raised} new urgent item(s)"),
         ));
     }
-    start_requested(handle)?;
-    crate::alerts::check(handle)?;
-    let urgent_count = app.db.with(urgent::list)?.len();
+    start_requested(handle).await?;
+    crate::alerts::check(handle).await?;
+    let urgent_count = urgent::list(&app.db).await?.len();
     crate::desktop::tray::show_urgent(handle, urgent_count)?;
-    super::connectors::sync_if_due(handle, &settings)?;
-    super::updates::check_if_due(handle, &settings)?;
+    super::connectors::sync_if_due(handle, &settings).await?;
+    super::updates::check_if_due(handle, &settings).await?;
     // Answers go out even while paused: the user just gave them.
-    super::answers::deliver(handle, &settings)?;
+    super::answers::deliver(handle, &settings).await?;
     // Cleanup only; a failed removal is retried next tick.
     drop(crate::workspace::sweep(
-        &app.db.with(crate::store::items::list)?,
+        &crate::store::items::list(&app.db).await?,
     ));
     let now = Utc::now();
-    let last = app.db.with(|c| meta::time(c, LAST_TICK))?;
-    app.db.with(|c| meta::set_time(c, LAST_TICK, now))?;
+    let last = meta::time(&app.db, LAST_TICK).await?;
+    meta::set_time(&app.db, LAST_TICK, now).await?;
     // First launch has no history to catch up on; a pause means nothing runs or is missed.
     let Some(last) = last else { return Ok(()) };
     if pause::current(&app.config, now)?.is_some() {
         return Ok(());
     }
-    crate::watchdog::check(handle, &settings)?;
-    super::queue::advance(handle, &settings)?;
+    crate::watchdog::check(handle, &settings).await?;
+    super::queue::advance(handle, &settings).await?;
     for schedule in schedules::list(&app.config)?.schedules {
         if schedule.enabled && settings.node_for(&schedule.area) == settings.node {
-            consider(handle, &settings, &schedule, Window { last, now })?;
+            consider(handle, &settings, &schedule, Window { last, now }).await?;
         }
     }
     Ok(())
 }
 
-fn consider(
+async fn consider(
     handle: &AppHandle,
     settings: &Settings,
     schedule: &Schedule,
@@ -82,20 +82,20 @@ fn consider(
         return Ok(());
     };
     if p.missed.is_some() {
-        record_missed(handle, schedule, settings.node_for(&schedule.area), &p)?;
+        record_missed(handle, schedule, settings.node_for(&schedule.area), &p).await?;
     }
-    if p.run && !is_running(handle, &schedule.id)? {
+    if p.run && !is_running(handle, &schedule.id).await? {
         start(handle, schedule.clone(), None);
     }
     Ok(())
 }
 
 /// Starts schedules an agent asked to run now. These run even while paused: someone asked.
-fn start_requested(handle: &AppHandle) -> AppResult<()> {
+async fn start_requested(handle: &AppHandle) -> AppResult<()> {
     let app = handle.state::<App>();
-    for id in app.db.with(run_requests::take_all)? {
+    for id in run_requests::take_all(&app.db).await? {
         if let Ok(schedule) = schedules::find(&app.config, &id)
-            && !is_running(handle, &id)?
+            && !is_running(handle, &id).await?
         {
             start(handle, schedule, None);
         }
@@ -103,8 +103,8 @@ fn start_requested(handle: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-fn is_running(handle: &AppHandle, id: &str) -> AppResult<bool> {
-    let live = handle.state::<App>().db.with(runs::live)?;
+async fn is_running(handle: &AppHandle, id: &str) -> AppResult<bool> {
+    let live = runs::live(&handle.state::<App>().db).await?;
     Ok(live.iter().any(|r| r.schedule_id.as_deref() == Some(id)))
 }
 
@@ -117,7 +117,12 @@ pub fn start(handle: &AppHandle, schedule: Schedule, trigger: Option<String>) {
 }
 
 /// Records the latest missed occurrence as a run and raises it as urgent.
-fn record_missed(handle: &AppHandle, schedule: &Schedule, node: &str, p: &Plan) -> AppResult<()> {
+async fn record_missed(
+    handle: &AppHandle,
+    schedule: &Schedule,
+    node: &str,
+    p: &Plan,
+) -> AppResult<()> {
     let Some(at) = p.missed else { return Ok(()) };
     let count = p.missed_count;
     let reason = "Quarterdeck wasn't running, or the machine was asleep".to_owned();
@@ -145,10 +150,9 @@ fn record_missed(handle: &AppHandle, schedule: &Schedule, node: &str, p: &Plan) 
         raised_at: Utc::now(),
         schedule_id: Some(schedule.id.clone()),
     };
-    handle.state::<App>().db.with(|c| {
-        runs::insert(c, &run)?;
-        urgent::raise(c, &item)
-    })?;
+    let db = &handle.state::<App>().db;
+    runs::insert(db, &run).await?;
+    urgent::raise(db, &item).await?;
     drop(notify::send(handle, &item.title, &item.detail));
     Ok(())
 }

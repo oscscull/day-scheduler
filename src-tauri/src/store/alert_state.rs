@@ -3,8 +3,11 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, params};
 
+use super::client;
+use super::convert::{int, key};
+use super::db::Db;
+use super::time;
 use crate::error::AppResult;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -13,35 +16,34 @@ pub struct State {
     pub snoozed_until: Option<DateTime<Utc>>,
 }
 
-pub fn all(conn: &Connection) -> AppResult<HashMap<i64, State>> {
-    let mut stmt = conn.prepare("SELECT commitment_id, done, snoozed_until FROM alert_state")?;
-    let rows = stmt.query_map([], |r| {
-        Ok((
-            r.get(0)?,
-            State {
-                done: r.get(1)?,
-                snoozed_until: r.get(2)?,
-            },
-        ))
-    })?;
-    Ok(rows.collect::<Result<_, _>>()?)
+pub async fn all(db: &Db) -> AppResult<HashMap<i64, State>> {
+    let rows = db
+        .api()
+        .alert_states(client::AlertStatesInput {}, ())
+        .await?;
+    rows.into_iter()
+        .map(|r| {
+            let state = State {
+                done: r.done,
+                snoozed_until: time::get_opt(r.snoozed_until.as_deref())?,
+            };
+            Ok((int(&r.commitment_id)?, state))
+        })
+        .collect()
 }
 
 /// Joined or skipped: don't alert for this meeting again.
-pub fn done(conn: &Connection, id: i64) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO alert_state (commitment_id, done) VALUES (?1, 1)
-         ON CONFLICT(commitment_id) DO UPDATE SET done = 1",
-        [id],
-    )?;
-    Ok(())
+pub async fn done(db: &Db, id: i64) -> AppResult<()> {
+    let input = client::AlertDoneInput {
+        commitment: key(id),
+    };
+    Ok(db.api().alert_done(input, ()).await?)
 }
 
-pub fn snooze(conn: &Connection, id: i64, until: DateTime<Utc>) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO alert_state (commitment_id, snoozed_until) VALUES (?1, ?2)
-         ON CONFLICT(commitment_id) DO UPDATE SET snoozed_until = excluded.snoozed_until",
-        params![id, until],
-    )?;
-    Ok(())
+pub async fn snooze(db: &Db, id: i64, until: DateTime<Utc>) -> AppResult<()> {
+    let input = client::AlertSnoozeInput {
+        commitment: key(id),
+        until: time::put(until),
+    };
+    Ok(db.api().alert_snooze(input, ()).await?)
 }

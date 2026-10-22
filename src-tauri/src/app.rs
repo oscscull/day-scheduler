@@ -23,26 +23,24 @@ impl App {
 
     /// Turns any files agents dropped in `inbox/` into urgent items.
     /// Returns how many items were raised.
-    pub fn take_inbox(&self, settings: &Settings) -> AppResult<usize> {
+    pub async fn take_inbox(&self, settings: &Settings) -> AppResult<usize> {
         let raised = inbox::take(&self.config)?;
         let count = raised.len();
-        self.db.with(|conn| {
-            for r in raised {
-                let area = settings.known_area(&r.area);
-                urgent::raise(conn, &r.into_urgent(area, Utc::now()))?;
-            }
-            Ok(count)
-        })
+        for r in raised {
+            let area = settings.known_area(&r.area);
+            urgent::raise(&self.db, &r.into_urgent(area, Utc::now())).await?;
+        }
+        Ok(count)
     }
 
     /// Deletes stored output that has outlived its TTL.
-    pub fn expire(&self, settings: &Settings) -> AppResult<()> {
+    pub async fn expire(&self, settings: &Settings) -> AppResult<()> {
         let ttl = Ttl {
             activity: Duration::days(settings.activity_ttl_days),
             runs: Duration::days(settings.run_ttl_days),
             done_todos: Duration::days(settings.done_todo_ttl_days),
             done_items: Duration::days(settings.done_item_ttl_days),
         };
-        self.db.with(|conn| expire(conn, Utc::now(), ttl))
+        expire(&self.db, Utc::now(), ttl).await
     }
 }

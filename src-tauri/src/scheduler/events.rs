@@ -11,7 +11,7 @@ use crate::domain::schedule::{EventKind, Trigger};
 use crate::error::AppResult;
 
 /// A schedule reacts to events in its own area, on the machine that runs that area.
-pub fn start_for(handle: &AppHandle, fired: &[Fired]) -> AppResult<()> {
+pub async fn start_for(handle: &AppHandle, fired: &[Fired]) -> AppResult<()> {
     let app = handle.state::<App>();
     if fired.is_empty() || pause::current(&app.config, Utc::now())?.is_some() {
         return Ok(());
@@ -34,7 +34,7 @@ pub fn start_for(handle: &AppHandle, fired: &[Fired]) -> AppResult<()> {
         if matches!(event.kind, EventKind::CiFailed | EventKind::CiPassed)
             && settings.node_for(&event.item_area) == settings.node
         {
-            super::ci::react(handle, &settings, event, !matching.is_empty())?;
+            super::ci::react(handle, &settings, event, !matching.is_empty()).await?;
         }
     }
     Ok(())

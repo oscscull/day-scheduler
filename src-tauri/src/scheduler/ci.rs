@@ -17,16 +17,16 @@ use crate::store::{items, watch};
 use crate::workspace::{self, Workspace};
 
 /// Reacts to a CI event. `covered` is true when a schedule already handles it.
-pub fn react(
+pub async fn react(
     handle: &AppHandle,
     settings: &Settings,
     event: &Fired,
     covered: bool,
 ) -> AppResult<()> {
     let app = handle.state::<App>();
-    let item = app.db.with(|c| items::get(c, &event.item_id))?;
+    let item = items::get(&app.db, &event.item_id).await?;
     let ws = workspace::for_item(settings, &item)?;
-    let claimed = app.db.with(watch::all)?.remove(&item.id);
+    let claimed = watch::all(&app.db).await?.remove(&item.id);
     let job = match claimed.and_then(|w| w.session) {
         Some(session) => {
             let passed = event.kind == EventKind::CiPassed;
@@ -37,7 +37,7 @@ pub fn react(
         }
         None if event.kind == EventKind::CiFailed && settings.github.fix_ci && !covered => {
             let session = ws.as_ref().map_or_else(fresh, Workspace::new_session);
-            app.db.with(|c| watch::claim(c, &item.id, Some(&session)))?;
+            watch::claim(&app.db, &item.id, Some(&session)).await?;
             let place = workspace::describe(&app.config, ws.as_ref())?;
             let prompt = prompt_for(&app, Prompt::FixCi, &item, &[("workspace", place.as_str())])?;
             Job::new("Fix CI", item.id, prompt, Thread::Start(session)).in_workspace(ws)
@@ -49,6 +49,7 @@ pub fn react(
         settings,
         job.with_tools(&settings.github.fix_ci_tools),
     )
+    .await
 }
 
 /// A new session in Quarterdeck's own folder, for repos with no project here.

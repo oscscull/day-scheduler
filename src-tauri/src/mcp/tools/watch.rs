@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::super::ctx::Ctx;
-use super::super::tool::{Tool, tool};
+use super::super::tool::{Tool, async_tool, tool};
 use crate::config::edit;
 use crate::domain::item::{ItemInput, Status};
 use crate::domain::session::SessionRef;
@@ -22,7 +22,7 @@ turns it off. Only the fields you pass change.";
 
 pub fn tools() -> Vec<Tool> {
     vec![
-        tool("claim_item", CLAIM, claim),
+        async_tool("claim_item", CLAIM, claim),
         tool("set_watchdog", SETTINGS, settings),
     ]
 }
@@ -35,22 +35,20 @@ struct ClaimArgs {
     session: Option<SessionRef>,
 }
 
-fn claim(ctx: &Ctx, args: ClaimArgs) -> AppResult<()> {
-    ctx.db.with(|c| {
-        let item = items::get(c, &args.id)?;
-        let input = ItemInput {
-            status: item.status.or(Some(Status::Proceeding)),
-            holder: "Claude".to_owned(),
-            id: item.id,
-            title: item.title,
-            state_label: item.state_label,
-            stage: item.stage,
-            area: item.area,
-            link: item.link,
-        };
-        work::save(c, input, Utc::now())?;
-        watch::claim(c, &args.id, args.session.as_ref())
-    })
+async fn claim(ctx: Ctx, args: ClaimArgs) -> AppResult<()> {
+    let item = items::get(&ctx.db, &args.id).await?;
+    let input = ItemInput {
+        status: item.status.or(Some(Status::Proceeding)),
+        holder: "Claude".to_owned(),
+        id: item.id,
+        title: item.title,
+        state_label: item.state_label,
+        stage: item.stage,
+        area: item.area,
+        link: item.link,
+    };
+    work::save(&ctx.db, input, Utc::now()).await?;
+    watch::claim(&ctx.db, &args.id, args.session.as_ref()).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

@@ -64,7 +64,7 @@ impl Job {
     }
 }
 
-fn start_record(handle: &AppHandle, settings: &Settings, job: &Job) -> AppResult<i64> {
+async fn start_record(handle: &AppHandle, settings: &Settings, job: &Job) -> AppResult<i64> {
     let record = Run {
         id: 0,
         schedule_id: None,
@@ -76,7 +76,7 @@ fn start_record(handle: &AppHandle, settings: &Settings, job: &Job) -> AppResult
         outcome: None,
         summary: None,
     };
-    handle.state::<App>().db.with(|c| runs::start(c, &record))
+    runs::start(&handle.state::<App>().db, &record).await
 }
 
 fn first_line(text: &str) -> String {
@@ -127,8 +127,8 @@ async fn ask(command: &str, job: &Job, mode: &str) -> String {
     }
 }
 
-pub fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult<()> {
-    let id = start_record(handle, settings, &job)?;
+pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult<()> {
+    let id = start_record(handle, settings, &job).await?;
     let command = settings.claude_command.clone();
     let mode = settings.project_permission_mode.clone();
     let handle = handle.clone();
@@ -145,12 +145,7 @@ pub fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult<()> {
             super::handoff::after_run(&handle, &job.item_id, ws).await;
         }
         // The run record is for display; losing it changes nothing about the item.
-        drop(
-            handle
-                .state::<App>()
-                .db
-                .with(|c| runs::finish(c, id, outcome, &summary)),
-        );
+        drop(runs::finish(&handle.state::<App>().db, id, outcome, &summary).await);
     });
     Ok(())
 }

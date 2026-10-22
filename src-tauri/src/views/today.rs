@@ -1,4 +1,3 @@
-use rusqlite::Connection;
 use serde::Serialize;
 
 use crate::domain::activity::Activity;
@@ -8,7 +7,7 @@ use crate::domain::todo::Todo;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 use crate::priorities::{Priority, Rules, priorities};
-use crate::store::{activity, asks, commitments, items, runs, todos, urgent};
+use crate::store::{Db, activity, asks, commitments, items, runs, todos, urgent};
 use crate::today::upcoming;
 
 const ACTIVITY_SHOWN: u32 = 12;
@@ -31,24 +30,24 @@ pub struct TodayView {
 }
 
 /// What Today shows. `rules` decide which waiting items are worth a nudge.
-pub fn build(conn: &Connection, priority_limit: usize, rules: Rules) -> AppResult<TodayView> {
+pub async fn build(db: &Db, priority_limit: usize, rules: Rules) -> AppResult<TodayView> {
     let now = rules.now;
-    let ranked = items::list(conn)?;
+    let ranked = items::list(db).await?;
     let in_flight = ranked
         .iter()
         .filter(|i| !matches!(i.stage, Stage::UpNext | Stage::Done))
         .count();
     Ok(TodayView {
-        urgent: urgent::list(conn)?,
-        upcoming: upcoming(commitments::list(conn)?, now)
+        urgent: urgent::list(db).await?,
+        upcoming: upcoming(commitments::list(db).await?, now)
             .into_iter()
             .take(UPCOMING_SHOWN)
             .collect(),
-        priorities: priorities(&ranked, &asks::list(conn)?, rules),
+        priorities: priorities(&ranked, &asks::list(db).await?, rules),
         priority_limit,
-        todos: todos::list(conn)?,
-        activity: activity::recent(conn, ACTIVITY_SHOWN)?,
-        running: runs::live(conn)?.len(),
+        todos: todos::list(db).await?,
+        activity: activity::recent(db, ACTIVITY_SHOWN).await?,
+        running: runs::live(db).await?.len(),
         in_flight,
     })
 }

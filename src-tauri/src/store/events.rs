@@ -1,40 +1,35 @@
 use chrono::{DateTime, Utc};
-use rusqlite::types::Type;
-use rusqlite::{Connection, Row, params};
 
+use super::client::{self, EventRow};
+use super::convert::{int, text_key};
+use super::db::Db;
+use super::time;
 use crate::domain::event::{Change, ItemEvent};
 use crate::error::AppResult;
 
-fn from_row(row: &Row<'_>) -> rusqlite::Result<ItemEvent> {
-    let json: String = row.get(3)?;
-    let change = serde_json::from_str(&json)
-        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(3, Type::Text, Box::new(e)))?;
+fn from_row(row: EventRow) -> AppResult<ItemEvent> {
     Ok(ItemEvent {
-        id: row.get(0)?,
-        item_id: row.get(1)?,
-        at: row.get(2)?,
-        change,
+        id: int(&row.id)?,
+        item_id: row.item_id.into_raw(),
+        at: time::get(&row.at)?,
+        change: serde_json::from_value(row.change)?,
     })
 }
 
 /// An item's history, newest first.
-pub fn for_item(conn: &Connection, item_id: &str) -> AppResult<Vec<ItemEvent>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, item_id, at, change FROM item_events WHERE item_id = ?1 ORDER BY at DESC, id DESC",
-    )?;
-    let rows = stmt.query_map([item_id], from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+pub async fn for_item(db: &Db, item_id: &str) -> AppResult<Vec<ItemEvent>> {
+    let input = client::ItemEventsInput {
+        item: text_key(item_id),
+    };
+    let rows = db.api().item_events(input, ()).await?;
+    rows.into_iter().map(from_row).collect()
 }
 
-pub fn record(
-    conn: &Connection,
-    item_id: &str,
-    at: DateTime<Utc>,
-    change: &Change,
-) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO item_events (item_id, at, change) VALUES (?1, ?2, ?3)",
-        params![item_id, at, serde_json::to_string(change)?],
-    )?;
-    Ok(())
+pub async fn record(db: &Db, item_id: &str, at: DateTime<Utc>, change: &Change) -> AppResult<()> {
+    let input = client::RecordEventInput {
+        item: text_key(item_id),
+        at: time::put(at),
+        change: serde_json::to_value(change)?,
+    };
+    Ok(db.api().record_event(input, ()).await?)
 }

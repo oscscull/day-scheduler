@@ -19,36 +19,44 @@ pub fn registry() -> Vec<Tool> {
 }
 
 /// Runs one tool by name.
-pub fn call(ctx: &Ctx, tools: &[Tool], name: &str, args: Value) -> AppResult<Value> {
+pub async fn call(ctx: &Ctx, tools: &[Tool], name: &str, args: Value) -> AppResult<Value> {
     let tool = tools
         .iter()
         .find(|t| t.name == name)
         .ok_or_else(|| AppError::BadInput(format!("no tool called {name}")))?;
-    (tool.call)(ctx, args)
+    (tool.call)(ctx.clone(), args).await
 }
 
-use std::io::{BufRead as _, Write as _};
+use std::io::Write as _;
 use std::process::ExitCode;
 
 /// Serves MCP requests from stdin until it closes.
 pub fn serve() -> ExitCode {
-    let Ok(ctx) = Ctx::open() else {
+    tauri::async_runtime::block_on(serve_stdio())
+}
+
+async fn serve_stdio() -> ExitCode {
+    let Ok(ctx) = Ctx::open().await else {
         return ExitCode::FAILURE;
     };
     let registry = tools::all();
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
-    for line in stdin.lock().lines() {
-        let Ok(line) = line else {
-            return ExitCode::FAILURE;
-        };
-        if let Some(reply) = protocol::handle(&ctx, &registry, &line)
+    // Requests come one at a time and each is answered before the next is read.
+    let mut line = String::new();
+    loop {
+        line.clear();
+        match stdin.read_line(&mut line) {
+            Ok(0) => return ExitCode::SUCCESS,
+            Ok(_) => {}
+            Err(_) => return ExitCode::FAILURE,
+        }
+        if let Some(reply) = protocol::handle(&ctx, &registry, line.trim_end()).await
             && (writeln!(stdout, "{reply}").is_err() || stdout.flush().is_err())
         {
             return ExitCode::FAILURE;
         }
     }
-    ExitCode::SUCCESS
 }
 
 #[cfg(test)]
@@ -58,27 +66,30 @@ mod tests {
     use super::tool::Tool;
     use super::*;
 
-    fn session(name: &str) -> (Ctx, Vec<Tool>) {
+    async fn session(name: &str) -> (Ctx, Vec<Tool>) {
         let dir =
             std::env::temp_dir().join(format!("quarterdeck-mcp-{name}-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
-        let ctx = Ctx::at(&dir.join("data"), dir.join("config")).unwrap();
+        let ctx = Ctx::at(&dir.join("data"), dir.join("config"))
+            .await
+            .unwrap();
         (ctx, tools::all())
     }
 
-    fn send(ctx: &Ctx, registry: &[Tool], method: &str, params: &Value) -> Value {
+    async fn send(ctx: &Ctx, registry: &[Tool], method: &str, params: &Value) -> Value {
         let line =
             json!({ "jsonrpc": "2.0", "id": 1, "method": method, "params": params }).to_string();
-        serde_json::from_str(&protocol::handle(ctx, registry, &line).unwrap()).unwrap()
+        serde_json::from_str(&protocol::handle(ctx, registry, &line).await.unwrap()).unwrap()
     }
 
-    fn call(ctx: &Ctx, registry: &[Tool], name: &str, args: &Value) -> String {
+    async fn call(ctx: &Ctx, registry: &[Tool], name: &str, args: &Value) -> String {
         let reply = send(
             ctx,
             registry,
             "tools/call",
             &json!({ "name": name, "arguments": args }),
-        );
+        )
+        .await;
         assert_eq!(reply["result"]["isError"], Value::Null, "{reply}");
         reply["result"]["content"][0]["text"]
             .as_str()
@@ -86,17 +97,18 @@ mod tests {
             .to_owned()
     }
 
-    #[test]
-    fn a_session_can_list_tools_and_round_trip_an_item() {
-        let (ctx, registry) = session("roundtrip");
+    #[tokio::test]
+    async fn a_session_can_list_tools_and_round_trip_an_item() {
+        let (ctx, registry) = session("roundtrip").await;
         let init = send(
             &ctx,
             &registry,
             "initialize",
             &json!({ "protocolVersion": "2025-06-18" }),
-        );
+        )
+        .await;
         assert_eq!(init["result"]["serverInfo"]["name"], "quarterdeck");
-        let listed = send(&ctx, &registry, "tools/list", &json!({}));
+        let listed = send(&ctx, &registry, "tools/list", &json!({})).await;
         let all = listed["result"]["tools"].as_array().unwrap();
         let names: Vec<&str> = all.iter().filter_map(|t| t["name"].as_str()).collect();
         assert!(
@@ -110,28 +122,31 @@ mod tests {
             &registry,
             "create_item",
             &json!({ "title": "Fix login", "area": "work", "key": "JD-1" }),
-        );
+        )
+        .await;
         assert_eq!(id, "\"JD-1\"");
         call(
             &ctx,
             &registry,
             "update_item",
             &json!({ "id": "JD-1", "stage": "in_review", "status": "review" }),
-        );
-        let item = call(&ctx, &registry, "get_item", &json!({ "id": "JD-1" }));
+        )
+        .await;
+        let item = call(&ctx, &registry, "get_item", &json!({ "id": "JD-1" })).await;
         assert!(item.contains("in_review") && item.contains("\"kind\": \"stage\""));
     }
 
-    #[test]
-    fn bad_input_is_a_readable_tool_error() {
-        let (ctx, registry) = session("bad-input");
+    #[tokio::test]
+    async fn bad_input_is_a_readable_tool_error() {
+        let (ctx, registry) = session("bad-input").await;
         let args = json!({ "title": "x", "area": "life", "due": "friday" });
         let reply = send(
             &ctx,
             &registry,
             "tools/call",
             &json!({ "name": "add_todo", "arguments": args }),
-        );
+        )
+        .await;
         assert_eq!(reply["result"]["isError"], true);
         assert!(
             reply["result"]["content"][0]["text"]

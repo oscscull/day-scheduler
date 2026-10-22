@@ -1,141 +1,153 @@
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, OptionalExtension as _, Row, params};
 
-use super::codec::{column, encode, required};
+use super::client::{self, ItemRow};
+use super::convert::{same, same_opt, text_key};
+use super::db::{Db, gone_ok};
+use super::time;
 use crate::domain::item::WorkItem;
 use crate::error::{AppError, AppResult};
 
 /// Items made by hand or by an agent, as opposed to a connector.
 pub const MANUAL: &str = "manual";
 
-const COLUMNS: &str = "id, title, state_label, stage, status, holder, area, link, source, external_id, opened_at, state_since, rank";
-
-fn from_row(row: &Row<'_>) -> rusqlite::Result<WorkItem> {
+fn from_row(row: ItemRow) -> AppResult<WorkItem> {
     Ok(WorkItem {
-        id: row.get(0)?,
-        title: row.get(1)?,
-        state_label: row.get(2)?,
-        stage: required(row, 3)?,
-        status: column(row, 4)?,
-        holder: row.get(5)?,
-        area: row.get(6)?,
-        link: row.get(7)?,
-        source: row.get(8)?,
-        external_id: row.get(9)?,
-        opened_at: row.get(10)?,
-        state_since: row.get(11)?,
-        rank: row.get(12)?,
+        id: row.id.into_raw(),
+        title: row.title,
+        state_label: row.state_label,
+        stage: same(&row.stage)?,
+        status: same_opt(row.status.as_ref())?,
+        holder: row.holder,
+        area: row.area,
+        link: row.link,
+        source: row.source,
+        external_id: row.external_id,
+        opened_at: time::get(&row.opened_at)?,
+        state_since: time::get(&row.state_since)?,
+        rank: row.rank,
     })
 }
 
+fn from_rows(rows: Vec<ItemRow>) -> AppResult<Vec<WorkItem>> {
+    rows.into_iter().map(from_row).collect()
+}
+
 /// Visible items, highest priority first.
-pub fn list(conn: &Connection) -> AppResult<Vec<WorkItem>> {
-    let mut stmt = conn.prepare(&format!(
-        "SELECT {COLUMNS} FROM items WHERE hidden = 0 ORDER BY rank"
-    ))?;
-    let rows = stmt.query_map([], from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+pub async fn list(db: &Db) -> AppResult<Vec<WorkItem>> {
+    from_rows(db.api().items(client::ItemsInput {}, ()).await?)
 }
 
-pub fn find(conn: &Connection, id: &str) -> AppResult<Option<WorkItem>> {
-    let sql = format!("SELECT {COLUMNS} FROM items WHERE id = ?1");
-    Ok(conn.query_row(&sql, [id], from_row).optional()?)
+pub async fn find(db: &Db, id: &str) -> AppResult<Option<WorkItem>> {
+    let input = client::ItemInput { id: text_key(id) };
+    let row = db.api().item(input, ()).await?;
+    row.map(from_row).transpose()
 }
 
-pub fn get(conn: &Connection, id: &str) -> AppResult<WorkItem> {
-    find(conn, id)?.ok_or_else(|| AppError::NotFound(format!("item {id}")))
+pub async fn get(db: &Db, id: &str) -> AppResult<WorkItem> {
+    find(db, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("item {id}")))
+}
+
+/// How many items there are, hidden ones included.
+pub async fn count(db: &Db) -> AppResult<i64> {
+    let row = db.api().item_count(client::ItemCountInput {}, ()).await?;
+    Ok(row.map_or(0, |r| r.n))
 }
 
 /// The rank that puts a new item at the bottom of the priorities.
-pub fn next_rank(conn: &Connection) -> AppResult<i64> {
-    Ok(
-        conn.query_row("SELECT COALESCE(MAX(rank) + 1, 0) FROM items", [], |r| {
-            r.get(0)
-        })?,
-    )
+pub async fn next_rank(db: &Db) -> AppResult<i64> {
+    let row = db.api().top_rank(client::TopRankInput {}, ()).await?;
+    Ok(row.and_then(|r| r.top).map_or(0, |top| top + 1))
 }
 
 /// Inserts or replaces an item by id.
-pub fn save(conn: &Connection, item: &WorkItem) -> AppResult<()> {
-    conn.execute(
-        &format!(
-            "INSERT OR REPLACE INTO items ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)"
-        ),
-        params![
-            item.id,
-            item.title,
-            item.state_label,
-            encode(&item.stage)?,
-            item.status.map(|s| encode(&s)).transpose()?,
-            item.holder,
-            item.area,
-            item.link,
-            item.source,
-            item.external_id,
-            item.opened_at,
-            item.state_since,
-            item.rank
-        ],
-    )?;
-    Ok(())
+pub async fn save(db: &Db, item: &WorkItem) -> AppResult<()> {
+    let input = client::SaveItemInput {
+        id: text_key(&item.id),
+        title: item.title.clone(),
+        state_label: item.state_label.clone(),
+        stage: same(&item.stage)?,
+        status: same_opt(item.status.as_ref())?,
+        holder: item.holder.clone(),
+        area: item.area.clone(),
+        link: item.link.clone(),
+        source: item.source.clone(),
+        external_id: item.external_id.clone(),
+        opened_at: time::put(item.opened_at),
+        state_since: time::put(item.state_since),
+        rank: item.rank,
+    };
+    Ok(db.api().save_item(input, ()).await?)
 }
 
-/// Deletes an item along with its asks and history. Synced items are hidden instead, so the
-/// next sync doesn't bring them back.
-pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
-    if find(conn, id)?.is_some_and(|i| i.source != MANUAL) {
-        return hide(conn, id);
+/// Deletes an item along with its asks, history and watch. Synced items are hidden instead, so
+/// the next sync doesn't bring them back.
+pub async fn delete(db: &Db, id: &str) -> AppResult<()> {
+    if find(db, id).await?.is_some_and(|i| i.source != MANUAL) {
+        return hide(db, id).await;
     }
-    purge(conn, id)
+    purge(db, id).await
 }
 
-/// Deletes an item along with its asks and history, whatever made it.
-pub fn purge(conn: &Connection, id: &str) -> AppResult<()> {
-    conn.execute("DELETE FROM asks WHERE item_id = ?1", [id])?;
-    conn.execute("DELETE FROM item_events WHERE item_id = ?1", [id])?;
-    conn.execute("DELETE FROM watch WHERE item_id = ?1", [id])?;
-    conn.execute("DELETE FROM items WHERE id = ?1", [id])?;
-    Ok(())
+/// Deletes an item along with its asks, history and watch, whatever made it.
+pub async fn purge(db: &Db, id: &str) -> AppResult<()> {
+    let input = client::DeleteItemInput { id: text_key(id) };
+    gone_ok(
+        db.api()
+            .delete_item(input, ())
+            .await
+            .map_err(AppError::from),
+    )
 }
 
 /// Ids of done items whose state has not changed since `before`.
-pub fn done_before(conn: &Connection, before: DateTime<Utc>) -> AppResult<Vec<String>> {
-    let mut stmt =
-        conn.prepare("SELECT id FROM items WHERE stage = 'done' AND state_since < ?1")?;
-    let rows = stmt.query_map([before], |r| r.get(0))?;
-    Ok(rows.collect::<Result<_, _>>()?)
+pub async fn done_before(db: &Db, before: DateTime<Utc>) -> AppResult<Vec<String>> {
+    let input = client::DoneItemsInput {
+        before: time::put(before),
+    };
+    let rows = db.api().done_items(input, ()).await?;
+    Ok(rows.into_iter().map(|r| r.id.into_raw()).collect())
 }
 
-/// Sets each item's rank to its position in `ids`.
-pub fn reorder(conn: &Connection, ids: &[String]) -> AppResult<()> {
-    let mut stmt = conn.prepare("UPDATE items SET rank = ?1 WHERE id = ?2")?;
-    for (rank, id) in (0_i64..).zip(ids) {
-        stmt.execute(params![rank, id])?;
-    }
-    Ok(())
+/// Sets each item's rank to its position in `ids`, all at once. Ids that are gone are skipped.
+pub async fn reorder(db: &Db, ids: &[String]) -> AppResult<()> {
+    db.tx(|api| async move {
+        for (rank, id) in (0_i64..).zip(ids) {
+            let input = client::SetRankInput {
+                id: text_key(id),
+                rank,
+            };
+            match api.set_rank(input, ()).await {
+                Err(e) if e.code() == "not_found" => {}
+                other => other?,
+            }
+        }
+        Ok(())
+    })
+    .await
 }
 
 /// The item a connector made for `external_id`, hidden or not.
-pub fn by_external(
-    conn: &Connection,
-    source: &str,
-    external_id: &str,
-) -> AppResult<Option<WorkItem>> {
-    let sql = format!("SELECT {COLUMNS} FROM items WHERE source = ?1 AND external_id = ?2");
-    Ok(conn
-        .query_row(&sql, [source, external_id], from_row)
-        .optional()?)
+pub async fn by_external(db: &Db, source: &str, external_id: &str) -> AppResult<Option<WorkItem>> {
+    let input = client::ItemByExternalInput {
+        source: source.to_owned(),
+        external_id: external_id.to_owned(),
+    };
+    let row = db.api().item_by_external(input, ()).await?;
+    row.map(from_row).transpose()
 }
 
 /// Every item a connector made, hidden or not.
-pub fn from_source(conn: &Connection, source: &str) -> AppResult<Vec<WorkItem>> {
-    let mut stmt = conn.prepare(&format!("SELECT {COLUMNS} FROM items WHERE source = ?1"))?;
-    let rows = stmt.query_map([source], from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+pub async fn from_source(db: &Db, source: &str) -> AppResult<Vec<WorkItem>> {
+    let input = client::ItemsFromSourceInput {
+        source: source.to_owned(),
+    };
+    from_rows(db.api().items_from_source(input, ()).await?)
 }
 
 /// Hides a synced item so the connector doesn't bring it back.
-pub fn hide(conn: &Connection, id: &str) -> AppResult<()> {
-    conn.execute("UPDATE items SET hidden = 1 WHERE id = ?1", [id])?;
-    Ok(())
+pub async fn hide(db: &Db, id: &str) -> AppResult<()> {
+    let input = client::HideItemInput { id: text_key(id) };
+    Ok(db.api().hide_item(input, ()).await?)
 }

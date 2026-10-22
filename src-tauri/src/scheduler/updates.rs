@@ -19,15 +19,15 @@ fn update_error(e: impl std::fmt::Display) -> AppError {
 }
 
 /// Starts a check when the last one is `check_minutes` old.
-pub fn check_if_due(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
+pub async fn check_if_due(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     let app = handle.state::<App>();
     let now = Utc::now();
     let every = Duration::minutes(settings.updates.check_minutes);
-    let last = app.db.with(|c| meta::time(c, LAST_CHECK))?;
+    let last = meta::time(&app.db, LAST_CHECK).await?;
     if !settings.updates.enabled || last.is_some_and(|t| now - t < every) {
         return Ok(());
     }
-    app.db.with(|c| meta::set_time(c, LAST_CHECK, now))?;
+    meta::set_time(&app.db, LAST_CHECK, now).await?;
     let handle = handle.clone();
     tauri::async_runtime::spawn(async move {
         // A failed check is retried at the next one; nothing else depends on it.
@@ -37,8 +37,8 @@ pub fn check_if_due(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
 }
 
 /// No Claude run would be cut off, and the user isn't looking at the window.
-fn idle(handle: &AppHandle) -> AppResult<bool> {
-    let running = !handle.state::<App>().db.with(runs::live)?.is_empty();
+async fn idle(handle: &AppHandle) -> AppResult<bool> {
+    let running = !runs::live(&handle.state::<App>().db).await?.is_empty();
     let in_use = handle
         .get_webview_window(desktop::MAIN)
         .is_some_and(|w| w.is_focused().unwrap_or(false));
@@ -50,12 +50,9 @@ async fn install_when_idle(handle: &AppHandle) -> AppResult<()> {
     let Some(update) = updater.check().await.map_err(update_error)? else {
         return Ok(());
     };
-    if !idle(handle)? {
+    if !idle(handle).await? {
         // Try again on the next tick rather than in `check_minutes`.
-        return handle
-            .state::<App>()
-            .db
-            .with(|c| meta::forget(c, LAST_CHECK));
+        return meta::forget(&handle.state::<App>().db, LAST_CHECK).await;
     }
     update
         .download_and_install(|_, _| {}, || {})

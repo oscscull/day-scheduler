@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::super::ctx::Ctx;
-use super::super::tool::{Tool, tool};
+use super::super::tool::{Tool, async_tool};
 use super::{in_area, time};
 use crate::domain::commitment::Commitment;
 use crate::error::AppResult;
@@ -12,24 +12,24 @@ use crate::today::upcoming;
 
 pub fn tools() -> Vec<Tool> {
     vec![
-        tool(
+        async_tool(
             "list_meetings",
             "Upcoming meetings and appointments, soonest first. Hidden ones are left out.",
             list,
         ),
-        tool(
+        async_tool(
             "add_meeting",
             "Adds a meeting or appointment the user must attend at a fixed time. Quarterdeck alerts them \
              before it starts. Times are RFC 3339 with an offset.",
             add,
         ),
-        tool(
+        async_tool(
             "update_meeting",
             "Changes a meeting: move it to another area, rename it, or `hidden: true` to stop showing \
              it (e.g. a calendar event the user doesn't care about). Calendar re-syncs keep these changes.",
             update,
         ),
-        tool(
+        async_tool(
             "delete_meeting",
             "Deletes a meeting. A calendar event may come back on the next sync; hide it instead.",
             delete,
@@ -43,8 +43,8 @@ struct ListArgs {
     area: Option<String>,
 }
 
-fn list(ctx: &Ctx, args: ListArgs) -> AppResult<Vec<Commitment>> {
-    let mut all = upcoming(ctx.db.with(commitments::list)?, Utc::now());
+async fn list(ctx: Ctx, args: ListArgs) -> AppResult<Vec<Commitment>> {
+    let mut all = upcoming(commitments::list(&ctx.db).await?, Utc::now());
     all.retain(|c| in_area(args.area.as_ref(), &c.area));
     Ok(all)
 }
@@ -63,7 +63,7 @@ struct AddArgs {
     join_url: Option<String>,
 }
 
-fn add(ctx: &Ctx, args: AddArgs) -> AppResult<()> {
+async fn add(ctx: Ctx, args: AddArgs) -> AppResult<()> {
     let c = Commitment {
         id: 0,
         title: args.title,
@@ -76,7 +76,7 @@ fn add(ctx: &Ctx, args: AddArgs) -> AppResult<()> {
         external_id: None,
         hidden: false,
     };
-    ctx.db.with(|conn| commitments::insert(conn, &c))
+    commitments::insert(&ctx.db, &c).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -90,23 +90,21 @@ struct UpdateArgs {
     hidden: Option<bool>,
 }
 
-fn update(ctx: &Ctx, args: UpdateArgs) -> AppResult<()> {
+async fn update(ctx: Ctx, args: UpdateArgs) -> AppResult<()> {
     let area = args.area.as_deref().map(|a| ctx.area(a)).transpose()?;
     let starts = args.starts_at.as_deref().map(time).transpose()?;
     let ends = args.ends_at.as_deref().map(time).transpose()?;
-    ctx.db.with(|conn| {
-        let old = commitments::get(conn, args.id)?;
-        let c = Commitment {
-            title: args.title.unwrap_or(old.title),
-            area: area.unwrap_or(old.area),
-            starts_at: starts.unwrap_or(old.starts_at),
-            ends_at: ends.unwrap_or(old.ends_at),
-            location: args.location.or(old.location),
-            hidden: args.hidden.unwrap_or(old.hidden),
-            ..old
-        };
-        commitments::update(conn, &c)
-    })
+    let old = commitments::get(&ctx.db, args.id).await?;
+    let c = Commitment {
+        title: args.title.unwrap_or(old.title),
+        area: area.unwrap_or(old.area),
+        starts_at: starts.unwrap_or(old.starts_at),
+        ends_at: ends.unwrap_or(old.ends_at),
+        location: args.location.or(old.location),
+        hidden: args.hidden.unwrap_or(old.hidden),
+        ..old
+    };
+    commitments::update(&ctx.db, &c).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -114,6 +112,6 @@ struct IdArgs {
     id: i64,
 }
 
-fn delete(ctx: &Ctx, args: IdArgs) -> AppResult<()> {
-    ctx.db.with(|conn| commitments::delete(conn, args.id))
+async fn delete(ctx: Ctx, args: IdArgs) -> AppResult<()> {
+    commitments::delete(&ctx.db, args.id).await
 }

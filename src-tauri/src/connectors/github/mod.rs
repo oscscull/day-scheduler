@@ -10,7 +10,6 @@ mod snapshot;
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
 use tauri::{AppHandle, Manager as _};
 
 use crate::app::App;
@@ -18,7 +17,7 @@ use crate::config::github::GithubSettings;
 use crate::config::settings::Settings;
 use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
-use crate::store::items;
+use crate::store::{Db, items};
 
 pub use adopt::{OpenedPr, adopt};
 pub use apply::SOURCE;
@@ -72,29 +71,26 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
     let all = app.settings()?;
     let prs = fetch::open_prs().await?;
     let now = Utc::now();
-    let (fired, unseen) = app.db.with(|conn| {
-        let mut fired = Vec::new();
-        let mut open = HashSet::new();
-        for pr in prs.iter().filter(|p| !all.github.ignores(&p.repo)) {
-            // Open on GitHub whichever machine syncs it, so it must never be closed here.
-            open.insert(apply::external_id(pr));
-            if let Some(area) = synced_here(conn, &all, pr)? {
-                fired.extend(sync_pr(conn, &prepared(pr, &all.github), &area, now)?);
-            }
+    let mut fired = Vec::new();
+    let mut open = HashSet::new();
+    for pr in prs.iter().filter(|p| !all.github.ignores(&p.repo)) {
+        // Open on GitHub whichever machine syncs it, so it must never be closed here.
+        open.insert(apply::external_id(pr));
+        if let Some(area) = synced_here(&app.db, &all, pr).await? {
+            fired.extend(sync_pr(&app.db, &prepared(pr, &all.github), &area, now).await?);
         }
-        Ok((fired, apply::unseen(conn, &open)?))
-    })?;
-    close_ended(&app, &unseen).await?;
+    }
+    let unseen = apply::unseen(&app.db, &open).await?;
+    close_ended(&app.db, &unseen).await?;
     Ok(fired)
 }
 
 /// Asks GitHub what happened to each PR the search didn't return, and closes the merged or
 /// closed ones. One GitHub can't answer for stays as it is until the next sync.
-async fn close_ended(app: &App, unseen: &[String]) -> AppResult<()> {
+async fn close_ended(db: &Db, unseen: &[String]) -> AppResult<()> {
     for ext in unseen {
         if let Ok(ended) = fate::of(ext).await {
-            app.db
-                .with(|conn| apply::close(conn, ext, ended, Utc::now()))?;
+            apply::close(db, ext, ended, Utc::now()).await?;
         }
     }
     Ok(())
@@ -102,9 +98,10 @@ async fn close_ended(app: &App, unseen: &[String]) -> AppResult<()> {
 
 /// The area to sync `pr` into, if this machine syncs it: the area of the item already made for
 /// it, else the repo's. Another machine syncs the areas it runs, so two never duplicate a PR.
-fn synced_here(conn: &Connection, all: &Settings, pr: &fetch::Pr) -> AppResult<Option<String>> {
+async fn synced_here(db: &Db, all: &Settings, pr: &fetch::Pr) -> AppResult<Option<String>> {
     let ext = apply::external_id(pr);
-    let area = items::by_external(conn, SOURCE, &ext)?
+    let area = items::by_external(db, SOURCE, &ext)
+        .await?
         .map_or_else(|| all.github.area_for(&pr.repo).to_owned(), |i| i.area);
     Ok((all.node_for(&area) == all.node).then_some(area))
 }
@@ -116,15 +113,12 @@ fn prepared(pr: &fetch::Pr, settings: &GithubSettings) -> fetch::Pr {
     with_checks(&pr, &settings.informational(&pr.repo))
 }
 
-fn sync_pr(
-    conn: &Connection,
-    pr: &fetch::Pr,
-    area: &str,
-    now: DateTime<Utc>,
-) -> AppResult<Vec<Fired>> {
+/// Brings one PR's item up to date and returns the events it fired.
+async fn sync_pr(db: &Db, pr: &fetch::Pr, area: &str, now: DateTime<Utc>) -> AppResult<Vec<Fired>> {
     let ext = apply::external_id(pr);
-    let kinds = apply::apply(conn, pr, area, now)?;
-    let item_id = items::by_external(conn, SOURCE, &ext)?
+    let kinds = apply::apply(db, pr, area, now).await?;
+    let item_id = items::by_external(db, SOURCE, &ext)
+        .await?
         .map(|i| i.id)
         .unwrap_or_default();
     Ok(kinds
@@ -140,11 +134,8 @@ fn sync_pr(
 
 #[cfg(test)]
 mod tests {
-    use rusqlite::Connection;
-
     use super::*;
     use crate::config::settings::Area;
-    use crate::store::schema;
 
     fn area(id: &str, node: &str) -> Area {
         Area {
@@ -185,21 +176,28 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_pr_syncs_where_its_item_is_held() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::migrate(&conn).unwrap();
+    #[tokio::test]
+    async fn a_pr_syncs_where_its_item_is_held() {
+        let db = Db::in_memory().await;
         // A PR in another machine's area with no item here is that machine's to sync.
-        assert_eq!(synced_here(&conn, &settings(), &pr(1)).unwrap(), None);
+        assert_eq!(synced_here(&db, &settings(), &pr(1)).await.unwrap(), None);
         // One that this machine already holds an item for (e.g. opened for a queued issue)
         // stays here, in that item's area.
-        apply::apply(&conn, &pr(2), "projects", Utc::now()).unwrap();
+        apply::apply(&db, &pr(2), "projects", Utc::now())
+            .await
+            .unwrap();
         assert_eq!(
-            synced_here(&conn, &settings(), &pr(2)).unwrap().as_deref(),
+            synced_here(&db, &settings(), &pr(2))
+                .await
+                .unwrap()
+                .as_deref(),
             Some("projects")
         );
         // Seen in the open-PR search, so nothing asks GitHub whether it ended.
         let open = HashSet::from([apply::external_id(&pr(2))]);
-        assert_eq!(apply::unseen(&conn, &open).unwrap(), Vec::<String>::new());
+        assert_eq!(
+            apply::unseen(&db, &open).await.unwrap(),
+            Vec::<String>::new()
+        );
     }
 }

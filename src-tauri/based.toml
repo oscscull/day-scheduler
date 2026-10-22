@@ -1,0 +1,11 @@
+# Quarterdeck's database, defined in Based. `build.rs` checks and embeds `schema/` and
+# `migrations/`; the app applies pending migrations when it opens the database.
+dialect = "sqlite"
+client  = "rust"
+root    = "schema"
+
+[schema]
+foreign_keys = "all"
+
+[generate]
+client_mode = "embedded"

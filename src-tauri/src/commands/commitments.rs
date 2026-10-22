@@ -7,7 +7,7 @@ use crate::store::commitments;
 
 /// Adds a meeting or appointment by hand. Calendar ones arrive through the calendar connector.
 #[tauri::command]
-pub fn add_commitment(app: State<'_, App>, commitment: CommitmentInput) -> AppResult<()> {
+pub async fn add_commitment(app: State<'_, App>, commitment: CommitmentInput) -> AppResult<()> {
     let c = Commitment {
         id: 0,
         area: app.settings()?.known_area(&commitment.area),
@@ -20,19 +20,17 @@ pub fn add_commitment(app: State<'_, App>, commitment: CommitmentInput) -> AppRe
         external_id: None,
         hidden: false,
     };
-    app.db.with(|conn| commitments::insert(conn, &c))
+    commitments::insert(&app.db, &c).await
 }
 
 #[tauri::command]
-pub fn delete_commitment(app: State<'_, App>, id: i64) -> AppResult<()> {
-    app.db.with(|conn| commitments::delete(conn, id))
+pub async fn delete_commitment(app: State<'_, App>, id: i64) -> AppResult<()> {
+    commitments::delete(&app.db, id).await
 }
 
 /// Hides a meeting, e.g. a calendar event the user doesn't care about. Re-syncs keep it hidden.
 #[tauri::command]
-pub fn hide_commitment(app: State<'_, App>, id: i64) -> AppResult<()> {
-    app.db.with(|conn| {
-        let c = commitments::get(conn, id)?;
-        commitments::update(conn, &Commitment { hidden: true, ..c })
-    })
+pub async fn hide_commitment(app: State<'_, App>, id: i64) -> AppResult<()> {
+    let c = commitments::get(&app.db, id).await?;
+    commitments::update(&app.db, &Commitment { hidden: true, ..c }).await
 }

@@ -14,30 +14,30 @@ use crate::claude::{self, Ask, Session};
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
 use crate::domain::item::{Stage, WorkItem};
+use crate::domain::session::SessionRef;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 use crate::store::watch::{self, Watch};
-use crate::store::{events, items, runs, urgent};
+use crate::store::{Db, events, items, runs, urgent};
 use decide::{Action, Limits, decide, refreshed};
 
 /// The last time anything was heard about an item: a state change or a history note.
-pub fn last_heard(conn: &rusqlite::Connection, item: &WorkItem) -> AppResult<DateTime<Utc>> {
-    let latest = events::for_item(conn, &item.id)?.first().map(|e| e.at);
+pub async fn last_heard(db: &Db, item: &WorkItem) -> AppResult<DateTime<Utc>> {
+    let latest = events::for_item(db, &item.id).await?.first().map(|e| e.at);
     Ok(latest.map_or(item.state_since, |at| at.max(item.state_since)))
 }
 
 /// Items a run is working on now.
-fn busy(app: &App) -> AppResult<Vec<String>> {
-    Ok(app
-        .db
-        .with(runs::live)?
+async fn busy(app: &App) -> AppResult<Vec<String>> {
+    Ok(runs::live(&app.db)
+        .await?
         .into_iter()
         .map(|r| r.target)
         .collect())
 }
 
 /// Checks every item this machine's Claude holds. Runs from the scheduler tick.
-pub fn check(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
+pub async fn check(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     if !settings.watchdog.enabled {
         return Ok(());
     }
@@ -47,19 +47,19 @@ pub fn check(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         max_nudges: settings.watchdog.max_nudges,
     };
     let now = Utc::now();
-    let all = app.db.with(items::list)?;
-    let watches = app.db.with(watch::all)?;
+    let all = items::list(&app.db).await?;
+    let watches = watch::all(&app.db).await?;
     // A watch lasts until the work is finished, so CI results keep reaching the session even
     // while the item sits with reviewers. Nudges only go to items Claude is carrying right now.
     for item in all
         .iter()
         .filter(|i| watches.contains_key(&i.id) && i.stage == Stage::Done)
     {
-        app.db.with(|c| watch::release(c, &item.id))?;
+        watch::release(&app.db, &item.id).await?;
     }
     // Only claimed work is watched: checking in on items no agent took on would spend tokens on
     // runs that can't help. A run still working on the item isn't quiet, just busy.
-    let running = busy(&app)?;
+    let running = busy(&app).await?;
     let held: Vec<&WorkItem> = all
         .iter()
         .filter(|i| {
@@ -70,25 +70,22 @@ pub fn check(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         })
         .collect();
     for item in held {
-        let heard = app.db.with(|c| last_heard(c, item))?;
+        let heard = last_heard(&app.db, item).await?;
         let current = refreshed(&watches.get(&item.id).cloned().unwrap_or_default(), heard);
         match decide(heard, &current, now, limits) {
             Action::Wait => {}
-            Action::Nudge => nudge(handle, item, &current, now - heard)?,
-            Action::Escalate => escalate(handle, item, &current)?,
+            Action::Nudge => nudge(handle, item, &current, now - heard).await?,
+            Action::Escalate => escalate(handle, item, &current).await?,
         }
     }
     Ok(())
 }
 
-fn record(handle: &AppHandle, item: &WorkItem, w: &Watch) -> AppResult<()> {
-    handle
-        .state::<App>()
-        .db
-        .with(|c| watch::record(c, &item.id, w))
+async fn record(handle: &AppHandle, item: &WorkItem, w: &Watch) -> AppResult<()> {
+    watch::record(&handle.state::<App>().db, &item.id, w).await
 }
 
-fn nudge(handle: &AppHandle, item: &WorkItem, w: &Watch, quiet: Duration) -> AppResult<()> {
+async fn nudge(handle: &AppHandle, item: &WorkItem, w: &Watch, quiet: Duration) -> AppResult<()> {
     record(
         handle,
         item,
@@ -97,7 +94,8 @@ fn nudge(handle: &AppHandle, item: &WorkItem, w: &Watch, quiet: Duration) -> App
             last_nudge: Some(Utc::now()),
             ..w.clone()
         },
-    )?;
+    )
+    .await?;
     let app = handle.state::<App>();
     let quiet_text = format!("{} minutes", quiet.num_minutes());
     let vars = [
@@ -107,8 +105,12 @@ fn nudge(handle: &AppHandle, item: &WorkItem, w: &Watch, quiet: Duration) -> App
         ("quiet", quiet_text.as_str()),
     ];
     let prompt = render(&app.config, Prompt::CheckIn, &vars)?;
-    let command = app.settings()?.claude_command;
-    let session = w.session.clone();
+    check_in(app.settings()?.claude_command, prompt, w.session.clone());
+    Ok(())
+}
+
+/// Asks the item's session (or a fresh one) to report in, in the background.
+fn check_in(command: String, prompt: String, session: Option<SessionRef>) {
     tauri::async_runtime::spawn(async move {
         // A failed check-in counts as a nudge; the next one, or the escalation, follows anyway.
         drop(
@@ -127,10 +129,9 @@ fn nudge(handle: &AppHandle, item: &WorkItem, w: &Watch, quiet: Duration) -> App
             .await,
         );
     });
-    Ok(())
 }
 
-fn escalate(handle: &AppHandle, item: &WorkItem, w: &Watch) -> AppResult<()> {
+async fn escalate(handle: &AppHandle, item: &WorkItem, w: &Watch) -> AppResult<()> {
     record(
         handle,
         item,
@@ -139,7 +140,8 @@ fn escalate(handle: &AppHandle, item: &WorkItem, w: &Watch) -> AppResult<()> {
             last_nudge: Some(Utc::now()),
             ..w.clone()
         },
-    )?;
+    )
+    .await?;
     let flag = Urgent {
         id: 0,
         title: format!("Claude has gone quiet on {}", item.id),
@@ -148,7 +150,7 @@ fn escalate(handle: &AppHandle, item: &WorkItem, w: &Watch) -> AppResult<()> {
         raised_at: Utc::now(),
         schedule_id: None,
     };
-    handle.state::<App>().db.with(|c| urgent::raise(c, &flag))?;
+    urgent::raise(&handle.state::<App>().db, &flag).await?;
     drop(crate::notify::send(handle, &flag.title, &flag.detail));
     Ok(())
 }

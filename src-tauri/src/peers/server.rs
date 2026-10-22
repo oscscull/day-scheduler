@@ -11,6 +11,11 @@ use super::reach::{Listen, allowed};
 use crate::error::{AppError, AppResult};
 use crate::mcp::{self, Ctx, Tool};
 
+/// Tools are async; this server answers on plain threads, so each call waits for its result.
+fn block_on<T>(fut: impl Future<Output = T>) -> T {
+    tauri::async_runtime::block_on(fut)
+}
+
 type Reply = Response<Cursor<Vec<u8>>>;
 
 fn bind(listen: Listen) -> AppResult<Server> {
@@ -22,7 +27,7 @@ fn bind(listen: Listen) -> AppResult<Server> {
 pub fn spawn(listen: Listen) -> AppResult<()> {
     let server = bind(listen)?;
     std::thread::spawn(move || {
-        if let Ok(ctx) = Ctx::open() {
+        if let Ok(ctx) = block_on(Ctx::open()) {
             serve(&server, &ctx);
         }
     });
@@ -32,7 +37,7 @@ pub fn spawn(listen: Listen) -> AppResult<()> {
 /// Serves in the foreground until the process ends, for `<binary> serve` on a headless machine.
 pub fn run(listen: Listen) -> AppResult<()> {
     let server = bind(listen)?;
-    serve(&server, &Ctx::open()?);
+    serve(&server, &block_on(Ctx::open())?);
     Ok(())
 }
 
@@ -112,7 +117,7 @@ fn run_tool(ctx: &Ctx, tools: &[Tool], name: &str, request: &mut Request) -> Rep
                 serde_json::from_str(&body)?
             })
         })
-        .and_then(|args| mcp::call(ctx, tools, name, args));
+        .and_then(|args| block_on(mcp::call(ctx, tools, name, args)));
     match parsed {
         Ok(value) => json_reply(200, &json!({ "ok": value })),
         Err(e) => json_reply(400, &json!({ "error": e.to_string() })),
@@ -139,7 +144,7 @@ mod tests {
     fn peers_round_trip_tools_and_need_the_token() {
         let dir = std::env::temp_dir().join(format!("quarterdeck-peer-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
-        let ctx = Ctx::at(&dir.join("data"), dir.join("config")).unwrap();
+        let ctx = block_on(Ctx::at(&dir.join("data"), dir.join("config"))).unwrap();
         crate::config::edit::set_sync_token(&ctx.config, "secret").unwrap();
         let server = Server::http("127.0.0.1:0").unwrap();
         let port = server.server_addr().to_ip().unwrap().port();

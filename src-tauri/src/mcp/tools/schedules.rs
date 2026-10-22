@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::super::ctx::Ctx;
-use super::super::tool::{NoArgs, Tool, tool};
+use super::super::tool::{NoArgs, Tool, async_tool, tool};
 use super::time;
 use crate::config::{pause, schedules};
 use crate::cron::explain::{Explanation, explain};
@@ -28,22 +28,22 @@ const EXPLAIN_CRON: &str = "Explains a cron expression in plain English with its
 
 pub fn tools() -> Vec<Tool> {
     vec![
-        tool("list_schedules", LIST_SCHEDULES, list),
+        async_tool("list_schedules", LIST_SCHEDULES, list),
         tool("create_schedule", CREATE_SCHEDULE, create),
         tool("update_schedule", UPDATE_SCHEDULE, update),
         tool("delete_schedule", "Deletes a schedule.", delete),
         tool("set_schedule_enabled", SET_SCHEDULE_ENABLED, set_enabled),
-        tool("run_schedule", RUN_SCHEDULE, run),
+        async_tool("run_schedule", RUN_SCHEDULE, run),
         tool("pause_all", PAUSE_ALL, pause_all),
         tool("resume_all", "Ends a pause.", resume_all),
         tool("explain_cron", EXPLAIN_CRON, explain_cron),
     ]
 }
 
-fn list(ctx: &Ctx, _: NoArgs) -> AppResult<AgentView> {
+async fn list(ctx: Ctx, _: NoArgs) -> AppResult<AgentView> {
     let loaded = schedules::list(&ctx.config)?;
     let paused = pause::current(&ctx.config, Utc::now())?;
-    ctx.db.with(|c| agent::build(c, loaded, paused))
+    agent::build(&ctx.db, loaded, paused).await
 }
 
 fn trigger(cron: Option<String>, event: Option<EventKind>) -> AppResult<Option<Trigger>> {
@@ -163,9 +163,9 @@ fn set_enabled(ctx: &Ctx, args: EnabledArgs) -> AppResult<()> {
     schedules::save(&ctx.config, &schedule)
 }
 
-fn run(ctx: &Ctx, args: IdArgs) -> AppResult<()> {
+async fn run(ctx: Ctx, args: IdArgs) -> AppResult<()> {
     schedules::find(&ctx.config, &args.id)?;
-    ctx.db.with(|c| run_requests::add(c, &args.id))
+    run_requests::add(&ctx.db, &args.id).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

@@ -1,31 +1,36 @@
-use rusqlite::{Connection, Row, params};
-
+use super::client::{self, ActivityRow};
+use super::convert::int;
+use super::db::Db;
+use super::time;
 use crate::domain::activity::Activity;
 use crate::error::AppResult;
 
-fn from_row(row: &Row<'_>) -> rusqlite::Result<Activity> {
+fn from_row(row: ActivityRow) -> AppResult<Activity> {
     Ok(Activity {
-        id: row.get(0)?,
-        text: row.get(1)?,
-        area: row.get(2)?,
-        at: row.get(3)?,
-        unread: row.get(4)?,
+        id: int(&row.id)?,
+        text: row.text,
+        area: row.area,
+        at: time::get(&row.at)?,
+        unread: row.unread,
     })
 }
 
 /// The most recent `limit` entries, newest first.
-pub fn recent(conn: &Connection, limit: u32) -> AppResult<Vec<Activity>> {
-    let mut stmt =
-        conn.prepare("SELECT id, text, area, at, unread FROM activity ORDER BY at DESC LIMIT ?1")?;
-    let rows = stmt.query_map([limit], from_row)?;
-    Ok(rows.collect::<Result<_, _>>()?)
+pub async fn recent(db: &Db, limit: u32) -> AppResult<Vec<Activity>> {
+    let input = client::RecentActivityInput {
+        limit: i64::from(limit),
+    };
+    let rows = db.api().recent_activity(input, ()).await?;
+    rows.into_iter().map(from_row).collect()
 }
 
 /// Stores a note; its `id` is ignored and assigned by the database.
-pub fn insert(conn: &Connection, a: &Activity) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO activity (text, area, at, unread) VALUES (?1, ?2, ?3, ?4)",
-        params![a.text, a.area, a.at, a.unread],
-    )?;
-    Ok(())
+pub async fn insert(db: &Db, a: &Activity) -> AppResult<()> {
+    let input = client::AddActivityInput {
+        text: a.text.clone(),
+        area: a.area.clone(),
+        at: time::put(a.at),
+        unread: a.unread,
+    };
+    Ok(db.api().add_activity(input, ()).await?)
 }

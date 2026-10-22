@@ -10,30 +10,25 @@ use crate::views::agent::{self, AgentView};
 use crate::views::today::{self, TodayView};
 
 #[tauri::command]
-pub fn today(app: State<'_, App>) -> AppResult<TodayView> {
+pub async fn today(app: State<'_, App>) -> AppResult<TodayView> {
     let settings = app.settings()?;
-    app.expire(&settings)?;
-    app.take_inbox(&settings)?;
-    app.db.with(|conn| {
-        today::build(
-            conn,
-            settings.priority_limit,
-            settings.priority_rules(Utc::now()),
-        )
-    })
+    app.expire(&settings).await?;
+    app.take_inbox(&settings).await?;
+    let rules = settings.priority_rules(Utc::now());
+    today::build(&app.db, settings.priority_limit, rules).await
 }
 
 /// All work items in priority order. Board, In flight and Priorities share this.
 #[tauri::command]
-pub fn work_items(app: State<'_, App>) -> AppResult<Vec<WorkItem>> {
-    app.db.with(items::list)
+pub async fn work_items(app: State<'_, App>) -> AppResult<Vec<WorkItem>> {
+    items::list(&app.db).await
 }
 
 #[tauri::command]
-pub fn agent(app: State<'_, App>) -> AppResult<AgentView> {
+pub async fn agent(app: State<'_, App>) -> AppResult<AgentView> {
     let settings = app.settings()?;
-    app.expire(&settings)?;
+    app.expire(&settings).await?;
     let loaded = schedules::list(&app.config)?;
     let paused = pause::current(&app.config, Utc::now())?;
-    app.db.with(|conn| agent::build(conn, loaded, paused))
+    agent::build(&app.db, loaded, paused).await
 }

@@ -40,15 +40,11 @@ pub fn spawn(handle: AppHandle) {
             // One bad tick (e.g. a half-written settings file) must not stop the loop; the error is
             // kept for diagnostics instead.
             let error = tick::tick(&handle)
+                .await
                 .err()
                 .map(|e| e.to_string())
                 .unwrap_or_default();
-            drop(
-                handle
-                    .state::<App>()
-                    .db
-                    .with(|c| meta::set_text(c, LAST_ERROR, &error)),
-            );
+            drop(meta::set_text(&handle.state::<App>().db, LAST_ERROR, &error).await);
             tokio::time::sleep(EVERY).await;
         }
     });
