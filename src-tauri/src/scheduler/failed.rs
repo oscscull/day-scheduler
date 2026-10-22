@@ -66,10 +66,9 @@ async fn raise_urgent(db: &Db, item: &WorkItem, f: &Failure<'_>) -> AppResult<St
 async fn hand_back(db: &Db, f: &Failure<'_>, limits: &TurnSettings) -> AppResult<String> {
     watch::release(db, f.item_id).await?;
     let item = items::get(db, f.item_id).await?;
-    let title = raise_urgent(db, &item, f).await?;
     let why = format!("your agent couldn't run ({}): {}", f.what, f.detail());
     turns::pass(db, &item.id, Pass::to(Turn::You, why), Clock::now(limits)).await?;
-    Ok(title)
+    raise_urgent(db, &item, f).await
 }
 
 pub async fn report(

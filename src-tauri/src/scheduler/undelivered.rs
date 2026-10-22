@@ -15,6 +15,8 @@ const WHY: &str = "no agent session holds it, and there's no checkout of its rep
 pub async fn report(db: &Db, answered: &Answered, clock: Clock<'_>) -> AppResult<()> {
     let now = clock.now;
     let item = items::get(db, &answered.ask.item_id).await?;
+    let why = format!("not passed to the agent: {WHY}");
+    turns::pass(db, &item.id, Pass::to(Turn::You, why), clock).await?;
     let raised = Urgent {
         id: 0,
         title: format!("Your agent couldn't take your message on {}", item.id),
@@ -23,9 +25,7 @@ pub async fn report(db: &Db, answered: &Answered, clock: Clock<'_>) -> AppResult
         raised_at: now,
         schedule_id: None,
     };
-    urgent::raise(db, &raised).await?;
-    let why = format!("not passed to the agent: {WHY}");
-    turns::pass(db, &item.id, Pass::to(Turn::You, why), clock).await
+    urgent::raise(db, &raised).await
 }
 
 #[cfg(test)]

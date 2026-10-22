@@ -10,7 +10,7 @@ use crate::domain::event::Change;
 use crate::domain::item::WorkItem;
 use crate::domain::session::SessionRef;
 use crate::domain::turn::Turn;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::store::{Db, asks, events, runs, watch};
 use crate::turns::due::Work;
 
@@ -66,7 +66,10 @@ pub async fn work(db: &Db, item: &WorkItem, known: &Known, settings: &Settings) 
     if known.pending.contains(&item.id) {
         return Ok(Work::Pending);
     }
-    let quiet = Duration::minutes(settings.turns.quiet_minutes);
+    let minutes = settings.turns.quiet_minutes;
+    let quiet = Duration::try_minutes(minutes).ok_or_else(|| {
+        AppError::BadInput(format!("[turns] quiet_minutes {minutes} is too long"))
+    })?;
     if item.turn == Turn::Agent && !idle(db, item, known, quiet).await? {
         return Ok(Work::Elsewhere);
     }
