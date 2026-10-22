@@ -5,10 +5,11 @@
 
 use std::collections::HashSet;
 
-use chrono::Utc;
 use tauri::{AppHandle, Manager as _};
 
-use super::dispatch::{self, Job, Thread};
+use super::dispatch::{self, Job};
+use super::failed::{self, Failure};
+use super::thread::{self, Thread};
 use super::undelivered;
 use crate::app::App;
 use crate::config::prompts::{Prompt, render};
@@ -18,6 +19,7 @@ use crate::domain::item::WorkItem;
 use crate::domain::session::SessionRef;
 use crate::error::AppResult;
 use crate::store::{asks, items, runs, watch};
+use crate::turns::Clock;
 use crate::workspace::{self, Workspace};
 
 pub async fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
@@ -38,21 +40,38 @@ pub async fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         if settings.node_for(&item.area) != settings.node {
             continue;
         }
-        let known = known_session(&app, &answered, &item).await?;
-        let ws = workspace::for_item(settings, &item)?;
-        match thread_for(known, ws.as_ref()) {
-            Some(thread) => {
-                start(handle, settings, (&answered, &item), (thread, ws)).await?;
-                busy.insert(item.id.clone());
-            }
-            None => undelivered::report(&app.db, &answered, Utc::now()).await?,
+        if let Err(e) = deliver_one(handle, settings, &answered, &item).await {
+            let detail = e.to_string();
+            let failure = Failure {
+                item_id: &item.id,
+                what: "Answer",
+                detail: &detail,
+            };
+            failed::report(handle, &failure, &settings.turns).await?;
         }
+        busy.insert(item.id.clone());
         asks::remove(&app.db, answered.ask.id).await?;
     }
     Ok(())
 }
 
-/// Hands the answer to Claude, claiming the item for a new session.
+/// Starts the run that takes one answer to the agent, or reports that nobody can take it.
+async fn deliver_one(
+    handle: &AppHandle,
+    settings: &Settings,
+    answered: &Answered,
+    item: &WorkItem,
+) -> AppResult<()> {
+    let app = handle.state::<App>();
+    let known = known_session(&app, answered, item).await?;
+    let ws = workspace::for_item(settings, item)?;
+    match thread::thread_for(known, ws.as_ref()) {
+        Some(thread) => start(handle, settings, (answered, item), (thread, ws)).await,
+        None => undelivered::report(&app.db, answered, Clock::now(&settings.turns)).await,
+    }
+}
+
+/// Hands the answer to the agent.
 async fn start(
     handle: &AppHandle,
     settings: &Settings,
@@ -60,9 +79,6 @@ async fn start(
     (thread, ws): (Thread, Option<Workspace>),
 ) -> AppResult<()> {
     let app = handle.state::<App>();
-    if let Thread::Start(session) = &thread {
-        watch::claim(&app.db, &item.id, Some(session)).await?;
-    }
     let prompt = prompt_for(&app, answered, item, ws.as_ref())?;
     let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
     dispatch::run(handle, settings, job).await
@@ -77,19 +93,7 @@ async fn known_session(
     if answered.ask.asker.is_some() {
         return Ok(answered.ask.asker.clone());
     }
-    Ok(watch::all(&app.db)
-        .await?
-        .remove(&item.id)
-        .and_then(|w| w.session))
-}
-
-fn thread_for(known: Option<SessionRef>, ws: Option<&Workspace>) -> Option<Thread> {
-    match (known, ws) {
-        (Some(s), Some(ws)) if ws.holds(&s) => Some(Thread::Resume(s)),
-        (_, Some(ws)) => Some(Thread::Start(ws.new_session())),
-        (Some(s), None) => Some(Thread::Resume(s)),
-        (None, None) => None,
-    }
+    watch::session_for(&app.db, &item.id).await
 }
 
 fn prompt_for(
@@ -115,41 +119,4 @@ fn prompt_for(
         Prompt::Answer
     };
     render(&app.config, prompt, &vars)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::workspace::Kind;
-
-    fn session(cwd: Option<&str>) -> SessionRef {
-        SessionRef {
-            id: "s".to_owned(),
-            cwd: cwd.map(str::to_owned),
-        }
-    }
-
-    #[test]
-    fn only_items_with_no_session_and_no_workspace_have_nobody_to_tell() {
-        let ws = Workspace {
-            project: "/code/app".into(),
-            repo: "me/app".to_owned(),
-            number: 3,
-            kind: Kind::Issue,
-            dir: "/wt/app-3".into(),
-        };
-        assert!(thread_for(None, None).is_none());
-        assert!(matches!(
-            thread_for(Some(session(None)), None),
-            Some(Thread::Resume(_))
-        ));
-        assert!(matches!(
-            thread_for(None, Some(&ws)),
-            Some(Thread::Start(_))
-        ));
-        assert!(matches!(
-            thread_for(Some(session(Some("/wt/app-3"))), Some(&ws)),
-            Some(Thread::Resume(_))
-        ));
-    }
 }

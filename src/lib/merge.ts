@@ -38,5 +38,7 @@ export function mergeAgent(local: AgentView, remote: Remote<AgentView>[]): Agent
     ...local,
     schedules,
     live: [...local.live, ...remote.flatMap((r) => r.value.live)],
+    // An older peer sends no turns.
+    turns: [...local.turns, ...remote.flatMap((r) => tag(r.value.turns ?? [], r.node))],
   };
 }

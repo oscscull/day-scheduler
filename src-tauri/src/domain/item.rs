@@ -1,4 +1,6 @@
 use chrono::{DateTime, Utc};
+
+use super::turn::Turn;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +27,6 @@ pub enum Status {
     Dependency,
     /// Approved with CI passing: the user can merge it.
     Approved,
-    Proceeding,
     Queued,
 }
 
@@ -38,7 +39,12 @@ pub struct WorkItem {
     pub state_label: String,
     pub stage: Stage,
     pub status: Option<Status>,
-    pub holder: String,
+    /// Whose move it is.
+    pub turn: Turn,
+    /// When the turn runs out.
+    pub turn_until: Option<DateTime<Utc>>,
+    pub waiting_on: Option<String>,
+    pub then_turn: Option<Turn>,
     pub area: String,
     /// Where the work lives: a ticket, PR or doc.
     pub link: Option<String>,
@@ -61,7 +67,6 @@ pub struct ItemInput {
     pub state_label: String,
     pub stage: Stage,
     pub status: Option<Status>,
-    pub holder: String,
     pub area: String,
     pub link: Option<String>,
 }

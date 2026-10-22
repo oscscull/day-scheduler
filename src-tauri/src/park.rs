@@ -1,5 +1,5 @@
 //! Parking an item: the user sets it aside, so it leaves every list (Today, the board, the queue,
-//! the watchdog) until unparked. Syncs keep it parked; GitHub closing its issue or PR still ends it.
+//! turn reminders) until unparked. Syncs keep it parked; GitHub closing its issue or PR still ends it.
 
 use chrono::{DateTime, Utc};
 
@@ -42,7 +42,6 @@ mod tests {
             state_label: String::new(),
             stage: Stage::UpNext,
             status: None,
-            holder: String::new(),
             area: "projects".to_owned(),
             link: None,
         };

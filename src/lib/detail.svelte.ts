@@ -22,7 +22,6 @@ export function editItem(item: WorkItem): void {
     stateLabel: item.stateLabel,
     stage: item.stage,
     status: item.status,
-    holder: item.holder,
     area: item.area,
     link: item.link,
     node: item.node,
@@ -36,7 +35,6 @@ export function newItem(area: string): void {
     stateLabel: "",
     stage: "up_next",
     status: null,
-    holder: "",
     area,
     link: null,
   };

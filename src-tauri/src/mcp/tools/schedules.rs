@@ -43,7 +43,8 @@ pub fn tools() -> Vec<Tool> {
 async fn list(ctx: Ctx, _: NoArgs) -> AppResult<AgentView> {
     let loaded = schedules::list(&ctx.config)?;
     let paused = pause::current(&ctx.config, Utc::now())?;
-    agent::build(&ctx.db, loaded, paused).await
+    let limits = ctx.settings()?.turns;
+    agent::build(&ctx.db, loaded, paused, &limits).await
 }
 
 fn trigger(cron: Option<String>, event: Option<EventKind>) -> AppResult<Option<Trigger>> {

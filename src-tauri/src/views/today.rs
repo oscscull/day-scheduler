@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::connectors::github::issues;
@@ -7,7 +8,7 @@ use crate::domain::item::{Stage, WorkItem};
 use crate::domain::todo::Todo;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
-use crate::priorities::{Priority, Rules, priorities};
+use crate::priorities::{Priority, priorities};
 use crate::store::{Db, activity, asks, commitments, items, runs, todos, urgent};
 use crate::today::upcoming;
 
@@ -52,9 +53,8 @@ pub struct TodayView {
     pub in_flight: usize,
 }
 
-/// What Today shows. `rules` decide which waiting items are worth a nudge.
-pub async fn build(db: &Db, priority_limit: usize, rules: Rules) -> AppResult<TodayView> {
-    let now = rules.now;
+/// What Today shows as of `now`.
+pub async fn build(db: &Db, priority_limit: usize, now: DateTime<Utc>) -> AppResult<TodayView> {
     let ranked = items::list(db).await?;
     let in_flight = ranked
         .iter()
@@ -66,7 +66,7 @@ pub async fn build(db: &Db, priority_limit: usize, rules: Rules) -> AppResult<To
             .into_iter()
             .take(UPCOMING_SHOWN)
             .collect(),
-        priorities: priorities(&ranked, &asks::list(db).await?, rules),
+        priorities: priorities(&ranked, &asks::list(db).await?),
         priority_limit,
         todos: todos::list(db).await?,
         triage: triage(&ranked),

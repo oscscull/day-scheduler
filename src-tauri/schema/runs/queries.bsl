@@ -30,3 +30,8 @@ mutation expire_runs(before: timestamp) -> ok {
 query run_requests() -> RunRequestRow[] { list RunRequest; }
 mutation request_run(schedule_id) -> ok { create RunRequest { schedule_id = $schedule_id }; }
 mutation clear_run_requests() -> ok { delete all RunRequest; }
+# The latest finished runs about one item.
+query item_runs(target: text, limit: int) -> RunRow[] {
+  list Run where (target = $target and finished_at != null)
+    order (finished_at desc, id desc) limit ($limit, max 10);
+}

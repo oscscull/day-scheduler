@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::item::{Stage, Status};
+use super::turn::Turn;
 
 /// One change in an item's history. Stored as data, not sentences, so the UI can word it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,6 +21,11 @@ pub enum Change {
     /// A free-text note, e.g. from an agent: "opened PR #821".
     Note {
         text: String,
+    },
+    /// The turn passed, and why: what was done, or what ran out.
+    Turn {
+        turn: Turn,
+        why: String,
     },
 }
 

@@ -37,20 +37,19 @@ The window title shows the running version, so it's clear when an update has lan
 
 ## Views
 
-- **Today**: next meeting, Priorities (derived from ranked work: asks and decisions, then nudges for
-  reviews that have waited past `nudge_after_hours`; never things the system handles itself), one
-  line for GitHub issues nobody has picked up yet (opens to the list), To do (things only the user
-  can do), and "From Claude".
+- **Today**: next meeting, Priorities (in rank order: questions on an item, else the item itself
+  when it's in flight and the user's turn), one line for GitHub issues nobody has picked up yet
+  (opens to the list), To do (things only the user can do), and "From Claude".
 - **Priorities**: everything in play, drag to rank (per machine). The ranking drives Today.
 - **Board**: items by stage, with parked items in a list of their own below. **In flight**: open
-  items by who they wait on.
-- **Agent**: what's running (each run's latest step, live; click for its steps so far), every schedule (toggle, edit, delete, run now, create by describing
+  items by whose turn it is.
+- **Agent**: every item that is the agent's turn, and what's running (each run's latest step, live; click for its steps so far), every schedule (toggle, edit, delete, run now, create by describing
   it), missed or failed runs, Pause all, connector and peer status, and the MCP connect command.
 - **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools, settings
   ones included, so any setting can be changed by asking.
 
 An item can be **parked**: the user set it aside ("don't worry about that one"). It leaves every
-list (Today, the board, the queue, the watchdog) until unparked, and syncs never unpark it; GitHub
+list (Today, the board, the queue, turn reminders) until unparked, and syncs never unpark it; GitHub
 closing its issue or PR still marks it done.
 
 ## Where things live
@@ -112,20 +111,39 @@ The scheduler ticks every 30s:
 cron runs fire on time, runs missed while asleep are recorded and raised as urgent, and Pause all
 stops everything. Event triggers cost nothing until they fire.
 
+## Turns
+
+Every item has a turn, `you`, `agent`, `others` (with who: reviewers, CI) or `later`, and every
+item in flight has a clock on it, so nothing idles. Turns change only through `turns::pass`, which
+records why on the item's history; the UI and peers read the stored turn and never derive it.
+
+- **The agent's turn**: Quarterdeck prompts it. Each tick, an agent's-turn item with nothing
+  running gets a run (`prompts/continue.md`), resuming the session holding it or starting one; a
+  session working outside Quarterdeck is left alone until it goes quiet for `quiet_minutes`. Every
+  run on an item starts on the agent's turn and ends with it handed on: the agent records what it
+  did with `pass_turn` (to itself, the user, or others), as `prompts/hand-over.md` tells every run.
+  A run that ends without passing hands the turn to the user with its last message; a run that
+  fails raises an urgent item and hands it to the user. Passing to itself keeps the clock, so after
+  `agent_hours` the turn comes back to the user regardless.
+- **The user's turn**: reminded every `you_remind_hours`. Any reply (an answer, Tell Claude)
+  passes the turn to the agent, unless another question on the item is open; one that no session
+  or worktree can take is raised as urgent and the turn comes back.
+- **Others' turn**: after `others_hours` it goes to the item's `then`, else `others_then` (`you`
+  by default). GitHub sets it from the PR: waiting on CI or reviewers is others', approved, draft or
+  changes requested is the user's. GitHub never takes the turn from the agent.
+- **Later**: comes back when its time does.
+
+Limits live in `[turns]` (`set_turn_limits`).
+
 CI is Quarterdeck's to watch, never an agent's. When CI finishes on an item a Claude session claimed
 (`claim_item`), Quarterdeck resumes that session with the result (`prompts/ci-done.md`). A failure
 nobody is on, and no `ci_failed` schedule covers, goes to a new claimed session
 (`prompts/fix-ci.md`, `[github] fix_ci`).
 
-The watchdog keeps claimed work moving: agents post updates as they go, and only an item Claude is
-carrying that stays quiet past `[watchdog] quiet_minutes` gets a check-in (`prompts/check-in.md`),
-at most `max_nudges` times before the user is told. Waiting on CI or reviewers isn't silence.
-
 Questions (`add_ask`) are answered, not ticked off: with one of the agent's `options` or in writing,
 on Today or the item. Any open item, and every decision on Today, also takes a plain instruction
-("Tell Claude what to do", `tell_claude`), delivered the same way (`prompts/message.md`). The moment
-nothing on an item waits on the user, it stops showing as their decision: Claude's if a session will
-get the answer, otherwise the answer stands as its state. Delivery itself follows on the next tick. The answer goes on the item's history, and the scheduler resumes the session
+("Tell Claude what to do", `tell_claude`), delivered the same way (`prompts/message.md`). Delivery
+follows on the next tick. The answer goes on the item's history, and the scheduler resumes the session
 that asked (or the one holding the item) with it (`prompts/answer.md`). Sessions are stored with
 their working directory, since Claude only resumes a session from the folder it ran in.
 
@@ -139,16 +157,14 @@ gets the issue's text (`prompts/issue-workspace.md`). The user's checkout is unt
 project's sandbox may keep Claude off GitHub, Quarterdeck does that side when a run finishes and no
 question on the item is open: it pushes commits the branch doesn't have and, for an issue, opens a
 PR closing it (titled from the first commit) and makes the item that PR's, in review, so syncs and
-CI results follow it. A push that fails is noted on the item and raised as urgent. Worktrees are
+CI results follow it. A push that fails is raised as urgent and the turn goes to the user. Worktrees are
 removed once their item is done. Repos with no project get a run that can read CI but not change
-code. An answer or message that no session and no worktree can take is never dropped: the item
-stops showing Claude as holding it, its history says why, and it's raised as urgent. The same goes
-for a run on an item that fails: urgent, a notification, and the item back with the user.
+code.
 
 `[queue]` lists items Claude works on one at a time (`set_queue`, `get_queue`). The first not yet
-in review or done is current: when it's up next, Quarterdeck marks it in progress and delivers
-`prompts/queue.md` to it like a message; the next waits until it reaches review or done. The
-watchdog leaves an item alone while a run is still working on it.
+in review or done is current: when it's up next, Quarterdeck marks it in progress, gives the agent
+the turn and delivers `prompts/queue.md` to it like a message; the next waits until it reaches
+review or done.
 
 Default prompt files Quarterdeck wrote and nobody has edited follow newer defaults
 (`.quarterdeck-defaults` records what it wrote); edited ones, and `quarterdeck.toml`, are left alone.

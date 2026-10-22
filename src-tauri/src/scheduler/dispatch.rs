@@ -1,32 +1,20 @@
 //! Starts one Claude run about an item and records it on the Agent tab while it works.
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager as _};
 
-use super::failed;
+use super::run_turn;
+use super::thread::Thread;
 use crate::app::App;
 use crate::claude::{self, Ask, Session};
+use crate::config::Config;
+use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
+use crate::config::turns::TurnSettings;
 use crate::domain::run::{Outcome, Run};
-use crate::domain::session::SessionRef;
 use crate::error::AppResult;
-use crate::store::runs;
+use crate::store::{runs, watch};
 use crate::workspace::{self, Kind, Workspace};
-
-/// Whether a run continues a session or starts one Quarterdeck can come back to.
-#[derive(Debug, Clone)]
-pub enum Thread {
-    Start(SessionRef),
-    Resume(SessionRef),
-}
-
-impl Thread {
-    const fn session(&self) -> &SessionRef {
-        match self {
-            Self::Start(s) | Self::Resume(s) => s,
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Job {
@@ -65,14 +53,19 @@ impl Job {
     }
 }
 
-async fn start_record(handle: &AppHandle, settings: &Settings, job: &Job) -> AppResult<i64> {
+async fn start_record(
+    handle: &AppHandle,
+    settings: &Settings,
+    job: &Job,
+    started: DateTime<Utc>,
+) -> AppResult<i64> {
     let record = Run {
         id: 0,
         schedule_id: None,
         what: job.what.to_owned(),
         target: job.item_id.clone(),
         node: settings.node.clone(),
-        started_at: Utc::now(),
+        started_at: started,
         finished_at: None,
         outcome: None,
         summary: None,
@@ -106,6 +99,9 @@ struct How {
     command: AppResult<String>,
     mode: String,
     run: i64,
+    started: DateTime<Utc>,
+    /// The turn limits as the run started, so a config file mid-edit can't stop its hand-over.
+    limits: TurnSettings,
 }
 
 async fn ask(how: &How, job: &Job) -> String {
@@ -140,38 +136,59 @@ async fn ask(how: &How, job: &Job) -> String {
     }
 }
 
+/// Runs the job to its end, then records it and settles the item's turn.
+async fn work(handle: AppHandle, job: Job, how: How) {
+    let summary = ask(&how, &job).await;
+    let outcome = if summary.starts_with("failed: ") {
+        Outcome::Failed
+    } else {
+        Outcome::Ok
+    };
+    if outcome == Outcome::Ok
+        && let Some(ws) = &job.workspace
+    {
+        super::handoff::after_run(&handle, (&job.item_id, ws), &how.limits).await;
+    }
+    // The run record is for display; losing it changes nothing about the item.
+    drop(runs::finish(&handle.state::<App>().db, how.run, outcome, &summary).await);
+    let ended = run_turn::Ended {
+        item_id: &job.item_id,
+        what: job.what,
+        summary: &summary,
+        started: how.started,
+        may_run: how.command.is_ok(),
+    };
+    // Nothing is left to tell if even this fails; the run record above still shows it.
+    drop(run_turn::settle(&handle, &ended, &how.limits).await);
+}
+
+/// The job's prompt with the rule for handing the turn on after it.
+fn with_hand_over(config: &Config, job: Job) -> AppResult<Job> {
+    let rule = render(config, Prompt::HandOver, &[("item", job.item_id.as_str())])?;
+    let prompt = format!("{}\n\n{rule}", job.prompt);
+    Ok(Job { prompt, ..job })
+}
+
 pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult<()> {
-    let id = start_record(handle, settings, &job).await?;
+    let app = handle.state::<App>();
+    let job = with_hand_over(&app.config, job)?;
+    run_turn::take(&app.db, (&job.item_id, job.what), &settings.turns).await?;
+    let started = Utc::now();
     let how = How {
         command: settings.claude().map(str::to_owned),
         mode: settings.project_permission_mode.clone(),
-        run: id,
+        run: start_record(handle, settings, &job, started).await?,
+        started,
+        limits: settings.turns.clone(),
     };
-    let may_run = how.command.is_ok();
-    let handle = handle.clone();
-    tauri::async_runtime::spawn(async move {
-        let summary = ask(&how, &job).await;
-        let outcome = if summary.starts_with("failed: ") {
-            Outcome::Failed
-        } else {
-            Outcome::Ok
-        };
-        if outcome == Outcome::Ok
-            && let Some(ws) = &job.workspace
-        {
-            super::handoff::after_run(&handle, &job.item_id, ws).await;
-        }
-        // The run record is for display; losing it changes nothing about the item.
-        drop(runs::finish(&handle.state::<App>().db, id, outcome, &summary).await);
-        if outcome == Outcome::Failed && may_run {
-            let failure = failed::Failure {
-                item_id: &job.item_id,
-                what: job.what,
-                detail: summary.trim_start_matches("failed: "),
-            };
-            // Nothing is left to tell if even this fails; the run record above still shows it.
-            drop(failed::report(&handle, &failure).await);
-        }
-    });
+    // A new session is the item's from now on, so later answers and CI results resume it.
+    if let Thread::Start(session) = &job.thread
+        && let Err(e) = watch::claim(&app.db, &job.item_id, session).await
+    {
+        let said = format!("failed: couldn't record the session: {e}");
+        drop(runs::finish(&app.db, how.run, Outcome::Failed, &said).await);
+        return Err(e);
+    }
+    tauri::async_runtime::spawn(work(handle.clone(), job, how));
     Ok(())
 }

@@ -10,13 +10,13 @@ use crate::domain::activity::Activity;
 use crate::domain::ask::Ask;
 use crate::domain::commitment::Commitment;
 use crate::domain::event::Change;
-use crate::domain::item::WorkItem;
+use crate::domain::item::{Status, WorkItem};
 use crate::domain::run::Run;
 use crate::domain::session::SessionRef;
 use crate::domain::todo::Todo;
+use crate::domain::turn::Turn;
 use crate::domain::urgent::Urgent;
 use crate::error::{AppError, AppResult};
-use crate::store::watch::Watch;
 
 type Sql<T> = based_runtime::rusqlite::Result<T>;
 
@@ -34,7 +34,7 @@ pub struct Old {
     pub runs: Vec<Run>,
     pub urgent: Vec<Urgent>,
     pub todos: Vec<Todo>,
-    pub watches: Vec<(String, Watch)>,
+    pub watches: Vec<(String, SessionRef)>,
     pub sync_state: Vec<(String, String, String)>,
     pub meta: Vec<(String, String)>,
 }
@@ -82,15 +82,42 @@ pub fn legacy_error(e: impl std::fmt::Display) -> AppError {
     AppError::Db(format!("reading the old database: {e}"))
 }
 
+/// The old status, without "proceeding", which said whose turn it was.
+fn status(r: &Row<'_>) -> Sql<Option<Status>> {
+    let text: Option<String> = r.get(4)?;
+    if text.as_deref() == Some("proceeding") {
+        return Ok(None);
+    }
+    named(r, 4)
+}
+
+/// An old item's turn, from its status and holder: waiting statuses held by someone other than the
+/// user or Claude are others' turn.
+fn turn(status: Option<Status>, holder: String) -> (Turn, Option<String>) {
+    let waits = matches!(
+        status,
+        Some(Status::Review | Status::Ci | Status::Dependency)
+    );
+    if waits && !matches!(holder.as_str(), "you" | "Claude") {
+        return (Turn::Others, Some(holder));
+    }
+    (Turn::You, None)
+}
+
 fn item(r: &Row<'_>) -> Sql<(WorkItem, bool)> {
     let stage = named(r, 3)?.ok_or_else(|| bad(3, std::fmt::Error))?;
+    let status = status(r)?;
+    let (turn, waiting_on) = turn(status, r.get(5)?);
     let item = WorkItem {
         id: r.get(0)?,
         title: r.get(1)?,
         state_label: r.get(2)?,
         stage,
-        status: named(r, 4)?,
-        holder: r.get(5)?,
+        status,
+        turn,
+        turn_until: None,
+        waiting_on,
+        then_turn: None,
         area: r.get(6)?,
         link: r.get(7)?,
         source: r.get(8)?,
@@ -104,6 +131,8 @@ fn item(r: &Row<'_>) -> Sql<(WorkItem, bool)> {
 
 fn event(r: &Row<'_>) -> Sql<OldEvent> {
     let json: String = r.get(2)?;
+    // "proceeding" is retired; old history reads as the status cleared.
+    let json = json.replace(r#""status":"proceeding""#, r#""status":null"#);
     let change = serde_json::from_str(&json).map_err(|e| bad(2, e))?;
     Ok((r.get(0)?, at(r, 1)?, change))
 }
@@ -187,15 +216,14 @@ fn todo(r: &Row<'_>) -> Sql<Todo> {
     })
 }
 
-fn watch(r: &Row<'_>) -> Sql<(String, Watch)> {
-    let session: Option<String> = r.get(1)?;
-    let cwd: Option<String> = r.get(2)?;
-    let watch = Watch {
-        session: session.map(|id| SessionRef { id, cwd }),
-        nudges: r.get(3)?,
-        last_nudge: at_opt(r, 4)?,
-    };
-    Ok((r.get(0)?, watch))
+fn watch(r: &Row<'_>) -> Sql<(String, SessionRef)> {
+    Ok((
+        r.get(0)?,
+        SessionRef {
+            id: r.get(1)?,
+            cwd: r.get(2)?,
+        },
+    ))
 }
 
 const ITEMS: &str = "SELECT id, title, state_label, stage, status, holder, area, link, source, \
@@ -210,7 +238,7 @@ const RUNS: &str = "SELECT schedule_id, what, target, node, started_at, finished
     summary FROM runs ORDER BY id";
 const URGENT: &str = "SELECT title, detail, area, raised_at, schedule_id FROM urgent ORDER BY id";
 const TODOS: &str = "SELECT title, area, due, done_at FROM todos ORDER BY id";
-const WATCHES: &str = "SELECT item_id, session, cwd, nudges, last_nudge FROM watch";
+const WATCHES: &str = "SELECT item_id, session, cwd FROM watch WHERE session IS NOT NULL";
 const SYNC_STATE: &str = "SELECT source, external_id, snapshot FROM sync_state";
 const META: &str = "SELECT key, value FROM meta";
 

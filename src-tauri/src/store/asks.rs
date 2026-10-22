@@ -97,29 +97,21 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
-    use crate::domain::item::{Stage, WorkItem};
-    use crate::store::items;
+    use crate::domain::item::{ItemInput, Stage};
 
     #[tokio::test]
     async fn answered_asks_leave_the_open_list_until_delivered() {
         let db = Db::in_memory().await;
-        let now = Utc::now();
-        let item = WorkItem {
+        let item = ItemInput {
             id: "a".to_owned(),
             title: "t".to_owned(),
             state_label: String::new(),
             stage: Stage::InProgress,
             status: None,
-            holder: String::new(),
             area: "work".to_owned(),
             link: None,
-            source: items::MANUAL.to_owned(),
-            external_id: None,
-            opened_at: now,
-            state_since: now,
-            rank: 0,
         };
-        items::save(&db, &item).await.unwrap();
+        crate::work::save(&db, item, Utc::now()).await.unwrap();
         let ask = Ask {
             item_id: "a".to_owned(),
             question: "Merge?".to_owned(),
