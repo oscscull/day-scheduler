@@ -100,7 +100,7 @@
       <p class="hint sub">{t("today.prioritiesHint")}</p>
       <ul>
         {#each priorities as p (keyOf(p))}
-          {@const line = describe(p, now)}
+          {@const line = describe(p)}
           <li class="row priority">
             <AreaDot area={p.area} />
             <button type="button" class="body open" onclick={() => openItem(p.itemId, p.node)}>
@@ -110,7 +110,7 @@
           </li>
           {#if p.kind === "ask"}
             <li class="answer-row"><AnswerBox ask={p.ask} node={p.node} /></li>
-          {:else if p.kind === "decision"}
+          {:else if p.kind === "yours"}
             <li class="answer-row"><TellClaude itemId={p.itemId} node={p.node} link={p.link} /></li>
           {/if}
         {:else}

@@ -4,15 +4,18 @@
   import { fromPeers, machine } from "../../lib/peers.svelte";
   import { runKey, runMeta, runName, stepText } from "../../lib/steps";
   import { age } from "../../lib/time";
-  import type { LiveRun } from "../../lib/types";
+  import type { AgentTurn, LiveRun } from "../../lib/types";
   import RunLogModal from "./RunLogModal.svelte";
+  import WaitingTurns from "./WaitingTurns.svelte";
 
   interface Props {
     /** The Agent tab's last load, shown until this list's own first refresh. */
     runs: LiveRun[];
+    /** Items that are the agent's turn, from the tab's last load. */
+    turns: AgentTurn[];
   }
 
-  let { runs }: Props = $props();
+  let { runs, turns }: Props = $props();
 
   /** Much faster than the tab's 30s, so the latest step reads as live. */
   const REFRESH_MS = 3_000;
@@ -25,6 +28,10 @@
 
   const shown = $derived(fresh ?? runs);
   const openRun = $derived(shown.find((r) => runKey(r) === openKey));
+  const waiting = $derived(
+    turns.filter((a) => !shown.some((r) => r.target === a.itemId && (r.node ?? "") === (a.node ?? ""))),
+  );
+  const count = $derived(shown.length + waiting.length);
 
   async function load(): Promise<void> {
     try {
@@ -62,7 +69,7 @@
 
 <section aria-label={t("agent.live")}>
   <h1 class="page-title">
-    {shown.length > 0 ? t("agent.working", { n: shown.length }) : t("agent.idle")}
+    {count > 0 ? t("agent.working", { n: count }) : t("agent.idle")}
   </h1>
   <p class="hint intro">{t("agent.live")}</p>
   <ul>
@@ -79,6 +86,7 @@
         </button>
       </li>
     {/each}
+    <WaitingTurns turns={waiting} {now} />
   </ul>
 </section>
 

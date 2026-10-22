@@ -15,14 +15,15 @@ macro_rules! default_file {
     };
 }
 
-const FILES: [(&str, &str); 15] = [
+const FILES: [(&str, &str); 16] = [
     default_file!("README.md"),
     default_file!("quarterdeck.toml"),
     default_file!("prompts/chat.md"),
     default_file!("prompts/draft-schedule.md"),
     default_file!("prompts/resolve-urgent.md"),
     default_file!("prompts/run-schedule.md"),
-    default_file!("prompts/check-in.md"),
+    default_file!("prompts/continue.md"),
+    default_file!("prompts/hand-over.md"),
     default_file!("prompts/fix-ci.md"),
     default_file!("prompts/ci-done.md"),
     default_file!("prompts/answer.md"),

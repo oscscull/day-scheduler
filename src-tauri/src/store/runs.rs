@@ -45,6 +45,16 @@ pub async fn recent_for(db: &Db, schedule_id: &str, limit: u32) -> AppResult<Vec
     from_rows(db.api().recent_runs(input, ()).await?)
 }
 
+/// When the latest finished run about an item ended.
+pub async fn last_finished_for_item(db: &Db, item_id: &str) -> AppResult<Option<DateTime<Utc>>> {
+    let input = client::ItemRunsInput {
+        target: item_id.to_owned(),
+        limit: 1,
+    };
+    let runs = from_rows(db.api().item_runs(input, ()).await?)?;
+    Ok(runs.into_iter().next().and_then(|r| r.finished_at))
+}
+
 /// Forgets the history of a deleted schedule.
 pub async fn delete_for(db: &Db, schedule_id: &str) -> AppResult<()> {
     let input = client::ForgetRunsInput {

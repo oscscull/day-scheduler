@@ -59,14 +59,15 @@ pub async fn tick(handle: &AppHandle) -> AppResult<()> {
     if pause::current(&app.config, now)?.is_some() {
         return Ok(());
     }
-    crate::watchdog::check(handle, &settings).await?;
+    // One item's failure mustn't stop the queue and schedules; it's reported after them.
+    let kept = super::keeper::check(handle, &settings).await;
     super::queue::advance(handle, &settings).await?;
     for schedule in schedules::list(&app.config)?.schedules {
         if schedule.enabled && settings.node_for(&schedule.area) == settings.node {
             consider(handle, &settings, &schedule, Window { last, now }).await?;
         }
     }
-    Ok(())
+    kept
 }
 
 async fn consider(

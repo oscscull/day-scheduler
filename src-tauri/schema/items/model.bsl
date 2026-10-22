@@ -1,5 +1,9 @@
 enum Stage  { up_next, in_progress, in_review, done }
+# `proceeding` is retired and unread. Removing it makes Based rebuild the table, which breaks
+# other tables' foreign keys on SQLite.
 enum Status { decision, review, ci, ci_failed, dependency, approved, proceeding, queued }
+# Whose move it is on an item. Every item in flight has one, with a deadline.
+enum Turn   { you, agent, others, later }
 
 # A piece of work. `id` is a ticket key (JD-104), a PR (app#12) or a made-up one (B-3).
 @sort(rank)
@@ -10,7 +14,14 @@ Item {
   state_label: text
   stage:       Stage
   status:      Status?
-  holder:      text
+  turn:        Turn (default you)
+  # When the turn runs out.
+  turn_until:  timestamp?
+  # Who the item waits on while it's others' turn, e.g. reviewers' names or "CI".
+  waiting_on:  text?
+  # Who gets the turn when others' turn runs out (none: the configured others_then) or when a
+  # later turn's time comes (none: you).
+  then_turn:   Turn?
   area:        text
   link:        text?
   # "manual" for items made by hand or by an agent, else the connector that made it.
@@ -27,8 +38,8 @@ Item {
 }
 
 shape ItemRow from Item {
-  id, title, state_label, stage, status, holder, area, link, source, external_id,
-  opened_at, state_since, rank
+  id, title, state_label, stage, status, turn, turn_until, waiting_on, then_turn, area, link,
+  source, external_id, opened_at, state_since, rank
 }
 shape ItemKey from Item { id }
 shape TopRank from Item { top = max(rank) }

@@ -1,0 +1,89 @@
+//! The `[turns]` section of `quarterdeck.toml`: how long each turn lasts before something happens.
+
+use chrono::Duration;
+use serde::{Deserialize, Serialize};
+
+use crate::domain::turn::Turn;
+use crate::error::{AppError, AppResult};
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct TurnSettings {
+    /// The agent's turn, counted from when it got it. Handing the turn to itself doesn't extend it.
+    pub agent_hours: i64,
+    /// Between reminders while it's the user's turn.
+    pub you_remind_hours: i64,
+    /// Waiting on reviewers, CI or another team before the turn comes back.
+    pub others_hours: i64,
+    /// Put off with no time given.
+    pub later_hours: i64,
+    /// Who gets the turn when others' wait runs out, unless the item says otherwise.
+    pub others_then: Turn,
+    /// How long an agent session working outside Quarterdeck can go quiet before it's prompted.
+    pub quiet_minutes: i64,
+}
+
+impl TurnSettings {
+    /// `quiet_minutes` as a length, or an error when it's too long to be one.
+    pub fn quiet(&self) -> AppResult<Duration> {
+        let minutes = self.quiet_minutes;
+        Duration::try_minutes(minutes).ok_or_else(|| {
+            AppError::BadInput(format!("[turns] quiet_minutes {minutes} is too long"))
+        })
+    }
+}
+
+impl Default for TurnSettings {
+    fn default() -> Self {
+        Self {
+            agent_hours: 4,
+            you_remind_hours: 24,
+            others_hours: 24,
+            later_hours: 72,
+            others_then: Turn::You,
+            quiet_minutes: 45,
+        }
+    }
+}
+
+/// What `set_turn_limits` changes. Fields left `None` keep their current value.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TurnChange {
+    pub agent_hours: Option<i64>,
+    pub you_remind_hours: Option<i64>,
+    pub others_hours: Option<i64>,
+    pub later_hours: Option<i64>,
+    pub others_then: Option<Turn>,
+    pub quiet_minutes: Option<i64>,
+}
+
+/// The longest any turn may last: a year.
+const MAX_TURN_HOURS: i64 = 24 * 365;
+
+impl TurnChange {
+    /// Refuses lengths that are zero, negative or over a year.
+    pub fn check(&self) -> AppResult<()> {
+        let hours = [
+            self.agent_hours,
+            self.you_remind_hours,
+            self.others_hours,
+            self.later_hours,
+        ];
+        let in_range = |h: &i64| (1..=MAX_TURN_HOURS).contains(h);
+        if !hours.iter().flatten().all(in_range) {
+            return Err(AppError::BadInput(format!(
+                "turn lengths must be between 1 and {MAX_TURN_HOURS} hours"
+            )));
+        }
+        let max_minutes = MAX_TURN_HOURS * 60;
+        if self
+            .quiet_minutes
+            .is_some_and(|m| !(1..=max_minutes).contains(&m))
+        {
+            return Err(AppError::BadInput(format!(
+                "quiet_minutes must be between 1 and {max_minutes}"
+            )));
+        }
+        Ok(())
+    }
+}

@@ -4,6 +4,7 @@
   import LoadError from "../components/LoadError.svelte";
   import { api, errorText } from "../lib/api";
   import { t } from "../lib/copy";
+  import { turnText } from "../lib/turn";
   import { ALL, areas, inArea } from "../lib/areas.svelte";
   import { newItem, openItem } from "../lib/detail.svelte";
   import { chatContext } from "../lib/chat.svelte";
@@ -63,7 +64,7 @@
     void move(key, from < index ? index - 1 : index);
   }
 
-  const showsHolder = (item: WorkItem): string => `${t(`stage.${item.stage}`)} · ${item.holder}`;
+  const showsTurn = (item: WorkItem): string => `${t(`stage.${item.stage}`)} · ${turnText(item)}`;
 </script>
 
 <div class="column">
@@ -91,7 +92,7 @@
         <AreaDot area={item.area} />
         <span class="body">
           <button type="button" class="open" onclick={() => openItem(item.id, item.node)}><span class="mono id">{item.id}</span>&nbsp; {item.title}</button>
-          <span class="hint meta">{showsHolder(item)}</span>
+          <span class="hint meta">{showsTurn(item)}</span>
         </span>
         {#if item.status}<Chip status={item.status} />{/if}
         <span class="arrows">

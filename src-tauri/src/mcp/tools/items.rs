@@ -15,11 +15,12 @@ const LIST_ITEMS: &str =
     "Work items (tickets, PRs, personal projects) in priority order, highest first.";
 const GET_ITEM: &str = "One item with its open asks and its history.";
 const CREATE_ITEM: &str = "Adds a work item to the bottom of the priorities. Use the ticket key as `key` when there \
-             is one (e.g. JD-104). Returns the item's id.";
+             is one (e.g. JD-104). It starts as the user's turn; hand it on with pass_turn. Returns \
+             the item's id.";
 const UPDATE_ITEM: &str = "Changes an item. Only the fields you pass change. Keep `state_label` short and current, \
              e.g. \"waiting on review from Sam\". Set `status` to what it's waiting on, or \
-             `clear_status` when it's moving again. Only set `decision` alongside an add_ask \
-             saying what the user should decide (with options), so they have something to act on.";
+             `clear_status` when it's moving again. Whose turn it is changes only through \
+             pass_turn.";
 const DELETE_ITEM: &str = "Deletes an item with its asks and history.";
 const MOVE_ITEM: &str = "Moves an item to a position in the priorities, 1 being the top.";
 const ADD_NOTE: &str = "Adds a line to an item's history, e.g. \"opened PR #821\". Use for progress worth \
@@ -81,8 +82,6 @@ struct CreateArgs {
     stage: Option<Stage>,
     /// What it's waiting on, if anything.
     status: Option<Status>,
-    /// Who has it now, e.g. "you", "Claude", "Sam".
-    holder: Option<String>,
     /// Where it's at, in a few words.
     state_label: Option<String>,
     /// URL of the ticket, PR or doc.
@@ -96,7 +95,6 @@ async fn create(ctx: Ctx, args: CreateArgs) -> AppResult<String> {
         state_label: args.state_label.unwrap_or_default(),
         stage: args.stage.unwrap_or(Stage::UpNext),
         status: args.status,
-        holder: args.holder.unwrap_or_default(),
         area: ctx.area(&args.area)?,
         link: args.link,
     };
@@ -113,7 +111,6 @@ struct UpdateArgs {
     /// Set true to say it's no longer waiting on anything.
     #[serde(default)]
     clear_status: bool,
-    holder: Option<String>,
     state_label: Option<String>,
     link: Option<String>,
 }
@@ -131,7 +128,6 @@ async fn update(ctx: Ctx, args: UpdateArgs) -> AppResult<String> {
         title: args.title.unwrap_or(old.title),
         state_label: args.state_label.unwrap_or(old.state_label),
         stage: args.stage.unwrap_or(old.stage),
-        holder: args.holder.unwrap_or(old.holder),
         area: area.unwrap_or(old.area),
         link: args.link.or(old.link),
     };

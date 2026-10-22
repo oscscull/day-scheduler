@@ -1,7 +1,9 @@
 // Mirrors the Rust types the backend sends. Keep in step with src-tauri/src/domain and views.
 
 export type Stage = "up_next" | "in_progress" | "in_review" | "done";
-export type Status = "decision" | "review" | "ci" | "ci_failed" | "dependency" | "approved" | "proceeding" | "queued";
+export type Status = "decision" | "review" | "ci" | "ci_failed" | "dependency" | "approved" | "queued";
+/** Whose move an item is. Every item in flight has one, with a deadline. */
+export type Turn = "you" | "agent" | "others" | "later";
 
 export interface WorkItem {
   /** Set when it lives on another machine; edits go back there. */
@@ -11,7 +13,13 @@ export interface WorkItem {
   stateLabel: string;
   stage: Stage;
   status: Status | null;
-  holder: string;
+  turn: Turn;
+  /** When the turn runs out; unset until the item is in flight. */
+  turnUntil: string | null;
+  /** Who it waits on while it's others' turn, e.g. reviewers or "CI". */
+  waitingOn: string | null;
+  /** Who gets the turn when others' or a later turn runs out. */
+  thenTurn: Turn | null;
   area: string;
   link: string | null;
   /** "manual", or the connector that made it, e.g. "github". */
@@ -29,7 +37,6 @@ export interface ItemInput {
   stateLabel: string;
   stage: Stage;
   status: Status | null;
-  holder: string;
   area: string;
   link: string | null;
 }
@@ -39,7 +46,8 @@ export type Change =
   | { kind: "stage"; stage: Stage }
   | { kind: "status"; status: Status | null }
   | { kind: "label"; label: string }
-  | { kind: "note"; text: string };
+  | { kind: "note"; text: string }
+  | { kind: "turn"; turn: Turn; why: string };
 
 export interface ItemEvent {
   id: number;
@@ -74,15 +82,13 @@ export interface Ask {
 /** Something that needs the user, derived from the work. `kind` says why. */
 export type Priority = (
   | { kind: "ask"; ask: Ask }
-  | { kind: "decision" }
-  | { kind: "nudge" }
+  | { kind: "yours" }
 ) & {
   /** Set when it lives on another machine; edits go back there. */
   node?: string;
   itemId: string;
   itemTitle: string;
   itemLabel: string;
-  holder: string;
   area: string;
   since: string;
   /** The item's ticket or PR. */
@@ -224,8 +230,19 @@ export interface LiveRun extends Run {
   now: Step | null;
 }
 
+/** An item that is the agent's turn, and where that stands. */
+export interface AgentTurn {
+  node?: string;
+  itemId: string;
+  title: string;
+  area: string;
+  doing: "running" | "session" | "starting";
+  until: string | null;
+}
+
 export interface AgentView {
   live: LiveRun[];
+  turns: AgentTurn[];
   schedules: ScheduleView[];
   problems: string[];
   /** Set while every schedule is paused. `until: null` means until resumed. */

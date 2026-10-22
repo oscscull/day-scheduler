@@ -12,7 +12,9 @@ export function workItems() {
         api.workItems(),
         fromPeers<WorkItem[]>("list_items", { include_done: true }),
       ]);
-      state.items = [...local, ...remote.flatMap((r) => tag(r.value, r.node))];
+      // A peer on an older build sends no turn; its items show as the user's.
+      const peerItems = remote.flatMap((r) => tag(r.value, r.node)).map((i) => ({ ...i, turn: i.turn ?? "you" }));
+      state.items = [...local, ...peerItems];
       state.now = new Date();
       state.error = "";
     } catch (e) {

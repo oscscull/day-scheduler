@@ -15,6 +15,7 @@ mod schedules;
 mod settings;
 mod sync;
 mod todos;
+mod turns;
 mod updates;
 mod urgent;
 mod watch;
@@ -38,6 +39,7 @@ pub fn all() -> Vec<Tool> {
         settings::tools(),
         sync::tools(),
         watch::tools(),
+        turns::tools(),
         projects::tools(),
         queue::tools(),
     ]
