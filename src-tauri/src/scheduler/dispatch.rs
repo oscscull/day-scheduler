@@ -3,8 +3,8 @@
 use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager as _};
 
+use super::run_turn;
 use super::thread::Thread;
-use super::{failed, run_turn};
 use crate::app::App;
 use crate::claude::{self, Ask, Session};
 use crate::config::Config;
@@ -12,10 +12,8 @@ use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
 use crate::config::turns::TurnSettings;
 use crate::domain::run::{Outcome, Run};
-use crate::domain::turn::Turn;
 use crate::error::AppResult;
 use crate::store::{runs, watch};
-use crate::turns::{self, Clock, Pass};
 use crate::workspace::{self, Kind, Workspace};
 
 #[derive(Debug, Clone)]
@@ -138,41 +136,6 @@ async fn ask(how: &How, job: &Job) -> String {
     }
 }
 
-/// What came of a run, once it ended.
-struct Ended {
-    summary: String,
-    started: DateTime<Utc>,
-    /// False on a build that may not run Claude, whose runs fail by design.
-    may_run: bool,
-}
-
-async fn after(
-    handle: &AppHandle,
-    job: &Job,
-    ended: &Ended,
-    limits: &TurnSettings,
-) -> AppResult<()> {
-    let app = handle.state::<App>();
-    let Some(detail) = ended.summary.strip_prefix("failed: ") else {
-        let run = run_turn::Finished {
-            item_id: &job.item_id,
-            started: ended.started,
-            said: &ended.summary,
-        };
-        return run_turn::end(&app.db, run, limits).await;
-    };
-    if !ended.may_run {
-        let pass = Pass::to(Turn::You, detail);
-        return turns::pass(&app.db, &job.item_id, pass, Clock::now(limits)).await;
-    }
-    let failure = failed::Failure {
-        item_id: &job.item_id,
-        what: job.what,
-        detail,
-    };
-    failed::report(handle, &failure, limits).await
-}
-
 /// Runs the job to its end, then records it and settles the item's turn.
 async fn work(handle: AppHandle, job: Job, how: How) {
     let summary = ask(&how, &job).await;
@@ -188,13 +151,15 @@ async fn work(handle: AppHandle, job: Job, how: How) {
     }
     // The run record is for display; losing it changes nothing about the item.
     drop(runs::finish(&handle.state::<App>().db, how.run, outcome, &summary).await);
-    let ended = Ended {
-        summary,
+    let ended = run_turn::Ended {
+        item_id: &job.item_id,
+        what: job.what,
+        summary: &summary,
         started: how.started,
         may_run: how.command.is_ok(),
     };
     // Nothing is left to tell if even this fails; the run record above still shows it.
-    drop(after(&handle, &job, &ended, &how.limits).await);
+    drop(run_turn::settle(&handle, &ended, &how.limits).await);
 }
 
 /// The job's prompt with the rule for handing the turn on after it.

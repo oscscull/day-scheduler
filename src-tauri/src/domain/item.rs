@@ -39,14 +39,11 @@ pub struct WorkItem {
     pub state_label: String,
     pub stage: Stage,
     pub status: Option<Status>,
-    /// Whose move it is. Changed only through `turns::pass`, which records why.
+    /// Whose move it is.
     pub turn: Turn,
     /// When the turn runs out.
     pub turn_until: Option<DateTime<Utc>>,
-    /// Who the item waits on while it's others' turn, e.g. reviewers' names or "CI".
     pub waiting_on: Option<String>,
-    /// Who gets the turn when others' turn runs out (unset: the configured `others_then`) or when a
-    /// later turn's time comes (unset: you).
     pub then_turn: Option<Turn>,
     pub area: String,
     /// Where the work lives: a ticket, PR or doc.

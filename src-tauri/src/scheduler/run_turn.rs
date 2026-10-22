@@ -2,6 +2,10 @@
 //! through `pass_turn`, or back to the user with what the run said.
 
 use chrono::{DateTime, Utc};
+use tauri::{AppHandle, Manager as _};
+
+use super::failed::{self, Failure};
+use crate::app::App;
 
 use crate::config::turns::TurnSettings;
 use crate::domain::turn::Turn;
@@ -34,4 +38,39 @@ pub async fn end(db: &Db, run: Finished<'_>, limits: &TurnSettings) -> AppResult
     }
     let why = format!("the agent stopped without handing over: {}", run.said);
     turns::pass(db, item_id, Pass::to(Turn::You, why), Clock::now(limits)).await
+}
+
+/// What came of a run about an item, once it ended.
+pub struct Ended<'a> {
+    pub item_id: &'a str,
+    /// What the run was for, e.g. "Answer".
+    pub what: &'a str,
+    pub summary: &'a str,
+    pub started: DateTime<Utc>,
+    /// False on a build that may not run the agent, whose runs fail by design.
+    pub may_run: bool,
+}
+
+/// Hands the turn on after a run: through `end` when it finished, back to the user when the build
+/// may not run the agent, and loudly through `failed` when it failed.
+pub async fn settle(handle: &AppHandle, ended: &Ended<'_>, limits: &TurnSettings) -> AppResult<()> {
+    let db = &handle.state::<App>().db;
+    let Some(detail) = ended.summary.strip_prefix("failed: ") else {
+        let run = Finished {
+            item_id: ended.item_id,
+            started: ended.started,
+            said: ended.summary,
+        };
+        return end(db, run, limits).await;
+    };
+    if !ended.may_run {
+        let pass = Pass::to(Turn::You, detail);
+        return turns::pass(db, ended.item_id, pass, Clock::now(limits)).await;
+    }
+    let failure = Failure {
+        item_id: ended.item_id,
+        what: ended.what,
+        detail,
+    };
+    failed::report(handle, &failure, limits).await
 }
