@@ -131,6 +131,8 @@ fn item(r: &Row<'_>) -> Sql<(WorkItem, bool)> {
 
 fn event(r: &Row<'_>) -> Sql<OldEvent> {
     let json: String = r.get(2)?;
+    // "proceeding" is retired: it said whose turn it was, which turns now record.
+    let json = json.replace(r#""status":"proceeding""#, r#""status":null"#);
     let change = serde_json::from_str(&json).map_err(|e| bad(2, e))?;
     Ok((r.get(0)?, at(r, 1)?, change))
 }
