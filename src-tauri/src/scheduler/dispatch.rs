@@ -39,8 +39,6 @@ pub struct Job {
     pub tools: Vec<String>,
     /// The worktree to make first, for work in a project. Edits are allowed there.
     pub workspace: Option<Workspace>,
-    /// What the user said, when the run carries their answer or message.
-    pub said: Option<String>,
 }
 
 impl Job {
@@ -52,7 +50,6 @@ impl Job {
             thread,
             tools: Vec::new(),
             workspace: None,
-            said: None,
         }
     }
 
@@ -65,13 +62,6 @@ impl Job {
 
     pub fn in_workspace(self, workspace: Option<Workspace>) -> Self {
         Self { workspace, ..self }
-    }
-
-    pub fn saying(self, said: &str) -> Self {
-        Self {
-            said: Some(said.to_owned()),
-            ..self
-        }
     }
 }
 
@@ -178,7 +168,6 @@ pub async fn run(handle: &AppHandle, settings: &Settings, job: Job) -> AppResult
                 item_id: &job.item_id,
                 what: job.what,
                 detail: summary.trim_start_matches("failed: "),
-                said: job.said.as_deref(),
                 started_session: matches!(job.thread, Thread::Start(_)),
             };
             // Nothing is left to tell if even this fails; the run record above still shows it.

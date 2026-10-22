@@ -17,8 +17,6 @@ pub struct Failure<'a> {
     /// What the run was for, e.g. "Answer".
     pub what: &'a str,
     pub detail: &'a str,
-    /// What the user said, when the run carried it, so they needn't remember it to try again.
-    pub said: Option<&'a str>,
     /// The run was to start a session, which now doesn't exist and mustn't be resumed.
     pub started_session: bool,
 }
@@ -27,14 +25,12 @@ pub struct Failure<'a> {
 const NO_DETAIL: &str = "it stopped without saying why; its run on the Agent tab may show more";
 
 impl Failure<'_> {
-    fn detail(&self) -> String {
-        let why = if self.detail.trim().is_empty() {
+    fn detail(&self) -> &str {
+        if self.detail.trim().is_empty() {
             NO_DETAIL
         } else {
             self.detail
-        };
-        self.said
-            .map_or_else(|| why.to_owned(), |said| format!("“{said}”: {why}"))
+        }
     }
 }
 
@@ -43,7 +39,7 @@ async fn raise_urgent(db: &Db, item: &WorkItem, f: &Failure<'_>) -> AppResult<St
     let raised = Urgent {
         id: 0,
         title: title.clone(),
-        detail: f.detail(),
+        detail: f.detail().to_owned(),
         area: item.area.clone(),
         raised_at: Utc::now(),
         schedule_id: None,
@@ -80,5 +76,5 @@ async fn hand_back(db: &Db, f: &Failure<'_>) -> AppResult<String> {
 
 pub async fn report(handle: &AppHandle, failure: &Failure<'_>) -> AppResult<()> {
     let title = hand_back(&handle.state::<App>().db, failure).await?;
-    notify::send(handle, &title, &failure.detail())
+    notify::send(handle, &title, failure.detail())
 }
