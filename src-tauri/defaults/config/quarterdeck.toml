@@ -142,3 +142,10 @@ max_nudges = 2
 [updates]
 enabled = true
 check_minutes = 30
+
+# Only dev builds (`npm run tauri dev`) read this. A dev build keeps its own data and config, apart
+# from the installed app; `npm run dev:seed` copies the installed app's into it.
+[dev]
+# Let this dev build run Claude. Off, every run fails at once, so a copy of real data can't resume
+# real sessions or push to real PRs.
+run_claude = false

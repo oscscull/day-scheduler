@@ -36,7 +36,7 @@ pub fn build(handle: &AppHandle) -> AppResult<TrayIcon> {
     )?;
     let mut builder = TrayIconBuilder::with_id(ID)
         .menu(&menu)
-        .tooltip("Quarterdeck")
+        .tooltip(crate::profile::NAME)
         .on_menu_event(|h, e| on_menu(h, &e));
     if let Some(icon) = handle.default_window_icon() {
         builder = builder.icon(icon.clone());

@@ -11,6 +11,7 @@ fn main() -> ExitCode {
     match std::env::args().nth(1).as_deref() {
         Some("mcp") => return quarterdeck_lib::serve_mcp(),
         Some("serve") => return quarterdeck_lib::serve_peers(),
+        Some("seed-dev") => return quarterdeck_lib::seed_dev(),
         _ => {}
     }
     match quarterdeck_lib::run() {

@@ -33,7 +33,7 @@ Connectors and schedules only act for areas this machine runs.
   To do (things only the user can do), and "From Claude".
 - **Priorities**: everything in play, drag to rank (per machine). The ranking drives Today.
 - **Board**: items by stage. **In flight**: open items by who they wait on.
-- **Agent**: what's running, every schedule (toggle, edit, delete, run now, create by describing
+- **Agent**: what's running (each run's latest step, live; click for its steps so far), every schedule (toggle, edit, delete, run now, create by describing
   it), missed or failed runs, Pause all, connector and peer status, and the MCP connect command.
 - **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools.
 
@@ -50,6 +50,11 @@ Connectors and schedules only act for areas this machine runs.
   the database. Activity, finished runs, done to-dos, done items with their history, and past
   meetings all expire. The first start of a Based build copies a pre-Based `quarterdeck.sqlite`
   across once and keeps it as `quarterdeck.sqlite.imported`.
+- **Dev builds** (debug, `npm run tauri dev`) are a separate app: id `com.oscscull.quarterdeck.dev`,
+  config `~/.config/quarterdeck-dev/`, their own data folder, MCP name `quarterdeck-dev`, a banner on
+  every screen, no updater, and no Claude runs unless their `[dev] run_claude` is on.
+  `npm run dev:seed` replaces a dev build's config and data with a snapshot of the installed app's,
+  paused and with sync and peers off.
 
 ## Connectors
 
@@ -69,8 +74,11 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
 
 ## Running Claude
 
-`claude -p` on the user's subscription, with the Quarterdeck MCP tools always allowed. Schedules can use
-other tools only when their file lists them in `allowed_tools`. The scheduler ticks every 30s:
+`claude -p` on the user's subscription, with the Quarterdeck MCP tools always allowed. Runs stream
+(`--output-format stream-json`): each step goes to a small per-run file in the data folder's `live/`,
+capped and deleted when the run ends, which the Agent tab and peers read (`list_live_runs`,
+`get_run_log`). Schedules can use other tools only when their file lists them in `allowed_tools`.
+The scheduler ticks every 30s:
 cron runs fire on time, runs missed while asleep are recorded and raised as urgent, and Pause all
 stops everything. Event triggers cost nothing until they fire.
 

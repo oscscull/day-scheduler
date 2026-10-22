@@ -3,9 +3,7 @@
 use std::path::PathBuf;
 
 use crate::error::{AppError, AppResult};
-
-/// Must match `identifier` in `tauri.conf.json`.
-const APP_ID: &str = "com.oscscull.quarterdeck";
+use crate::profile;
 
 pub fn home() -> AppResult<PathBuf> {
     dirs::home_dir().ok_or_else(|| AppError::NotFound("the home folder".to_owned()))
@@ -14,14 +12,27 @@ pub fn home() -> AppResult<PathBuf> {
 /// The database lives here: the system's app-data folder, as Tauri uses (on macOS
 /// `~/Library/Application Support/<id>`, on Windows `%APPDATA%\<id>`, on Linux `~/.local/share/<id>`).
 pub fn data_dir() -> AppResult<PathBuf> {
+    data_dir_of(profile::APP_ID)
+}
+
+/// The installed app's data folder, which a dev build copies from (`seed-dev`).
+pub fn installed_data_dir() -> AppResult<PathBuf> {
+    data_dir_of(profile::INSTALLED_ID)
+}
+
+fn data_dir_of(app_id: &str) -> AppResult<PathBuf> {
     let base =
         dirs::data_dir().ok_or_else(|| AppError::NotFound("the app-data folder".to_owned()))?;
-    Ok(base.join(APP_ID))
+    Ok(base.join(app_id))
 }
 
 /// Behaviour the user and agents edit: settings, prompts, schedules, inbox.
 pub fn config_dir() -> AppResult<PathBuf> {
-    Ok(home()?.join(".config/quarterdeck"))
+    Ok(home()?.join(".config").join(profile::CONFIG))
+}
+
+pub fn installed_config_dir() -> AppResult<PathBuf> {
+    Ok(home()?.join(".config").join(profile::INSTALLED_CONFIG))
 }
 
 /// Claude Code's user config, where `claude mcp add --scope user` registers servers.

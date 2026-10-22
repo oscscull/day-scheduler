@@ -10,6 +10,7 @@ mod config;
 mod connectors;
 mod cron;
 mod desktop;
+mod devseed;
 mod domain;
 mod error;
 mod mcp;
@@ -17,8 +18,10 @@ mod notify;
 mod paths;
 mod peers;
 mod priorities;
+mod profile;
 mod queue;
 mod rename;
+mod runlog;
 mod scheduler;
 mod store;
 mod today;
@@ -77,6 +80,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let imported = tauri::async_runtime::block_on(store::legacy::import(&db, &data));
     // Only the app runs Claude, so anything still marked running is from before this start.
     tauri::async_runtime::block_on(store::runs::close_interrupted(&db, chrono::Utc::now()))?;
+    // Leftover step logs only fill a folder; they never stop the app opening.
+    drop(runlog::dir().and_then(|d| runlog::clear(&d)));
     let config = config::Config::open(paths::config_dir()?)?;
     let launch_at_login = settings_for_login(&config);
     // Serving peers is optional; a busy port must not stop the app opening.
@@ -94,7 +99,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// False if that failed, in which case nothing should open the config or database.
 #[must_use]
 pub fn prepare() -> bool {
-    rename::migrate().is_ok()
+    // The old install belongs to the installed app; a dev build must never move it into its own.
+    profile::DEV || rename::migrate().is_ok()
 }
 
 /// Serves the Model Context Protocol over stdio instead of opening the app. Started as
@@ -102,6 +108,23 @@ pub fn prepare() -> bool {
 #[must_use]
 pub fn serve_mcp() -> std::process::ExitCode {
     mcp::serve()
+}
+
+/// Replaces this dev build's config and data with a safe copy of the installed app's. Started as
+/// `<dev binary> seed-dev`, i.e. `npm run dev:seed`.
+#[must_use]
+pub fn seed_dev() -> std::process::ExitCode {
+    use std::io::Write as _;
+    let (code, message) = match tauri::async_runtime::block_on(devseed::seed()) {
+        Ok(()) => (
+            std::process::ExitCode::SUCCESS,
+            "Copied the installed app's config and data into the dev build (paused, no peers, no Claude).".to_owned(),
+        ),
+        Err(e) => (std::process::ExitCode::FAILURE, format!("Couldn't seed the dev build: {e}")),
+    };
+    // Nowhere else to report to from the command line.
+    drop(writeln!(std::io::stderr(), "{message}"));
+    code
 }
 
 /// Serves this machine's Quarterdeck to peers in the foreground, without the app window. Started as
@@ -147,5 +170,19 @@ pub fn run() -> tauri::Result<()> {
         .on_window_event(desktop::on_window_event)
         .setup(setup)
         .invoke_handler(commands::handler());
-    builder.run(tauri::generate_context!())
+    builder.run(context())
+}
+
+/// The app's config, renamed for a dev build so it's its own app beside the installed one.
+fn context() -> tauri::Context {
+    let mut context = tauri::generate_context!();
+    if profile::DEV {
+        let config = context.config_mut();
+        profile::APP_ID.clone_into(&mut config.identifier);
+        config.product_name = Some(profile::NAME.to_owned());
+        for window in &mut config.app.windows {
+            profile::NAME.clone_into(&mut window.title);
+        }
+    }
+    context
 }

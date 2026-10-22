@@ -15,7 +15,7 @@ use super::{
 use crate::error::AppResult;
 use read::Old;
 
-const OLD_FILE: &str = "quarterdeck.sqlite";
+pub(in crate::store) const OLD_FILE: &str = "quarterdeck.sqlite";
 const DONE: &str = "legacy.imported";
 
 /// Imports the old database if there is one and it hasn't been imported. True if it ran.
