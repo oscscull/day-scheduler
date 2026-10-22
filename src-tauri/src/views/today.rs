@@ -1,8 +1,9 @@
 use serde::Serialize;
 
+use crate::connectors::github::issues;
 use crate::domain::activity::Activity;
 use crate::domain::commitment::Commitment;
-use crate::domain::item::Stage;
+use crate::domain::item::{Stage, WorkItem};
 use crate::domain::todo::Todo;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
@@ -14,6 +15,27 @@ const ACTIVITY_SHOWN: u32 = 12;
 /// Enough upcoming commitments for any one area to still show its next two.
 const UPCOMING_SHOWN: usize = 12;
 
+/// An issue nobody has picked up yet. Today shows how many, not each one.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Triage {
+    pub item_id: String,
+    pub title: String,
+    pub area: String,
+}
+
+fn triage(items: &[WorkItem]) -> Vec<Triage> {
+    items
+        .iter()
+        .filter(|i| issues::untriaged(i))
+        .map(|i| Triage {
+            item_id: i.id.clone(),
+            title: i.title.clone(),
+            area: i.area.clone(),
+        })
+        .collect()
+}
+
 /// Everything the Today screen shows.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +46,7 @@ pub struct TodayView {
     pub priorities: Vec<Priority>,
     pub priority_limit: usize,
     pub todos: Vec<Todo>,
+    pub triage: Vec<Triage>,
     pub activity: Vec<Activity>,
     pub running: usize,
     pub in_flight: usize,
@@ -46,6 +69,7 @@ pub async fn build(db: &Db, priority_limit: usize, rules: Rules) -> AppResult<To
         priorities: priorities(&ranked, &asks::list(db).await?, rules),
         priority_limit,
         todos: todos::list(db).await?,
+        triage: triage(&ranked),
         activity: activity::recent(db, ACTIVITY_SHOWN).await?,
         running: runs::live(db).await?.len(),
         in_flight,

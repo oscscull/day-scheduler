@@ -60,6 +60,7 @@ pub async fn build(db: &Db, loaded: Loaded, pause: Option<Pause>) -> AppResult<A
         pause,
         connections: vec![
             status::read(db, github::SOURCE).await?,
+            status::read(db, github::issues::SOURCE).await?,
             status::read(db, calendar::SOURCE).await?,
         ],
     })

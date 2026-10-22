@@ -5,6 +5,7 @@ mod apply;
 mod checks;
 mod fate;
 mod fetch;
+pub mod issues;
 mod snapshot;
 
 use std::collections::HashSet;
@@ -15,6 +16,7 @@ use tauri::{AppHandle, Manager as _};
 use crate::app::App;
 use crate::config::github::GithubSettings;
 use crate::config::settings::Settings;
+use crate::connectors::status;
 use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
 use crate::store::{Db, items};
@@ -82,7 +84,16 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
     }
     let unseen = apply::unseen(&app.db, &open).await?;
     close_ended(&app.db, &unseen).await?;
+    sync_issues(&app.db, &all, &prs).await?;
     Ok(fired)
+}
+
+/// Syncs issues after PRs, recording how it went on its own, so a failure there never costs the
+/// PRs' events.
+async fn sync_issues(db: &Db, all: &Settings, prs: &[fetch::Pr]) -> AppResult<()> {
+    let result = issues::sync(db, all, prs).await;
+    let error = result.err().map(|e| e.to_string());
+    status::record(db, issues::SOURCE, error.as_deref()).await
 }
 
 /// Asks GitHub what happened to each PR the search didn't return, and closes the merged or
@@ -173,6 +184,7 @@ mod tests {
             comments: 0,
             reviewers: fetch::Reviewers::Requested,
             reviewer_names: Vec::new(),
+            closes: Vec::new(),
         }
     }
 

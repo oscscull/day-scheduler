@@ -20,6 +20,7 @@
   import { changed } from "../lib/refresh.svelte";
   import CommitmentModal from "./today/CommitmentModal.svelte";
   import TodoList from "./today/TodoList.svelte";
+  import TriageLine from "./today/TriageLine.svelte";
   import UrgentModal from "./today/UrgentModal.svelte";
   import UrgentPill from "./today/UrgentPill.svelte";
 
@@ -59,11 +60,12 @@
   const priorities = $derived(data ? allPriorities.slice(0, data.priorityLimit) : []);
   const hiddenPriorities = $derived(allPriorities.length - priorities.length);
   const todos = $derived(data?.todos.filter(inArea) ?? []);
+  const triage = $derived(data?.triage?.filter(inArea) ?? []);
   const activity = $derived(data?.activity.filter(inArea) ?? []);
   const urgent = $derived(data?.urgent.filter(inArea) ?? []);
 
   $effect(() => {
-    chatContext.text = JSON.stringify({ area: areas.current, upcoming, priorities, todos, activity, urgent });
+    chatContext.text = JSON.stringify({ area: areas.current, upcoming, priorities, triage, todos, activity, urgent });
   });
 </script>
 
@@ -120,6 +122,7 @@
       {#if hiddenPriorities > 0}
         <button type="button" class="link more" onclick={() => (nav.view = "priorities")}>{t("today.more", { n: hiddenPriorities })}</button>
       {/if}
+      <TriageLine issues={triage} />
     </section>
 
     <TodoList {todos} {now} onChanged={load} />

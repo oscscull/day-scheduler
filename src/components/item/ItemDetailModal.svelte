@@ -36,6 +36,16 @@
     route.itemDetail(node, id).then((d) => (detail = { ...d, item: { ...d.item, ...(node ? { node } : {}) } })).catch((e: unknown) => (error = errorText(e)));
   });
 
+  async function park(parked: boolean): Promise<void> {
+    try {
+      await route.setParked(node, id, parked);
+      changed();
+      if (parked) onClose();
+    } catch (e) {
+      error = errorText(e);
+    }
+  }
+
   async function remove(): Promise<void> {
     try {
       await route.deleteItem(node, id);
@@ -68,6 +78,7 @@
     </div>
     {#if item.link}<Links link={item.link} />{/if}
     {#if item.source !== "manual"}<p class="hint small">{t("item.synced", { source: item.source })}</p>{/if}
+    {#if detail.parked}<p class="hint small">{t("item.parked")}</p>{/if}
     <AskList {node} asks={detail.asks} />
     {#if item.stage !== "done"}
       <section class="tell" aria-label={t("tell.label")}>
@@ -82,6 +93,10 @@
     <div class="foot">
       <button type="button" class="quiet" onclick={() => (confirming ? remove() : (confirming = true))}>{t("item.delete")}</button>
       <div class="buttons">
+        {#if detail.parked !== undefined && item.stage !== "done"}
+          {@const parked = detail.parked}
+          <button type="button" class="button-secondary" onclick={() => park(!parked)}>{parked ? t("item.unpark") : t("item.park")}</button>
+        {/if}
         {#if item.link}
           {@const link = item.link}
           <button type="button" class="button-secondary" onclick={() => openUrl(link)}>{t("item.open")}</button>

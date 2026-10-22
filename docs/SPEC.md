@@ -38,18 +38,26 @@ The window title shows the running version, so it's clear when an update has lan
 ## Views
 
 - **Today**: next meeting, Priorities (derived from ranked work: asks and decisions, then nudges for
-  reviews that have waited past `nudge_after_hours`; never things the system handles itself),
-  To do (things only the user can do), and "From Claude".
+  reviews that have waited past `nudge_after_hours`; never things the system handles itself), one
+  line for GitHub issues nobody has picked up yet (opens to the list), To do (things only the user
+  can do), and "From Claude".
 - **Priorities**: everything in play, drag to rank (per machine). The ranking drives Today.
-- **Board**: items by stage. **In flight**: open items by who they wait on.
+- **Board**: items by stage, with parked items in a list of their own below. **In flight**: open
+  items by who they wait on.
 - **Agent**: what's running (each run's latest step, live; click for its steps so far), every schedule (toggle, edit, delete, run now, create by describing
   it), missed or failed runs, Pause all, connector and peer status, and the MCP connect command.
-- **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools.
+- **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools, settings
+  ones included, so any setting can be changed by asking.
+
+An item can be **parked**: the user set it aside ("don't worry about that one"). It leaves every
+list (Today, the board, the queue, the watchdog) until unparked, and syncs never unpark it; GitHub
+closing its issue or PR still marks it done.
 
 ## Where things live
 
 - **Config folder** `~/.config/quarterdeck/`, editable by people and agents, re-read on each refresh:
-  `quarterdeck.toml` (settings, areas, connectors, sync), `prompts/*.md` (Quarterdeck's own Claude jobs),
+  `quarterdeck.toml` (settings, areas, connectors, sync; plain settings change by name with
+  `set_setting`, which leaves out `claude_command`), `prompts/*.md` (Quarterdeck's own Claude jobs),
   `schedules/<id>.md` (TOML front matter + instructions), `inbox/` (agent-raised urgent items,
   ingested and deleted), `pause.toml` (only while paused). Tools edit `quarterdeck.toml` in place,
   keeping comments, and roll back edits that would break it.
@@ -77,6 +85,13 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
   only when `gh` says its PR merged or closed, never because the open-PR search missed it. Syncs
   every `poll_minutes`, and at once when the window regains focus (at most every
   `focus_sync_seconds`), after which the screen reloads.
+- **GitHub issues**: open issues of the owners and repos in `[github.issues] watch` become items to
+  triage (up next, no holder), filed by `[github.areas]` like PRs and synced by the machine that
+  runs that area, skipping `skip_labels`. No agent is involved. An issue one of the user's open PRs
+  closes is left to that PR's item, which notes it; if that PR closes unmerged, the issue comes
+  back. An item is closed only when `gh` says its issue closed, and reopened if the issue reopens.
+  An agent's hand-made item linking the issue becomes the synced one. Since the item links the
+  issue, queueing it for Claude works as for any issue item.
 - **Calendar**: meetings, with recurrence, exceptions and join links. A feed is either a private iCal
   link or a calendar in the macOS Calendar app, for accounts that offer no link. A feed that can't
   be fetched or isn't a whole calendar is an error, never an empty calendar. The Calendar app is

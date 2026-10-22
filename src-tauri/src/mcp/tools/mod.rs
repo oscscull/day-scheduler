@@ -12,6 +12,7 @@ mod projects;
 mod queue;
 mod runs;
 mod schedules;
+mod setting;
 mod settings;
 mod sync;
 mod todos;
@@ -36,6 +37,7 @@ pub fn all() -> Vec<Tool> {
         schedules::tools(),
         runs::tools(),
         settings::tools(),
+        setting::tools(),
         sync::tools(),
         watch::tools(),
         projects::tools(),

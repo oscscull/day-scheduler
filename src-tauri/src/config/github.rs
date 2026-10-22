@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
+use super::issues::IssueSettings;
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct GithubSettings {
@@ -27,6 +29,7 @@ pub struct GithubSettings {
     /// Owner or repo to the names of checks that only inform (e.g. a visual-diff report). Their
     /// failures don't count as CI failing; they're noted on the item instead.
     pub informational_checks: BTreeMap<String, Vec<String>>,
+    pub issues: IssueSettings,
 }
 
 impl Default for GithubSettings {
@@ -42,6 +45,7 @@ impl Default for GithubSettings {
             fix_ci: true,
             fix_ci_tools: Vec::new(),
             informational_checks: BTreeMap::new(),
+            issues: IssueSettings::default(),
         }
     }
 }
@@ -50,7 +54,8 @@ fn owner(repo: &str) -> &str {
     repo.split_once('/').map_or(repo, |(o, _)| o)
 }
 
-fn listed(list: &[String], repo: &str) -> bool {
+/// Whether `repo`, or its owner, is in `list`.
+pub(super) fn listed(list: &[String], repo: &str) -> bool {
     list.iter().any(|i| i == repo || i == owner(repo))
 }
 

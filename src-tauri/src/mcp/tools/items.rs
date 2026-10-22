@@ -11,8 +11,8 @@ use crate::error::AppResult;
 use crate::store::{asks, events, items};
 use crate::work;
 
-const LIST_ITEMS: &str =
-    "Work items (tickets, PRs, personal projects) in priority order, highest first.";
+const LIST_ITEMS: &str = "Work items (tickets, PRs, issues, personal projects) in priority order, highest \
+             first. Parked items are left out unless `parked` is set.";
 const GET_ITEM: &str = "One item with its open asks and its history.";
 const CREATE_ITEM: &str = "Adds a work item to the bottom of the priorities. Use the ticket key as `key` when there \
              is one (e.g. JD-104). Returns the item's id.";
@@ -22,6 +22,10 @@ const UPDATE_ITEM: &str = "Changes an item. Only the fields you pass change. Kee
              saying what the user should decide (with options), so they have something to act on.";
 const DELETE_ITEM: &str = "Deletes an item with its asks and history.";
 const MOVE_ITEM: &str = "Moves an item to a position in the priorities, 1 being the top.";
+const PARK_ITEM: &str = "Parks an item the user has set aside (\"don't worry about that one\", \"it's \
+             parked\"), taking it off Today, the board and Claude's queue until unparked (`parked: false`). \
+             Syncs keep it parked. Prefer this to deleting a GitHub issue's or PR's item. Put the user's reason \
+             in `why` when they give one.";
 const ADD_NOTE: &str = "Adds a line to an item's history, e.g. \"opened PR #821\". Use for progress worth \
              remembering; the user sees it in the item's history.";
 
@@ -33,6 +37,7 @@ pub fn tools() -> Vec<Tool> {
         async_tool("update_item", UPDATE_ITEM, update),
         async_tool("delete_item", DELETE_ITEM, delete),
         async_tool("move_item", MOVE_ITEM, move_to),
+        async_tool("park_item", PARK_ITEM, park),
         async_tool("add_note", ADD_NOTE, note),
     ]
 }
@@ -46,10 +51,17 @@ struct ListArgs {
     /// Include done items. Defaults to false.
     #[serde(default)]
     include_done: bool,
+    /// List the parked items instead. Defaults to false.
+    #[serde(default)]
+    parked: bool,
 }
 
 async fn list(ctx: Ctx, args: ListArgs) -> AppResult<Vec<WorkItem>> {
-    let mut all = items::list(&ctx.db).await?;
+    let mut all = if args.parked {
+        items::parked(&ctx.db).await?
+    } else {
+        items::list(&ctx.db).await?
+    };
     all.retain(|i| {
         in_area(args.area.as_ref(), &i.area)
             && args.stage.is_none_or(|s| s == i.stage)
@@ -66,6 +78,7 @@ struct IdArgs {
 async fn get(ctx: Ctx, args: IdArgs) -> AppResult<serde_json::Value> {
     Ok(serde_json::json!({
         "item": items::get(&ctx.db, &args.id).await?,
+        "parked": items::is_parked(&ctx.db, &args.id).await?,
         "asks": asks::for_item(&ctx.db, &args.id).await?,
         "history": events::for_item(&ctx.db, &args.id).await?,
     }))
@@ -162,6 +175,28 @@ async fn move_to(ctx: Ctx, args: MoveArgs) -> AppResult<()> {
         args.id.clone(),
     );
     items::reorder(&ctx.db, &ids).await
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ParkArgs {
+    id: String,
+    /// False brings it back. Defaults to true.
+    #[serde(default = "yes")]
+    parked: bool,
+    /// The user's reason, noted in its history.
+    why: Option<String>,
+}
+
+const fn yes() -> bool {
+    true
+}
+
+async fn park(ctx: Ctx, args: ParkArgs) -> AppResult<()> {
+    let choice = crate::park::Parking {
+        parked: args.parked,
+        why: args.why.as_deref(),
+    };
+    crate::park::set(&ctx.db, &args.id, choice, Utc::now()).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

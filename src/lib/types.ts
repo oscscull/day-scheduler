@@ -50,6 +50,8 @@ export interface ItemEvent {
 
 export interface ItemDetail {
   item: WorkItem;
+  /** Missing from machines running an older Quarterdeck. */
+  parked?: boolean;
   asks: Ask[];
   history: ItemEvent[];
 }
@@ -144,12 +146,22 @@ export interface Urgent {
   scheduleId: string | null;
 }
 
+/** A GitHub issue nobody has picked up yet. */
+export interface Triage {
+  itemId: string;
+  title: string;
+  area: string;
+  node?: string;
+}
+
 export interface TodayView {
   urgent: Urgent[];
   upcoming: Commitment[];
   priorities: Priority[];
   priorityLimit: number;
   todos: Todo[];
+  /** Missing from machines running an older Quarterdeck. */
+  triage?: Triage[];
   activity: Activity[];
   running: number;
   inFlight: number;

@@ -141,6 +141,7 @@ mod tests {
             comments,
             reviewers: super::super::fetch::Reviewers::Requested,
             reviewer_names: Vec::new(),
+            closes: Vec::new(),
             checks: Vec::new(),
             notes: Vec::new(),
         }
