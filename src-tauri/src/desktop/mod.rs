@@ -32,9 +32,13 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     }
 }
 
-/// Clicking the dock icon reopens the window.
+/// Clicking the dock icon reopens the window. Only macOS has a dock icon to click.
+#[cfg(target_os = "macos")]
 pub fn on_run_event(handle: &AppHandle, event: &RunEvent) {
     if let RunEvent::Reopen { .. } = event {
         show_main(handle);
     }
 }
+
+#[cfg(not(target_os = "macos"))]
+pub const fn on_run_event(_handle: &AppHandle, _event: &RunEvent) {}
