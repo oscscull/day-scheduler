@@ -29,7 +29,9 @@ when setup changes.
 Each machine keeps its own data and serves it to the other. Records stay where they were made;
 connectors and schedules only run for areas whose `node` is this machine.
 
-1. Give each machine a different `node`, and the same `[[areas]]` list on both.
+1. Give each machine a different `node`, and the same `[[areas]]` list on both. After that the
+   machines keep the list in step themselves; if both change it before they next talk, Quarterdeck
+   raises it as urgent and you make one match the other.
 2. On each machine, turn sharing on: `[sync] enabled = true` (or Claude: `set_sync`), then restart
    Quarterdeck. A token is written to `[sync] token`; `get_sync_info` shows it.
 3. Make each machine reachable. On the same network (simplest): `[sync] lan = true` (or Claude:

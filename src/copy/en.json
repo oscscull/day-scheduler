@@ -1,4 +1,5 @@
 {
+  "app.title": "Quarterdeck {version}",
   "app.loadFailed": "Couldn't load this view: {error}",
   "view.today": "Today",
   "view.priorities": "Priorities",
@@ -210,6 +211,8 @@
   "item.since": "{state} for {age} · open {open}",
   "tell.label": "Tell Claude what to do",
   "tell.placeholder": "e.g. merge develop in and fix the conflicts",
+  "tell.openPr": "Open PR ↗",
+  "tell.openLink": "Open ↗",
   "tell.sent": "Sent. Claude picks it up within a minute.",
   "ask.write": "Write an answer…",
   "ask.writeOther": "Or write an answer…",

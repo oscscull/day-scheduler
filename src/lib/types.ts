@@ -85,6 +85,8 @@ export type Priority = (
   holder: string;
   area: string;
   since: string;
+  /** The item's ticket or PR. */
+  link: string | null;
 };
 
 export interface Commitment {

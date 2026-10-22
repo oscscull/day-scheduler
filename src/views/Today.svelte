@@ -111,7 +111,7 @@
           {#if p.kind === "ask"}
             <li class="answer-row"><AnswerBox ask={p.ask} node={p.node} /></li>
           {:else if p.kind === "decision"}
-            <li class="answer-row"><TellClaude itemId={p.itemId} node={p.node} /></li>
+            <li class="answer-row"><TellClaude itemId={p.itemId} node={p.node} link={p.link} /></li>
           {/if}
         {:else}
           <li class="hint">{t("today.noPriorities")}</li>

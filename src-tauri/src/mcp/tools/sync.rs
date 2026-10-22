@@ -2,10 +2,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::super::ctx::Ctx;
-use super::super::tool::{NoArgs, Tool, tool};
+use super::super::tool::{NoArgs, Tool, async_tool, tool};
 use crate::config::edit;
+use crate::config::settings::Area;
 use crate::config::sync::Peer;
 use crate::error::AppResult;
+use crate::peers::areas::{self, Outcome};
 
 const INFO: &str = "How this machine shares Quarterdeck with others: its name, whether it serves peers, the \
 local port and token another machine needs, and the peers it knows. Give another machine this \
@@ -16,6 +18,9 @@ machines on the local network (private addresses only), so two Macs on the same 
 with no tunnel: add each as the other's peer at `http://<LocalHostName>.local:<port>`. With `lan` off \
 it listens on this machine only, for use behind a tunnel. Every request needs the token. Takes \
 effect when Quarterdeck restarts.";
+const RECEIVE: &str = "Used by other Quarterdeck machines to keep everyone's areas list the same; agents \
+shouldn't call it (use upsert_area). Takes the sender's list if this machine's hasn't changed since \
+they last matched.";
 const ADD: &str = "Adds another machine's Quarterdeck, by its machine name (as used by areas' `node`), the URL its \
 tunnel serves, and its sync token. Its data then shows here, and edits to it go back to it.";
 
@@ -30,6 +35,7 @@ pub fn tools() -> Vec<Tool> {
              using the old token stop working until they're given the new one (add_peer again).",
             new_token,
         ),
+        async_tool("receive_areas", RECEIVE, receive_areas),
         tool(
             "remove_peer",
             "Forgets another machine, by name.",
@@ -92,4 +98,15 @@ fn new_token(ctx: &Ctx, _: NoArgs) -> AppResult<String> {
     let token = crate::peers::new_token()?;
     edit::set_sync_token(&ctx.config, &token)?;
     Ok(token)
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ReceiveArgs {
+    /// The sending machine's name.
+    from: String,
+    areas: Vec<Area>,
+}
+
+async fn receive_areas(ctx: Ctx, args: ReceiveArgs) -> AppResult<Outcome> {
+    areas::receive(&ctx.db, &ctx.config, &args.from, &args.areas).await
 }

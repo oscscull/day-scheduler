@@ -26,6 +26,15 @@ machine (`node`) that runs it. The switcher filters every view. Each machine kee
 and serves them to peers; the UI merges peers' data and sends edits back to the record's machine.
 Connectors and schedules only act for areas this machine runs.
 
+The areas list is the one thing every machine shares. Each remembers, per peer, the list they last
+agreed on; when its own differs (a tool or a hand edit) it pushes it each scheduler tick until the
+peer takes it. A peer takes it only if its own list hasn't changed since they agreed; if both
+changed, it's raised as urgent for the user to settle. Once two machines agree, a schedule held on
+one but owned by the other (its area was edited, or the area moved) is handed over: created there,
+then deleted here. Run now on such a schedule hands it over and runs it there.
+
+The window title shows the running version, so it's clear when an update has landed.
+
 ## Views
 
 - **Today**: next meeting, Priorities (derived from ranked work: asks and decisions, then nudges for

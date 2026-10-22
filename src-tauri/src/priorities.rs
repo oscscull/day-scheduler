@@ -34,6 +34,8 @@ pub struct Priority {
     pub area: String,
     /// When the item reached its current state.
     pub since: DateTime<Utc>,
+    /// The item's ticket or PR, so the user can act on it in one click.
+    pub link: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -52,6 +54,7 @@ fn priority(item: &WorkItem, reason: Reason) -> Priority {
         holder: item.holder.clone(),
         area: item.area.clone(),
         since: item.state_since,
+        link: item.link.clone(),
     }
 }
 
