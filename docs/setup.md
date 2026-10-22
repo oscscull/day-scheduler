@@ -81,3 +81,9 @@ only encrypted in `.env.release`; what decrypts it stays in `~/.tauri/quarterdec
 
 Losing the private key means installed apps can't update; reinstall from a release signed with a new one.
 
+The macOS app is also code-signed with a self-signed certificate, so macOS keeps its permission answers
+(Documents, Calendars) across updates instead of asking again after each one. `bash scripts/macos-cert.sh`
+makes it once in `~/.tauri/quarterdeck-macos.p12` and sets the `MACOS_CERTIFICATE` secrets; its password
+sits encrypted in `.env.release` beside the updater's. Losing it costs one more round of prompts after
+the next release.
+
