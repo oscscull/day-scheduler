@@ -9,6 +9,8 @@ use ical::parser::ical::component::IcalEvent;
 use ical::property::Property;
 use rrule::{RRuleSet, Tz};
 
+use crate::error::{AppError, AppResult};
+
 /// One time an event happens.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Occurrence {
@@ -212,13 +214,16 @@ fn expand(
 }
 
 /// Every occurrence that overlaps `[from, to)`.
-pub fn occurrences(ics: &str, from: DateTime<Utc>, to: DateTime<Utc>) -> Vec<Occurrence> {
-    let events: Vec<IcalEvent> = IcalParser::new(ics.as_bytes())
-        .filter_map(Result::ok)
-        .flat_map(|c| c.events)
-        .collect();
+/// Fails on anything that isn't a whole iCal calendar (a login page, an empty body, a cut-off
+/// download), since an empty result would delete every upcoming meeting from the feed.
+pub fn occurrences(
+    ics: &str,
+    from: DateTime<Utc>,
+    to: DateTime<Utc>,
+) -> AppResult<Vec<Occurrence>> {
+    let events = events(ics)?;
     let moved = overrides(&events);
-    events
+    Ok(events
         .iter()
         .flat_map(|e| {
             let exdates = value(e, "UID")
@@ -226,7 +231,17 @@ pub fn occurrences(ics: &str, from: DateTime<Utc>, to: DateTime<Utc>) -> Vec<Occ
                 .map_or(&[][..], Vec::as_slice);
             expand(e, exdates, from, to)
         })
-        .collect()
+        .collect())
+}
+
+fn events(ics: &str) -> AppResult<Vec<IcalEvent>> {
+    let calendars = IcalParser::new(ics.as_bytes())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| AppError::Connector(format!("not a valid calendar: {e}")))?;
+    if calendars.is_empty() {
+        return Err(AppError::Connector("not a calendar".to_owned()));
+    }
+    Ok(calendars.into_iter().flat_map(|c| c.events).collect())
 }
 
 #[cfg(test)]
@@ -251,12 +266,28 @@ END:VCALENDAR\r\n";
         let from = Utc.with_ymd_and_hms(2026, 10, day, 0, 0, 0).unwrap();
         let mut list: Vec<(DateTime<Utc>, String)> =
             occurrences(FEED, from, from + Duration::days(1))
+                .unwrap()
                 .into_iter()
                 .filter(|o| !o.all_day)
                 .map(|o| (o.start, o.title))
                 .collect();
         list.sort();
         list.into_iter().map(|(_, t)| t).collect()
+    }
+
+    #[test]
+    fn anything_but_a_calendar_is_an_error_not_an_empty_feed() {
+        let from = Utc::now();
+        for body in [
+            "",
+            "<html>Sign in</html>",
+            "BEGIN:VCALENDAR\nBEGIN:VEVENT\n",
+        ] {
+            assert!(
+                occurrences(body, from, from + Duration::days(1)).is_err(),
+                "{body:?}"
+            );
+        }
     }
 
     #[test]
@@ -269,7 +300,7 @@ END:VCALENDAR\r\n";
     #[test]
     fn keeps_all_day_events_flagged_and_drops_cancelled_ones() {
         let from = Utc.with_ymd_and_hms(2026, 10, 23, 0, 0, 0).unwrap();
-        let all = occurrences(FEED, from, from + Duration::days(1));
+        let all = occurrences(FEED, from, from + Duration::days(1)).unwrap();
         let holiday = all.iter().find(|o| o.title == "Bank holiday").unwrap();
         assert!(holiday.all_day);
         assert!(!all.iter().any(|o| o.title == "Cancelled"));
@@ -278,7 +309,7 @@ END:VCALENDAR\r\n";
     #[test]
     fn finds_call_links_in_notes() {
         let from = Utc.with_ymd_and_hms(2026, 10, 21, 0, 0, 0).unwrap();
-        let all = occurrences(FEED, from, from + Duration::days(1));
+        let all = occurrences(FEED, from, from + Duration::days(1)).unwrap();
         let dentist = all.iter().find(|o| o.title == "Dentist").unwrap();
         assert_eq!(
             dentist.join_url.as_deref(),
@@ -290,6 +321,7 @@ END:VCALENDAR\r\n";
     fn standup_has_its_real_length_and_time_zone() {
         let from = Utc.with_ymd_and_hms(2026, 10, 20, 0, 0, 0).unwrap();
         let standup = occurrences(FEED, from, from + Duration::days(1))
+            .unwrap()
             .into_iter()
             .next()
             .unwrap();
