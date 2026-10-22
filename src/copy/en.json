@@ -48,6 +48,7 @@
   "inflight.others": "Waiting on others",
   "inflight.later": "Later",
   "agent.working": "Your agent has {n} things on its turn",
+  "agent.workingOne": "Your agent has 1 thing on its turn",
   "agent.idle": "Nothing is your agent's turn right now",
   "agent.live": "Live across both machines.",
   "agent.scheduled": "Scheduled",
