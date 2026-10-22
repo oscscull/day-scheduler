@@ -56,7 +56,10 @@ pub async fn apply(
     let old: Option<Snapshot> = sync_state::get(db, SOURCE, &ext)
         .await?
         .and_then(|json| serde_json::from_str(&json).ok());
-    match items::by_external(db, SOURCE, &ext).await? {
+    let existing = items::by_external(db, SOURCE, &ext).await?;
+    // An item that has the PR but no snapshot of it got the PR when Quarterdeck opened it.
+    let adopted = existing.is_some() && old.is_none();
+    match existing {
         None => {
             let id = create(db, pr, area, now).await?;
             turn::follow(db, &id, &new.owned, Clock { limits, now }).await?;
@@ -69,7 +72,11 @@ pub async fn apply(
     }
     note_changes(db, &ext, (old.as_ref(), &new), now).await?;
     sync_state::set(db, SOURCE, &ext, &serde_json::to_string(&new)?).await?;
-    Ok(snapshot::events(old.as_ref(), &new))
+    Ok(if adopted {
+        snapshot::adopted(&new)
+    } else {
+        snapshot::events(old.as_ref(), &new)
+    })
 }
 
 /// Adds informational check results to the item's history the first time each is seen.
@@ -198,5 +205,39 @@ mod tests {
             (merged.stage, merged.state_label.as_str()),
             (Stage::Done, "merged")
         );
+    }
+
+    #[tokio::test]
+    async fn a_pr_quarterdeck_opened_reports_ci_that_failed_before_the_first_sync() {
+        let db = Db::in_memory().await;
+        let limits = TurnSettings::default();
+        let failing = Pr {
+            ci: Some("FAILURE".to_owned()),
+            ..pr(0)
+        };
+        let fresh = Pr {
+            number: 8,
+            ..failing.clone()
+        };
+        let quiet = apply(&db, &fresh, ("work", &limits), Utc::now()).await;
+        assert_eq!(quiet.unwrap(), []);
+        let input = ItemInput {
+            id: "app#3".to_owned(),
+            title: "Login breaks".to_owned(),
+            state_label: "PR #7 open".to_owned(),
+            stage: Stage::InReview,
+            status: None,
+            area: "work".to_owned(),
+            link: None,
+        };
+        work::save(&db, input, Utc::now()).await.unwrap();
+        let adopted = WorkItem {
+            source: SOURCE.to_owned(),
+            external_id: Some("me/app#7".to_owned()),
+            ..items::get(&db, "app#3").await.unwrap()
+        };
+        items::save(&db, &adopted).await.unwrap();
+        let events = apply(&db, &failing, ("work", &limits), Utc::now()).await;
+        assert_eq!(events.unwrap(), [EventKind::CiFailed]);
     }
 }
