@@ -47,15 +47,22 @@ async fn read_all(err: impl AsyncRead + Unpin) -> String {
     text
 }
 
-/// Names the program that couldn't be found, rather than a bare "No such file or directory".
+/// Says what couldn't be found: the folder to run in, or the program. Both show up as `NotFound`.
 fn missing(cmd: &Command, e: std::io::Error) -> AppError {
     if e.kind() != std::io::ErrorKind::NotFound {
         return e.into();
     }
-    let program = cmd.as_std().get_program().to_string_lossy().into_owned();
+    let cmd = cmd.as_std();
+    if let Some(dir) = cmd.get_current_dir().filter(|d| !d.exists()) {
+        return AppError::Claude(format!(
+            "the folder this run belongs in is gone: {} ({e})",
+            dir.display()
+        ));
+    }
+    let program = cmd.get_program().to_string_lossy().into_owned();
     AppError::Claude(format!(
         "can't find your agent: `{program}` isn't installed where Quarterdeck looks or on your \
-         login shell's PATH. Set claude_command in quarterdeck.toml to its full path."
+         login shell's PATH ({e}). Set claude_command in quarterdeck.toml to its full path."
     ))
 }
 
