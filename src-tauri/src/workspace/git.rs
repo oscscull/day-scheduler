@@ -100,9 +100,9 @@ async fn prepare_issue(ws: &Workspace) -> AppResult<()> {
     run("git", &ws.project, &add).await.map(drop)
 }
 
-/// The user's personal Claude permissions for the project aren't in git, so bring them along, on
-/// every run so they stay current. Only the contents are copied: copying file metadata out of a
-/// protected folder can be refused. Without them the run just asks for less, so it goes on.
+/// The user's personal Claude permissions for the project aren't in git, so bring them along on
+/// every run. Contents only: `fs::copy` also copies metadata, which macOS can refuse. Without
+/// them the run just asks for less, so it goes on.
 fn copy_local_settings(ws: &Workspace) {
     let local = Path::new(".claude").join("settings.local.json");
     let Ok(text) = std::fs::read(ws.project.join(&local)) else {
