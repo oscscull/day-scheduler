@@ -146,6 +146,30 @@ pub async fn from_source(db: &Db, source: &str) -> AppResult<Vec<WorkItem>> {
     from_rows(db.api().items_from_source(input, ()).await?)
 }
 
+/// Parked items, highest priority first.
+pub async fn parked(db: &Db) -> AppResult<Vec<WorkItem>> {
+    from_rows(
+        db.api()
+            .parked_items(client::ParkedItemsInput {}, ())
+            .await?,
+    )
+}
+
+pub async fn is_parked(db: &Db, id: &str) -> AppResult<bool> {
+    let input = client::ItemParkedInput { id: text_key(id) };
+    let row = db.api().item_parked(input, ()).await?;
+    Ok(row.is_some_and(|r| r.parked))
+}
+
+/// Parks an item, taking it off every list, or brings it back.
+pub async fn set_parked(db: &Db, id: &str, parked: bool) -> AppResult<()> {
+    let input = client::SetParkedInput {
+        id: text_key(id),
+        parked,
+    };
+    Ok(db.api().set_parked(input, ()).await?)
+}
+
 /// Hides a synced item so the connector doesn't bring it back.
 pub async fn hide(db: &Db, id: &str) -> AppResult<()> {
     let input = client::HideItemInput { id: text_key(id) };

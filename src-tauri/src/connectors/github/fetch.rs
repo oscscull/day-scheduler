@@ -10,6 +10,7 @@ use crate::error::{AppError, AppResult};
 const QUERY: &str = "query($q: String!) { search(query: $q, type: ISSUE, first: 50) { nodes { \
     ... on PullRequest { number title url isDraft repository { nameWithOwner } reviewDecision \
     author { login } \
+    closingIssuesReferences(first: 20) { nodes { number repository { nameWithOwner } } } \
     reviewRequests(first: 20) { nodes { requestedReviewer { \
       ... on User { login } ... on Team { name } ... on Bot { login } } } } \
     latestReviews(first: 20) { nodes { author { __typename login } } } \
@@ -41,6 +42,8 @@ pub struct Pr {
     /// People asked to review it, or who already have (GitHub drops a request once it's reviewed).
     /// Bots and the author aren't counted.
     pub reviewer_names: Vec<String>,
+    /// Issues it closes when merged, as `owner/repo#12`.
+    pub closes: Vec<String>,
 }
 
 /// Who is expected to review a PR.
@@ -105,6 +108,7 @@ struct Node {
     repository: Option<Repo>,
     review_decision: Option<String>,
     author: Option<Login>,
+    closing_issues_references: Nodes<IssueRef>,
     review_requests: Nodes<Request>,
     latest_reviews: Nodes<Review>,
     comments: Count,
@@ -114,9 +118,22 @@ struct Node {
 }
 
 #[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Repo {
-    name_with_owner: String,
+#[serde(default)]
+struct IssueRef {
+    number: u64,
+    repository: Repo,
+}
+
+impl IssueRef {
+    fn external_id(&self) -> String {
+        format!("{}#{}", self.repository.name_with_owner, self.number)
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub(super) struct Repo {
+    pub(super) name_with_owner: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -127,8 +144,8 @@ struct Count {
 
 #[derive(Debug, Deserialize)]
 #[serde(default)]
-struct Nodes<T> {
-    nodes: Vec<T>,
+pub(super) struct Nodes<T> {
+    pub(super) nodes: Vec<T>,
 }
 
 impl<T> Default for Nodes<T> {
@@ -139,8 +156,8 @@ impl<T> Default for Nodes<T> {
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
-struct Login {
-    login: String,
+pub(super) struct Login {
+    pub(super) login: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -281,6 +298,12 @@ impl Node {
             .map(|t| t.comments.total_count)
             .sum();
         let (ci, checks) = ci_of(self.commits);
+        let closes = self
+            .closing_issues_references
+            .nodes
+            .iter()
+            .map(IssueRef::external_id)
+            .collect();
         Some(Pr {
             repo: self.repository?.name_with_owner,
             number: self.number?,
@@ -298,6 +321,7 @@ impl Node {
                 Reviewers::Requested
             },
             reviewer_names,
+            closes,
         })
     }
 }

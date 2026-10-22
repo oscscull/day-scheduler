@@ -22,3 +22,23 @@ export function workItems() {
 
   return { state, load };
 }
+
+/** Parked items from every machine, for the board's parked list. */
+export function parkedItems() {
+  const state = $state({ items: [] as WorkItem[], error: "" });
+
+  async function load(): Promise<void> {
+    try {
+      const [local, remote] = await Promise.all([
+        api.parkedItems(),
+        fromPeers<WorkItem[]>("list_items", { parked: true, include_done: true }),
+      ]);
+      state.items = [...local, ...remote.flatMap((r) => tag(r.value, r.node))];
+      state.error = "";
+    } catch (e) {
+      state.error = errorText(e);
+    }
+  }
+
+  return { state, load };
+}

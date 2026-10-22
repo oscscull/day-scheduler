@@ -29,6 +29,18 @@ pub async fn delete_item(app: State<'_, App>, id: String) -> AppResult<()> {
     items::delete(&app.db, &id).await
 }
 
+#[tauri::command]
+pub async fn set_parked(app: State<'_, App>, id: String, parked: bool) -> AppResult<()> {
+    let choice = crate::park::Parking { parked, why: None };
+    crate::park::set(&app.db, &id, choice, Utc::now()).await
+}
+
+/// Items the user parked, for the board's parked list.
+#[tauri::command]
+pub async fn parked_items(app: State<'_, App>) -> AppResult<Vec<WorkItem>> {
+    items::parked(&app.db).await
+}
+
 /// What the user does about something that needs them.
 #[derive(Debug, serde::Deserialize)]
 #[serde(
@@ -71,6 +83,7 @@ pub async fn respond(app: State<'_, App>, response: Response) -> AppResult<Outco
 #[derive(Debug, Serialize)]
 pub struct ItemDetail {
     item: WorkItem,
+    parked: bool,
     asks: Vec<Ask>,
     history: Vec<ItemEvent>,
 }
@@ -79,6 +92,7 @@ pub struct ItemDetail {
 pub async fn item_detail(app: State<'_, App>, id: String) -> AppResult<ItemDetail> {
     Ok(ItemDetail {
         item: items::get(&app.db, &id).await?,
+        parked: items::is_parked(&app.db, &id).await?,
         asks: asks::for_item(&app.db, &id).await?,
         history: events::for_item(&app.db, &id).await?,
     })

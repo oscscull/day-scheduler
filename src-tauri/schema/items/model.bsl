@@ -18,11 +18,13 @@ Item {
   external_id: text?
   # Synced items the user deleted stay hidden, so the next sync doesn't bring them back.
   hidden:      bool (default false)
+  # Set aside by the user: off every list until unparked. Syncs never change it.
+  parked:      bool (default false)
   opened_at:   timestamp
   state_since: timestamp
   rank:        int
   @index(source, external_id) unique
-  @index(hidden, rank)
+  @index(hidden, parked, rank)
   @index(stage, state_since)
 }
 
@@ -31,6 +33,7 @@ shape ItemRow from Item {
   opened_at, state_since, rank
 }
 shape ItemKey from Item { id }
+shape ItemParked from Item { parked }
 shape TopRank from Item { top = max(rank) }
 shape ItemCount from Item { n = count() }
 

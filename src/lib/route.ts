@@ -35,6 +35,8 @@ export const route = {
     node ? peer(node, "delete_schedule", { id }) : api.deleteSchedule(id),
   itemDetail: (node: string | undefined, id: string) =>
     node ? peer<ItemDetail>(node, "get_item", { id }) : api.itemDetail(id),
+  setParked: (node: string | undefined, id: string, parked: boolean) =>
+    node ? peer(node, "park_item", { id, parked }) : api.setParked(id, parked),
   deleteItem: (node: string | undefined, id: string) =>
     node ? peer(node, "delete_item", { id }) : api.deleteItem(id),
   addMeeting: (node: string | undefined, c: CommitmentInput) =>

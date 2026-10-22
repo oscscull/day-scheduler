@@ -1,4 +1,6 @@
-query items() -> ItemRow[] { list Item where (hidden = false); }
+query items() -> ItemRow[] { list Item where (hidden = false and parked = false); }
+query parked_items() -> ItemRow[] { list Item where (hidden = false and parked = true); }
+query item_parked(id) -> ItemParked;
 query item(id) -> ItemRow;
 query item_by_external(source, external_id: text) -> ItemRow;
 query items_from_source(source) -> ItemRow[];
@@ -26,6 +28,7 @@ mutation save_item(id, title, state_label, stage: Stage, status: Status?, holder
 }
 mutation set_rank(id, rank: int) -> ok { update Item where (id = $id) { rank = $rank }; }
 mutation hide_item(id) -> ok { update Item where (id = $id) { hidden = true }; }
+mutation set_parked(id, parked: bool) -> ok { update Item where (id = $id) { parked = $parked }; }
 # Asks, history and watch go with the item.
 mutation delete_item(id) -> ok { delete Item where (id = $id); }
 

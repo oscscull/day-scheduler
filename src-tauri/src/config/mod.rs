@@ -10,6 +10,8 @@ pub mod dev;
 pub mod edit;
 pub mod github;
 pub mod inbox;
+pub mod issues;
+pub mod keys;
 pub mod pause;
 pub mod projects;
 pub mod prompts;

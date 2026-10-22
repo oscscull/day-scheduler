@@ -19,6 +19,7 @@ export function mergeToday(local: TodayView, remote: Remote<TodayView>[]): Today
     ) as TodayView["upcoming"],
     priorities: [...local.priorities, ...remote.flatMap((r) => tag(r.value.priorities, r.node))],
     todos: [...local.todos, ...remote.flatMap((r) => tag(r.value.todos, r.node))],
+    triage: [...(local.triage ?? []), ...remote.flatMap((r) => tag(r.value.triage ?? [], r.node))],
     urgent: [...local.urgent, ...remote.flatMap((r) => tag(r.value.urgent, r.node))],
     activity: [...local.activity, ...remote.flatMap((r) => tag(r.value.activity, r.node))].sort(
       byTime((a) => a.at, true),

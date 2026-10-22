@@ -47,7 +47,7 @@ name = "Life"
 color = "#2e8a47"
 node = "home-mac"
 
-# Your open PRs become items, through the `gh` command's existing login. Quarterdeck only rewrites a
+# Your open PRs (and, if you watch them, issues) become items, through the `gh` command's existing login. Quarterdeck only rewrites a
 # PR's title, stage and status when they change on GitHub, so your edits stick in between.
 [github]
 enabled = true
@@ -79,6 +79,13 @@ fix_ci_tools = ["Bash(gh pr checks:*)", "Bash(gh pr view:*)", "Bash(gh run view:
 # Quarterdeck pushes it and opens the PR when Claude finishes.
 [queue]
 items = []
+
+# Open issues of these owners ("me") or repos ("my-org/app") become items to triage, filed like their
+# PRs ([github.areas]). Issues one of your open PRs closes are left to that PR's item. Park an issue
+# to drop it from view; syncs keep it parked.
+[github.issues]
+watch = []
+skip_labels = []
 
 # Checks that only inform (e.g. a visual-diff report). Their failures don't count as CI failing;
 # they're noted on the item instead.

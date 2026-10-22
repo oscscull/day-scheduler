@@ -15,6 +15,7 @@ mod domain;
 mod error;
 mod mcp;
 mod notify;
+mod park;
 mod paths;
 mod peers;
 mod priorities;
