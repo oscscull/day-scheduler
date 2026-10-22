@@ -3,15 +3,19 @@
 mod adopt;
 mod apply;
 mod checks;
+mod fate;
 mod fetch;
 mod snapshot;
 
 use std::collections::HashSet;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
+use rusqlite::Connection;
 use tauri::{AppHandle, Manager as _};
 
 use crate::app::App;
+use crate::config::github::GithubSettings;
+use crate::config::settings::Settings;
 use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
 use crate::store::items;
@@ -66,37 +70,136 @@ fn with_checks(pr: &fetch::Pr, informational: &[String]) -> fetch::Pr {
 pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
     let app = handle.state::<App>();
     let all = app.settings()?;
-    let settings = all.github.clone();
     let prs = fetch::open_prs().await?;
     let now = Utc::now();
-    app.db.with(|conn| {
+    let (fired, unseen) = app.db.with(|conn| {
         let mut fired = Vec::new();
         let mut open = HashSet::new();
-        for pr in prs.iter().filter(|p| !settings.ignores(&p.repo)) {
-            let pr = &as_reviewed(pr, settings.self_reviews(&pr.repo));
-            let pr = &with_checks(pr, &settings.informational(&pr.repo));
-            let pr = &with_checks(pr, &settings.informational(&pr.repo));
-            let area = settings.area_for(&pr.repo);
-            // Another machine syncs the areas it runs, so two never duplicate a PR.
-            if all.node_for(area) != all.node {
-                continue;
+        for pr in prs.iter().filter(|p| !all.github.ignores(&p.repo)) {
+            // Open on GitHub whichever machine syncs it, so it must never be closed here.
+            open.insert(apply::external_id(pr));
+            if let Some(area) = synced_here(conn, &all, pr)? {
+                fired.extend(sync_pr(conn, &prepared(pr, &all.github), &area, now)?);
             }
-            let ext = apply::external_id(pr);
-            let kinds = apply::apply(conn, pr, area, now)?;
-            let item_id = items::by_external(conn, SOURCE, &ext)?
-                .map(|i| i.id)
-                .unwrap_or_default();
-            for kind in kinds {
-                fired.push(Fired {
-                    kind,
-                    item_id: item_id.clone(),
-                    item_area: area.to_owned(),
-                    trigger: describe(kind, &ext, &pr.url),
-                });
-            }
-            open.insert(ext);
         }
-        apply::close_missing(conn, &open, now)?;
-        Ok(fired)
-    })
+        Ok((fired, apply::unseen(conn, &open)?))
+    })?;
+    close_ended(&app, &unseen).await?;
+    Ok(fired)
+}
+
+/// Asks GitHub what happened to each PR the search didn't return, and closes the merged or
+/// closed ones. One GitHub can't answer for stays as it is until the next sync.
+async fn close_ended(app: &App, unseen: &[String]) -> AppResult<()> {
+    for ext in unseen {
+        if let Ok(ended) = fate::of(ext).await {
+            app.db
+                .with(|conn| apply::close(conn, ext, ended, Utc::now()))?;
+        }
+    }
+    Ok(())
+}
+
+/// The area to sync `pr` into, if this machine syncs it: the area of the item already made for
+/// it, else the repo's. Another machine syncs the areas it runs, so two never duplicate a PR.
+fn synced_here(conn: &Connection, all: &Settings, pr: &fetch::Pr) -> AppResult<Option<String>> {
+    let ext = apply::external_id(pr);
+    let area = items::by_external(conn, SOURCE, &ext)?
+        .map_or_else(|| all.github.area_for(&pr.repo).to_owned(), |i| i.area);
+    Ok((all.node_for(&area) == all.node).then_some(area))
+}
+
+/// The PR as the user sees it: their own review where they self-review, CI without
+/// informational checks.
+fn prepared(pr: &fetch::Pr, settings: &GithubSettings) -> fetch::Pr {
+    let pr = as_reviewed(pr, settings.self_reviews(&pr.repo));
+    with_checks(&pr, &settings.informational(&pr.repo))
+}
+
+fn sync_pr(
+    conn: &Connection,
+    pr: &fetch::Pr,
+    area: &str,
+    now: DateTime<Utc>,
+) -> AppResult<Vec<Fired>> {
+    let ext = apply::external_id(pr);
+    let kinds = apply::apply(conn, pr, area, now)?;
+    let item_id = items::by_external(conn, SOURCE, &ext)?
+        .map(|i| i.id)
+        .unwrap_or_default();
+    Ok(kinds
+        .into_iter()
+        .map(|kind| Fired {
+            kind,
+            item_id: item_id.clone(),
+            item_area: area.to_owned(),
+            trigger: describe(kind, &ext, &pr.url),
+        })
+        .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::Connection;
+
+    use super::*;
+    use crate::config::settings::Area;
+    use crate::store::schema;
+
+    fn area(id: &str, node: &str) -> Area {
+        Area {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            color: String::new(),
+            node: node.to_owned(),
+        }
+    }
+
+    /// This machine runs `projects`; `work`, the repo's default area, runs elsewhere.
+    fn settings() -> Settings {
+        Settings {
+            node: "home".to_owned(),
+            areas: vec![area("work", "office"), area("projects", "home")],
+            github: GithubSettings {
+                default_area: "work".to_owned(),
+                ..GithubSettings::default()
+            },
+            ..Settings::default()
+        }
+    }
+
+    fn pr(number: u64) -> fetch::Pr {
+        fetch::Pr {
+            repo: "me/lib".to_owned(),
+            number,
+            title: "Fix".to_owned(),
+            url: format!("https://github.com/me/lib/pull/{number}"),
+            draft: false,
+            review: None,
+            ci: None,
+            checks: Vec::new(),
+            notes: Vec::new(),
+            comments: 0,
+            reviewers: fetch::Reviewers::Requested,
+            reviewer_names: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_pr_syncs_where_its_item_is_held() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::migrate(&conn).unwrap();
+        // A PR in another machine's area with no item here is that machine's to sync.
+        assert_eq!(synced_here(&conn, &settings(), &pr(1)).unwrap(), None);
+        // One that this machine already holds an item for (e.g. opened for a queued issue)
+        // stays here, in that item's area.
+        apply::apply(&conn, &pr(2), "projects", Utc::now()).unwrap();
+        assert_eq!(
+            synced_here(&conn, &settings(), &pr(2)).unwrap().as_deref(),
+            Some("projects")
+        );
+        // Seen in the open-PR search, so nothing asks GitHub whether it ended.
+        let open = HashSet::from([apply::external_id(&pr(2))]);
+        assert_eq!(apply::unseen(&conn, &open).unwrap(), Vec::<String>::new());
+    }
 }
