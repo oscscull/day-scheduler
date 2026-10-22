@@ -77,8 +77,12 @@ the fields it owns when they change upstream; hidden or re-filed records stay th
   only when `gh` says its PR merged or closed, never because the open-PR search missed it. Syncs
   every `poll_minutes`, and at once when the window regains focus (at most every
   `focus_sync_seconds`), after which the screen reloads.
-- **Calendar** (private iCal links): meetings, with recurrence, exceptions and join links. A feed
-  that can't be fetched or isn't a whole calendar is an error, never an empty calendar.
+- **Calendar**: meetings, with recurrence, exceptions and join links. A feed is either a private iCal
+  link or a calendar in the macOS Calendar app, for accounts that offer no link. A feed that can't
+  be fetched or isn't a whole calendar is an error, never an empty calendar. The Calendar app is
+  read by `quarterdeck-calendars`, a Swift EventKit helper (`src-tauri/helpers/`) that `build.rs`
+  compiles on macOS and the app ships as a sidecar, since the Rust code forbids `unsafe`. Only a
+  Mac that runs a feed's area can read its Calendar app.
 - **Slack**: no connector; agents bring things in through the tools.
 
 ## Running Claude

@@ -39,6 +39,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         connect::claude_connection,
         calendars::calendars,
         calendars::add_calendar,
+        calendars::mac_calendars,
+        calendars::add_mac_calendar,
         calendars::remove_calendar,
         screens::today,
         commitments::add_commitment,

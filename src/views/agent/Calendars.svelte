@@ -1,10 +1,10 @@
 <script lang="ts">
   import AreaDot from "../../components/AreaDot.svelte";
   import { api, errorText } from "../../lib/api";
-  import { areas } from "../../lib/areas.svelte";
   import { t } from "../../lib/copy";
   import { changed } from "../../lib/refresh.svelte";
   import type { Calendar } from "../../lib/types";
+  import CalendarForm from "./CalendarForm.svelte";
 
   interface Props {
     /** Sync state for the Calendar row, already worded. */
@@ -17,8 +17,6 @@
   let calendars = $state<Calendar[]>([]);
   let adding = $state(false);
   let removing = $state<string | null>(null);
-  let url = $state("");
-  let area = $state("");
   let error = $state("");
 
   async function load(): Promise<void> {
@@ -29,18 +27,12 @@
     void load();
   });
 
-  function open(): void {
-    adding = true;
-    area = areas.list[0]?.id ?? "";
-  }
-
   async function act(work: () => Promise<unknown>): Promise<void> {
     try {
       await work();
       error = "";
       adding = false;
       removing = null;
-      url = "";
       await load();
       changed();
     } catch (e) {
@@ -72,27 +64,9 @@
   {/each}
 
   {#if adding}
-    <form onsubmit={(e) => { e.preventDefault(); void act(() => api.addCalendar(url, area)); }}>
-      <label>
-        <span class="section-label">{t("calendar.link")}</span>
-        <input class="input" bind:value={url} placeholder="https://… .ics" required />
-      </label>
-      <p class="hint small">{t("calendar.linkHint")}</p>
-      {#if areas.list.length > 1}
-        <label>
-          <span class="section-label">{t("calendar.area")}</span>
-          <select class="input" bind:value={area}>
-            {#each areas.list as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
-          </select>
-        </label>
-      {/if}
-      <div class="actions">
-        <button type="button" class="button-secondary" onclick={() => (adding = false)}>{t("calendar.cancel")}</button>
-        <button type="submit" class="button-primary" disabled={!url.trim()}>{t("calendar.save")}</button>
-      </div>
-    </form>
+    <CalendarForm onSave={(work) => void act(work)} onCancel={() => (adding = false)} />
   {:else}
-    <button type="button" class="text-button add" onclick={open}>
+    <button type="button" class="text-button add" onclick={() => (adding = true)}>
       {calendars.length === 0 ? t("calendar.add") : t("calendar.addAnother")}
     </button>
   {/if}
@@ -147,29 +121,6 @@
 
   .danger {
     color: var(--urgent-fg);
-  }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-width: 520px;
-    padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--surface);
-  }
-
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
   }
 
   .error {

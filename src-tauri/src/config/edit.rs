@@ -4,7 +4,7 @@
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use super::Config;
-use super::calendar::Feed;
+use super::calendar::{Feed, Origin};
 use super::projects::Project;
 use super::settings::{self, Area};
 use super::sync::Peer;
@@ -123,7 +123,10 @@ pub fn upsert_feed(config: &Config, feed: &Feed) -> AppResult<()> {
         let list = tables(table(doc, "calendar")?, "feeds")?;
         let mut t = Table::new();
         t.insert("name", value(&feed.name));
-        t.insert("url", value(&feed.url));
+        match &feed.origin {
+            Origin::Link { url } => t.insert("url", value(url)),
+            Origin::Mac { mac_calendar } => t.insert("mac_calendar", value(mac_calendar)),
+        };
         t.insert("area", value(&feed.area));
         t.insert("ignore_titles", strings(&feed.ignore_titles));
         replace_or_push(list, "name", &feed.name, t);
@@ -307,7 +310,9 @@ mod tests {
         map_github(&config, "acme", "work").unwrap();
         let feed = Feed {
             name: "home".to_owned(),
-            url: "https://x/ics".to_owned(),
+            origin: Origin::Link {
+                url: "https://x/ics".to_owned(),
+            },
             area: "life".to_owned(),
             ignore_titles: vec![],
         };
