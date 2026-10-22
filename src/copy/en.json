@@ -36,7 +36,7 @@
   "today.fromClaude": "From Claude",
   "today.working": "Working on {n} things now",
   "priorities.title": "Priorities",
-  "priorities.hint": "Everything in play, most important first. Drag to reorder. Today shows what needs you on the work at the top of this list, and Claude works from the top down.",
+  "priorities.hint": "Everything in play, most important first. Drag to reorder. Today shows what needs you on the work at the top of this list, and your agent works from the top down.",
   "priorities.moveUp": "Move {title} up",
   "priorities.moveDown": "Move {title} down",
   "priorities.saveFailed": "Couldn't save the new order: {error}",

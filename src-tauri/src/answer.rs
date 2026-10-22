@@ -61,25 +61,30 @@ pub async fn tell(db: &Db, settings: &Settings, item_id: &str, message: &str) ->
     hand_over(db, settings, &ask, format!("you said: {message}")).await
 }
 
+/// Clears a decision the item was waiting on, now that the user replied.
+async fn settle_decision(db: &Db, item_id: &str) -> AppResult<()> {
+    let item = items::get(db, item_id).await?;
+    if item.status != Some(Status::Decision) {
+        return Ok(());
+    }
+    let input = ItemInput {
+        id: item.id,
+        title: item.title,
+        state_label: item.state_label,
+        stage: item.stage,
+        status: None,
+        area: item.area,
+        link: item.link,
+    };
+    work::save(db, input, Utc::now()).await.map(drop)
+}
+
 /// A reply ends the user's turn: the agent has it, unless another question on the item is open.
-/// The answer settles a decision the item was waiting on.
 async fn hand_over(db: &Db, settings: &Settings, ask: &Ask, why: String) -> AppResult<()> {
     if !asks::for_item(db, &ask.item_id).await?.is_empty() {
         return Ok(());
     }
-    let item = items::get(db, &ask.item_id).await?;
-    if item.status == Some(Status::Decision) {
-        let input = ItemInput {
-            id: item.id,
-            title: item.title,
-            state_label: item.state_label,
-            stage: item.stage,
-            status: None,
-            area: item.area,
-            link: item.link,
-        };
-        work::save(db, input, Utc::now()).await?;
-    }
+    settle_decision(db, &ask.item_id).await?;
     let pass = Pass::to(Turn::Agent, why);
     turns::pass(db, &ask.item_id, pass, Clock::now(&settings.turns)).await
 }

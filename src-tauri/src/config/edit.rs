@@ -181,7 +181,34 @@ pub struct TurnChange {
     pub quiet_minutes: Option<i64>,
 }
 
+/// The longest any turn may last: a year.
+const MAX_TURN_HOURS: i64 = 24 * 365;
+
+fn check_turns(change: &TurnChange) -> AppResult<()> {
+    let hours = [
+        change.agent_hours,
+        change.you_remind_hours,
+        change.others_hours,
+        change.later_hours,
+    ];
+    let minutes_ok = change
+        .quiet_minutes
+        .is_none_or(|m| (1..=MAX_TURN_HOURS * 60).contains(&m));
+    if hours
+        .into_iter()
+        .flatten()
+        .all(|h| (1..=MAX_TURN_HOURS).contains(&h))
+        && minutes_ok
+    {
+        return Ok(());
+    }
+    Err(AppError::BadInput(format!(
+        "turn lengths must be at least 1 and at most {MAX_TURN_HOURS} hours"
+    )))
+}
+
 pub fn set_turns(config: &Config, change: TurnChange) -> AppResult<()> {
+    check_turns(&change)?;
     edit(config, |doc| {
         let t = table(doc, "turns")?;
         let numbers = [

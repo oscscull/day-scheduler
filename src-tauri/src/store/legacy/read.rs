@@ -91,8 +91,7 @@ fn status(r: &Row<'_>) -> Sql<Option<Status>> {
     named(r, 4)
 }
 
-/// Items waiting on reviewers, CI or a dependency are others' turn, waiting on whoever held them,
-/// unless that was the user or Claude.
+/// An old item's turn, from its status and holder, as `migrations/0002_turns` does.
 fn turn(status: Option<Status>, holder: String) -> (Turn, Option<String>) {
     let waits = matches!(
         status,
@@ -131,7 +130,7 @@ fn item(r: &Row<'_>) -> Sql<(WorkItem, bool)> {
 
 fn event(r: &Row<'_>) -> Sql<OldEvent> {
     let json: String = r.get(2)?;
-    // "proceeding" is retired: it said whose turn it was, which turns now record.
+    // "proceeding" is retired; old history reads as the status cleared.
     let json = json.replace(r#""status":"proceeding""#, r#""status":null"#);
     let change = serde_json::from_str(&json).map_err(|e| bad(2, e))?;
     Ok((r.get(0)?, at(r, 1)?, change))

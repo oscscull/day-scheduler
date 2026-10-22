@@ -1,7 +1,6 @@
 //! Items the agent works on one at a time, in the order `[queue]` lists them. The first one not
 //! yet in review or done is current: it starts when it's up next, and the queue waits while it's in
-//! progress. Starting one gives the agent the turn and `prompts/queue.md`, the way `tell_claude`
-//! hands it a message.
+//! progress. Starting one gives the agent the turn and `prompts/queue.md`.
 
 use crate::domain::ask::Ask;
 use crate::domain::item::{ItemInput, Stage, WorkItem};

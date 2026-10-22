@@ -17,7 +17,11 @@ use crate::store::{Db, asks, events, items, urgent};
 use crate::turns::{self, Clock, Pass};
 use crate::workspace::{self, Published, Workspace};
 
-pub async fn after_run(handle: &AppHandle, item_id: &str, ws: &Workspace) {
+pub async fn after_run(
+    handle: &AppHandle,
+    (item_id, ws): (&str, &Workspace),
+    limits: &TurnSettings,
+) {
     let app = handle.state::<App>();
     let waiting = asks::for_item(&app.db, item_id)
         .await
@@ -27,13 +31,7 @@ pub async fn after_run(handle: &AppHandle, item_id: &str, ws: &Workspace) {
     }
     let published = workspace::publish(ws).await;
     let failed = published.as_ref().err().map(ToString::to_string);
-    let recorded = match app.settings() {
-        Ok(settings) => {
-            let to = (item_id, ws, &settings.turns);
-            record(&app.db, to, published, Utc::now()).await
-        }
-        Err(e) => Err(e),
-    };
+    let recorded = record(&app.db, (item_id, ws, limits), published, Utc::now()).await;
     let problem = recorded.err().map(|e| e.to_string()).or(failed);
     if let Some(problem) = problem {
         // The urgent item and history note carry it; the notification is a courtesy.

@@ -3,13 +3,13 @@
 
 pub mod due;
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 
 use crate::config::turns::TurnSettings;
 use crate::domain::event::Change;
 use crate::domain::item::WorkItem;
 use crate::domain::turn::Turn;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::store::{Db, events, items};
 
 /// Who the turn goes to, and why.
@@ -60,36 +60,34 @@ impl<'a> Clock<'a> {
         }
     }
 
-    pub fn deadline(self, turn: Turn) -> DateTime<Utc> {
-        deadline(turn, self.limits, self.now)
+    /// When `turn` runs out, starting now. Fails on a length too large to add to the date.
+    pub fn deadline(self, turn: Turn) -> AppResult<DateTime<Utc>> {
+        let hours = match turn {
+            Turn::You => self.limits.you_remind_hours,
+            Turn::Agent => self.limits.agent_hours,
+            Turn::Others => self.limits.others_hours,
+            Turn::Later => self.limits.later_hours,
+        };
+        TimeDelta::try_hours(hours)
+            .and_then(|d| self.now.checked_add_signed(d))
+            .ok_or_else(|| AppError::BadInput(format!("[turns] {hours} hours is too long")))
     }
-}
-
-/// How long `turn` lasts from `now`.
-pub fn deadline(turn: Turn, limits: &TurnSettings, now: DateTime<Utc>) -> DateTime<Utc> {
-    let hours = match turn {
-        Turn::You => limits.you_remind_hours,
-        Turn::Agent => limits.agent_hours,
-        Turn::Others => limits.others_hours,
-        Turn::Later => limits.later_hours,
-    };
-    now + Duration::hours(hours)
 }
 
 /// The deadline after a pass. An agent handing the turn to itself keeps its clock, so it can't
 /// keep itself going forever.
-fn until_after(item: &WorkItem, pass: &Pass, clock: Clock<'_>) -> DateTime<Utc> {
+fn until_after(item: &WorkItem, pass: &Pass, clock: Clock<'_>) -> AppResult<DateTime<Utc>> {
     let kept = (pass.to == Turn::Agent && item.turn == Turn::Agent)
         .then_some(item.turn_until)
         .flatten();
     pass.until
         .or(kept)
-        .unwrap_or_else(|| clock.deadline(pass.to))
+        .map_or_else(|| clock.deadline(pass.to), Ok)
 }
 
 pub async fn pass(db: &Db, item_id: &str, pass: Pass, clock: Clock<'_>) -> AppResult<()> {
     let mut item = items::get(db, item_id).await?;
-    item.turn_until = Some(until_after(&item, &pass, clock));
+    item.turn_until = Some(until_after(&item, &pass, clock)?);
     item.turn = pass.to;
     item.waiting_on = pass.waiting_on.filter(|_| pass.to == Turn::Others);
     item.then_turn = pass

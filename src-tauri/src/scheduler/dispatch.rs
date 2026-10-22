@@ -9,6 +9,7 @@ use crate::app::App;
 use crate::claude::{self, Ask, Session};
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
+use crate::config::turns::TurnSettings;
 use crate::domain::run::{Outcome, Run};
 use crate::error::AppResult;
 use crate::store::runs;
@@ -97,6 +98,9 @@ struct How {
     command: AppResult<String>,
     mode: String,
     run: i64,
+    started: DateTime<Utc>,
+    /// The turn limits as the run started, so a config file mid-edit can't stop its hand-over.
+    limits: TurnSettings,
 }
 
 async fn ask(how: &How, job: &Job) -> String {
@@ -139,16 +143,20 @@ struct Ended {
     may_run: bool,
 }
 
-async fn after(handle: &AppHandle, job: &Job, ended: &Ended) -> AppResult<()> {
+async fn after(
+    handle: &AppHandle,
+    job: &Job,
+    ended: &Ended,
+    limits: &TurnSettings,
+) -> AppResult<()> {
     let app = handle.state::<App>();
-    let limits = app.settings()?.turns;
     let Some(detail) = ended.summary.strip_prefix("failed: ") else {
         let run = run_turn::Finished {
             item_id: &job.item_id,
             started: ended.started,
             said: &ended.summary,
         };
-        return run_turn::end(&app.db, run, &limits).await;
+        return run_turn::end(&app.db, run, limits).await;
     };
     if !ended.may_run {
         return Ok(());
@@ -158,7 +166,31 @@ async fn after(handle: &AppHandle, job: &Job, ended: &Ended) -> AppResult<()> {
         what: job.what,
         detail,
     };
-    failed::report(handle, &failure, &limits).await
+    failed::report(handle, &failure, limits).await
+}
+
+/// Runs the job to its end, then records it and settles the item's turn.
+async fn work(handle: AppHandle, job: Job, how: How) {
+    let summary = ask(&how, &job).await;
+    let outcome = if summary.starts_with("failed: ") {
+        Outcome::Failed
+    } else {
+        Outcome::Ok
+    };
+    if outcome == Outcome::Ok
+        && let Some(ws) = &job.workspace
+    {
+        super::handoff::after_run(&handle, (&job.item_id, ws), &how.limits).await;
+    }
+    // The run record is for display; losing it changes nothing about the item.
+    drop(runs::finish(&handle.state::<App>().db, how.run, outcome, &summary).await);
+    let ended = Ended {
+        summary,
+        started: how.started,
+        may_run: how.command.is_ok(),
+    };
+    // Nothing is left to tell if even this fails; the run record above still shows it.
+    drop(after(&handle, &job, &ended, &how.limits).await);
 }
 
 pub async fn run(handle: &AppHandle, settings: &Settings, mut job: Job) -> AppResult<()> {
@@ -171,35 +203,13 @@ pub async fn run(handle: &AppHandle, settings: &Settings, mut job: Job) -> AppRe
     )?;
     job.prompt = format!("{}\n\n{rule}", job.prompt);
     let started = Utc::now();
-    let id = start_record(handle, settings, &job, started).await?;
     let how = How {
         command: settings.claude().map(str::to_owned),
         mode: settings.project_permission_mode.clone(),
-        run: id,
+        run: start_record(handle, settings, &job, started).await?,
+        started,
+        limits: settings.turns.clone(),
     };
-    let may_run = how.command.is_ok();
-    let handle = handle.clone();
-    tauri::async_runtime::spawn(async move {
-        let summary = ask(&how, &job).await;
-        let outcome = if summary.starts_with("failed: ") {
-            Outcome::Failed
-        } else {
-            Outcome::Ok
-        };
-        if outcome == Outcome::Ok
-            && let Some(ws) = &job.workspace
-        {
-            super::handoff::after_run(&handle, &job.item_id, ws).await;
-        }
-        // The run record is for display; losing it changes nothing about the item.
-        drop(runs::finish(&handle.state::<App>().db, id, outcome, &summary).await);
-        let ended = Ended {
-            summary,
-            started,
-            may_run,
-        };
-        // Nothing is left to tell if even this fails; the run record above still shows it.
-        drop(after(&handle, &job, &ended).await);
-    });
+    tauri::async_runtime::spawn(work(handle.clone(), job, how));
     Ok(())
 }

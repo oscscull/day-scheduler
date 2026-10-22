@@ -1,7 +1,6 @@
 enum Stage  { up_next, in_progress, in_review, done }
-# `proceeding` is retired: whose turn it is lives in `turn`. Nothing writes it and the app can't
-# read it; it stays allowed only because Based rebuilds a table to change an enum, and its SQLite
-# rebuild re-points other tables' foreign keys while they're on.
+# `proceeding` is retired and unread. Removing it makes Based rebuild the table, which breaks
+# other tables' foreign keys on SQLite.
 enum Status { decision, review, ci, ci_failed, dependency, approved, proceeding, queued }
 # Whose move it is on an item. Every item in flight has one, with a deadline.
 enum Turn   { you, agent, others, later }
@@ -16,7 +15,7 @@ Item {
   stage:       Stage
   status:      Status?
   turn:        Turn (default you)
-  # When the turn runs out: the agent is stopped waiting, the user reminded, others' wait ends.
+  # When the turn runs out.
   turn_until:  timestamp?
   # Who the item waits on while it's others' turn, e.g. reviewers' names or "CI".
   waiting_on:  text?
