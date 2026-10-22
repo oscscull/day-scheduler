@@ -111,6 +111,19 @@ pub fn events(old: Option<&Snapshot>, new: &Snapshot) -> Vec<EventKind> {
     events
 }
 
+/// Events the first time a PR is seen on an item Quarterdeck already had (one it opened): CI may
+/// have finished before the first sync, and whoever is on the item still needs to hear.
+pub fn adopted(new: &Snapshot) -> Vec<EventKind> {
+    let mut events = Vec::new();
+    if new.ci_failing {
+        events.push(EventKind::CiFailed);
+    }
+    if new.ci_passed {
+        events.push(EventKind::CiPassed);
+    }
+    events
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,5 +194,16 @@ mod tests {
             events(Some(&before), &after),
             [EventKind::PrNewComments, EventKind::CiFailed]
         );
+    }
+
+    #[test]
+    fn an_adopted_pr_reports_ci_that_finished_before_the_first_sync() {
+        let failed = of(&pr(Some("FAILURE"), None, 3));
+        assert_eq!(adopted(&failed), [EventKind::CiFailed]);
+        assert_eq!(
+            adopted(&of(&pr(Some("SUCCESS"), None, 3))),
+            [EventKind::CiPassed]
+        );
+        assert_eq!(adopted(&of(&pr(Some("PENDING"), None, 3))), []);
     }
 }
