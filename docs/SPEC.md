@@ -78,6 +78,7 @@ Populate by default, never fight overrides. Each keeps the last snapshot it saw 
 the fields it owns when they change upstream; hidden or re-filed records stay that way.
 
 - **GitHub** (`gh` CLI): open PRs become items; new comments, CI failing and CI passing fire events.
+  An open hand-made item whose link is a PR becomes that PR's item, replacing any the sync made.
   CI state is worked out per check: checks a repo marks informational (`informational_checks`, e.g.
   a visual-diff report) don't count, and their results are noted on the item instead.
   PRs with no requested reviewers, or in `self_review` repos, wait on the user. An item is closed
