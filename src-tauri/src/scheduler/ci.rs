@@ -9,12 +9,19 @@ use super::thread::{self, Thread};
 use crate::app::App;
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
-use crate::connectors::github::Fired;
+use crate::domain::fired::Fired;
 use crate::domain::item::WorkItem;
 use crate::domain::schedule::EventKind;
 use crate::error::AppResult;
 use crate::store::{items, watch};
 use crate::workspace::{self, Workspace};
+
+/// True for the events this reacts to.
+pub fn is_ci(event: &Fired) -> bool {
+    [EventKind::CiFailed, EventKind::CiPassed]
+        .iter()
+        .any(|k| k.name() == event.kind)
+}
 
 /// Reacts to a CI event. `covered` is true when a schedule already handles it.
 pub async fn react(
@@ -24,18 +31,18 @@ pub async fn react(
     covered: bool,
 ) -> AppResult<()> {
     let app = handle.state::<App>();
-    let item = items::get(&app.db, &event.item_id).await?;
+    let item = items::get(&app.db, &event.subject).await?;
     let ws = workspace::for_item(settings, &item)?;
     let claimed = watch::all(&app.db).await?.remove(&item.id);
     let job = match claimed {
         Some(session) => {
-            let passed = event.kind == EventKind::CiPassed;
+            let passed = event.kind == EventKind::CiPassed.name();
             let result = if passed { "passed" } else { "failed" };
             let prompt = prompt_for(&app, Prompt::CiDone, &item, &[("result", result)])?;
             let ws = ws.filter(|w| w.holds(&session));
             Job::new("CI result", item.id, prompt, Thread::Resume(session)).in_workspace(ws)
         }
-        None if event.kind == EventKind::CiFailed && settings.github.fix_ci && !covered => {
+        None if event.kind == EventKind::CiFailed.name() && settings.github.fix_ci && !covered => {
             let session = ws
                 .as_ref()
                 .map_or_else(thread::fresh_session, Workspace::new_session);

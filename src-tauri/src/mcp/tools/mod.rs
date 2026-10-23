@@ -4,8 +4,10 @@
     reason = "every handler has the same shape, (Ctx or &Ctx, Args), so both arrive by value"
 )]
 
+mod approve;
 mod asks;
 mod commitments;
+mod events;
 mod items;
 mod overview;
 mod projects;
@@ -26,6 +28,11 @@ use chrono::{DateTime, NaiveDate, Utc};
 use super::tool::Tool;
 use crate::error::{AppError, AppResult};
 
+/// Tools only peers get: the user's own app on another machine, never an agent.
+pub fn peer_only() -> Vec<Tool> {
+    approve::tools()
+}
+
 pub fn all() -> Vec<Tool> {
     [
         overview::tools(),
@@ -36,6 +43,7 @@ pub fn all() -> Vec<Tool> {
         urgent::tools(),
         updates::tools(),
         schedules::tools(),
+        events::tools(),
         runs::tools(),
         settings::tools(),
         setting::tools(),

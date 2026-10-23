@@ -44,7 +44,8 @@ The window title shows the running version, so it's clear when an update has lan
 - **Board**: items by stage, with parked items in a list of their own below. **In flight**: open
   items by whose turn it is.
 - **Agent**: every item that is the agent's turn, and what's running (each run's latest step, live; click for its steps so far), every schedule (toggle, edit, delete, run now, create by describing
-  it), missed or failed runs, Pause all, connector and peer status, and the MCP connect command.
+  it), missed or failed runs, Pause all, recent events and what they started, connector and peer
+  status, and the MCP connect command.
 - **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools, settings
   ones included, so any setting can be changed by asking.
 
@@ -68,7 +69,8 @@ closing its issue or PR still marks it done.
   across once and keeps it as `quarterdeck.sqlite.imported`.
 - **Dev builds** (debug, `npm run tauri dev`) are a separate app: id `com.oscscull.quarterdeck.dev`,
   config `~/.config/quarterdeck-dev/`, their own data folder, MCP name `quarterdeck-dev`, a banner on
-  every screen, no updater, and no Claude runs unless their `[dev] run_claude` is on.
+  every screen, no updater, and no Claude runs or scripts unless their `[dev] run_claude` or
+  `run_scripts` is on.
   `npm run dev:seed` replaces a dev build's config and data with a snapshot of the installed app's,
   paused and with sync and peers off.
 
@@ -110,7 +112,52 @@ capped and deleted when the run ends, which the Agent tab and peers read (`list_
 `get_run_log`). Schedules can use other tools only when their file lists them in `allowed_tools`.
 The scheduler ticks every 30s:
 cron runs fire on time, runs missed while asleep are recorded and raised as urgent, and Pause all
-stops everything. Event triggers cost nothing until they fire.
+stops everything.
+
+## Events and triggers
+
+A schedule has a list of triggers, any of which starts it: cron expressions, and events. Events
+cost nothing until they fire. Each is stored (kind, area, subject, string fields, a line for the
+run) and the next tick starts the enabled schedules in that area, on the machine that runs it,
+with a trigger for that kind whose `when` filters all match (`*` is a wildcard). The run is told
+the event and runs against its subject (an item or schedule), never twice at once on one subject,
+and not again within the trigger's `cooldown` minutes. Events fire from:
+
+- GitHub syncs: `github.ci_failed`, `github.ci_passed`, `github.pr_new_comments`. CI results also
+  reach claimed sessions and fix-ci runs as described under Turns.
+- Item history: `item.created`, `item.stage`, `item.turn`. History copied from an old database
+  fires nothing.
+- Runs: `run.finished` (with `outcome`) when a schedule's run ends, so schedules can chain.
+- The scheduler itself: `meeting.starting` (when its countdown appears) and `meeting.ended`, and
+  `file.changed` for a path a trigger names in `when.path` (checked each tick: a file's
+  modification time and size, a folder's newest direct entry and count; the first look only
+  records it). Moments the machine slept through by more than 10 minutes fire nothing.
+- Agents and peers: `custom.<name>` through `emit_event`, sent to the machine that runs its area.
+
+Each event counts how many led to it: a run started by an event passes its depth + 1 to the MCP
+server it runs with (or a script's environment), so anything it changes is one step deeper. From depth 3 on, schedules
+stop starting each other and it's raised as urgent. Events wait while the agent is down, and while paused they start nothing. Events
+expire after `event_ttl_days`. `list_event_kinds` describes them all.
+
+## Scripts
+
+A schedule whose file has a `[script]` table runs its body in the user's login shell instead of
+asking Claude: no tokens, for anything that needs no judgement. `cwd` (default home), and
+`timeout_minutes` (default 10; it's killed after). Its output streams to the run log like a Claude
+run's steps; exit 0 succeeds with its last line of output as the summary, anything else fails with
+its last error line. `report` says what the user hears: `failures` (default; raised as urgent),
+`always` (successes also in "From Claude"), or `never`. Every run is in the history and fires
+`run.finished` either way. The environment says what started it (`QD_EVENT`, `QD_SUBJECT`,
+`QD_EVENT_FIELDS`, `QD_EVENT_ABOUT`, plus `QD_SCHEDULE`, `QD_AREA`, `QD_NODE`, `QD_RUN_ID`) and
+`QUARTERDECK` is the app binary: `"$QUARTERDECK" tool <name> '<json>'` runs any MCP tool and prints
+its JSON result, so a script can fire `custom.*` events to wake a Claude schedule only when needed.
+
+Agents can write schedule files and call every tool, so a script runs only once the user has
+approved exactly that script in that folder (a SHA-256 of both, kept in the database). Saving in
+the app's editor approves; anything else (a tool, a hand edit, a peer's `create_schedule`) leaves
+it waiting, flagged on the Agent tab and raised once as urgent, until the user clicks Approve.
+`approve_script` is a peer-only tool, never offered over MCP; a schedule handed to another machine
+stays approved there if it was here.
 
 ## Turns
 

@@ -22,6 +22,9 @@ pub enum SettingKey {
     /// Days finished runs are kept (number).
     #[serde(rename = "run_ttl_days")]
     RunTtlDays,
+    /// Days events (what fired, what it started) are kept (number).
+    #[serde(rename = "event_ttl_days")]
+    EventTtlDays,
     /// Days done to-dos are kept (number).
     #[serde(rename = "done_todo_ttl_days")]
     DoneTodoTtlDays,
@@ -79,6 +82,9 @@ pub enum SettingKey {
     /// Let a dev build run Claude (true/false).
     #[serde(rename = "dev.run_claude")]
     DevRunClaude,
+    /// Let a dev build run script schedules (true/false).
+    #[serde(rename = "dev.run_scripts")]
+    DevRunScripts,
 }
 
 impl SettingKey {
@@ -89,6 +95,7 @@ impl SettingKey {
             Self::NudgeAfterHours => "nudge_after_hours",
             Self::ActivityTtlDays => "activity_ttl_days",
             Self::RunTtlDays => "run_ttl_days",
+            Self::EventTtlDays => "event_ttl_days",
             Self::DoneTodoTtlDays => "done_todo_ttl_days",
             Self::DoneItemTtlDays => "done_item_ttl_days",
             Self::LaunchAtLogin => "launch_at_login",
@@ -108,6 +115,7 @@ impl SettingKey {
             Self::UpdatesEnabled => "updates.enabled",
             Self::UpdatesCheckMinutes => "updates.check_minutes",
             Self::DevRunClaude => "dev.run_claude",
+            Self::DevRunScripts => "dev.run_scripts",
         };
         name.split('.').collect()
     }

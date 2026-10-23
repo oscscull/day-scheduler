@@ -35,6 +35,7 @@ pub struct Settings {
     pub claude_command: String,
     pub activity_ttl_days: i64,
     pub run_ttl_days: i64,
+    pub event_ttl_days: i64,
     pub done_todo_ttl_days: i64,
     pub done_item_ttl_days: i64,
     pub areas: Vec<Area>,
@@ -63,6 +64,7 @@ impl Default for Settings {
             claude_command: "claude".to_owned(),
             activity_ttl_days: 7,
             run_ttl_days: 14,
+            event_ttl_days: 3,
             done_todo_ttl_days: 1,
             done_item_ttl_days: 30,
             areas: Vec::new(),
@@ -102,6 +104,17 @@ impl Settings {
         Ok(&self.claude_command)
     }
 
+    /// Whether script schedules may run. A dev build runs them only when `[dev] run_scripts` is on.
+    pub fn scripts(&self) -> AppResult<()> {
+        if profile::DEV && !self.dev.run_scripts {
+            return Err(AppError::BadInput(
+                "this dev build doesn't run scripts; set [dev] run_scripts = true in its quarterdeck.toml"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     /// `area` if it is configured (or none are), otherwise the first area.
     pub fn known_area(&self, area: &str) -> String {
         match self.areas.first() {
@@ -133,6 +146,7 @@ mod tests {
             claude_command: String::new(),
             activity_ttl_days: 7,
             run_ttl_days: 14,
+            event_ttl_days: 3,
             done_todo_ttl_days: 1,
             done_item_ttl_days: 30,
             areas: vec![area("work", "work-mac"), area("life", "home-mac")],

@@ -13,6 +13,7 @@ mod desktop;
 mod devseed;
 mod domain;
 mod error;
+mod jobs;
 mod mcp;
 mod notify;
 mod park;
@@ -112,6 +113,16 @@ pub fn prepare() -> bool {
 #[must_use]
 pub fn serve_mcp() -> std::process::ExitCode {
     mcp::serve()
+}
+
+/// Runs one Quarterdeck tool from the command line: `<binary> tool <name> ['<json args>']`.
+#[must_use]
+pub fn run_tool() -> std::process::ExitCode {
+    let args: Vec<String> = std::env::args().skip(2).collect();
+    mcp::command_line::main(
+        args.first().map(String::as_str),
+        args.get(1).map(String::as_str),
+    )
 }
 
 /// Replaces this dev build's config and data with a safe copy of the installed app's. Started as

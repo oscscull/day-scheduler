@@ -61,7 +61,8 @@ A machine without a screen can serve its Quarterdeck with `<binary> serve`.
 window ("Quarterdeck Dev", with a banner on every screen), config (`~/.config/quarterdeck-dev/`) and
 database. It starts empty. To work on your real data, quit the dev app and run `npm run dev:seed`,
 which copies the installed app's config and database in, paused, with sync and peers off. A dev build
-runs no Claude until you set `[dev] run_claude = true` in its `quarterdeck.toml`.
+runs no Claude or scripts until you set `[dev] run_claude = true` (or `run_scripts`) in its
+`quarterdeck.toml`.
 
 ## Checking it
 

@@ -189,10 +189,45 @@ export interface Run {
   summary: string | null;
 }
 
-export type EventKind = "ci_failed" | "ci_passed" | "pr_new_comments";
-export type Trigger = { type: "cron"; expr: string } | { type: "event"; kind: EventKind };
-export type Autonomy = "ask" | "act";
-export type Scope = "each_pr" | "each_item" | "one" | "nothing";
+/** Starts a schedule when an event happens. `when` filters on its fields; `*` is a wildcard. */
+export interface OnEvent {
+  on: string;
+  when?: Record<string, string>;
+  /** Minutes between runs on the same subject. */
+  cooldown?: number;
+}
+export type Trigger = { type: "cron"; expr: string } | ({ type: "event" } & OnEvent);
+
+export type Report = "always" | "failures" | "never";
+
+/** How a script schedule runs. */
+export interface Script {
+  cwd?: string | null;
+  timeout_minutes: number;
+  report: Report;
+}
+
+/** An event Quarterdeck fires, with the fields a trigger can filter on. */
+export interface EventKindInfo {
+  name: string;
+  about: string;
+  fields: string[];
+}
+
+/** Something that happened, and the schedules it started. */
+export interface FiredEvent {
+  /** Set when it happened on another machine. */
+  node?: string;
+  id: number;
+  kind: string;
+  area: string;
+  subject: string;
+  data: Record<string, string>;
+  about: string;
+  depth: number;
+  at: string;
+  started: string[];
+}
 
 export interface Schedule {
   /** Set when it lives on another machine; edits go back there. */
@@ -200,10 +235,11 @@ export interface Schedule {
   id: string;
   name: string;
   prompt: string;
-  trigger: Trigger;
+  /** Set for a script schedule: `prompt` is the script, run in the user's shell. */
+  script: Script | null;
+  /** Any of these starts it; none means it only runs when run by hand. */
+  triggers: Trigger[];
   area: string;
-  scope: Scope;
-  autonomy: Autonomy;
   enabled: boolean;
   request: string;
   allowedTools: string[];
@@ -226,9 +262,11 @@ export interface Explanation {
 export interface ScheduleView extends Schedule {
   explanation: Explanation | null;
   runs: Run[];
+  /** A script waiting for the user to approve it as it stands. Older peers don't say. */
+  needsApproval?: boolean;
 }
 
-export type StepKind = "doing" | "tool" | "said" | "failed";
+export type StepKind = "doing" | "tool" | "said" | "failed" | "output";
 
 /** One step of a live run. `tool` is set for tool calls. */
 export interface Step {
@@ -258,6 +296,8 @@ export interface AgentView {
   live: LiveRun[];
   turns: AgentTurn[];
   schedules: ScheduleView[];
+  /** Newest first. Older peers send none. */
+  events?: FiredEvent[];
   problems: string[];
   /** Set while every schedule is paused. `until: null` means until resumed. */
   pause: { until: string | null } | null;
