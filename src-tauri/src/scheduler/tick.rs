@@ -6,7 +6,6 @@ use tauri::{AppHandle, Manager as _};
 
 use super::due::{Plan, plan};
 use crate::app::App;
-use crate::claude::runner;
 use crate::config::settings::Settings;
 use crate::config::{pause, schedules};
 use crate::domain::fired::Fired;
@@ -57,15 +56,19 @@ pub async fn tick(handle: &AppHandle) -> AppResult<()> {
     meta::set_time(&app.db, LAST_TICK, now).await?;
     // First launch has no history to catch up on; a pause means nothing runs or is missed.
     let Some(last) = last else { return Ok(()) };
+    super::sources::fire(handle, &settings, last, now).await?;
+    // Events wait while the agent is down, so their runs start once it's back. While paused they
+    // are handled and start nothing, so a pause drops them rather than saving them up.
+    if up {
+        super::events::dispatch(handle, &settings).await?;
+    }
     if pause::current(&app.config, now)?.is_some() {
         return Ok(());
     }
     // One item's failure mustn't stop the queue and schedules; it's reported after them.
     let kept = super::keeper::check(handle, &settings, up).await;
-    // Events wait while the agent is down, so their runs start once it's back.
     if up {
         super::queue::advance(handle, &settings).await?;
-        super::events::dispatch(handle, &settings).await?;
     }
     start_due(handle, &settings, Window { last, now }).await?;
     kept
@@ -138,7 +141,7 @@ async fn is_running(handle: &AppHandle, id: &str) -> AppResult<bool> {
 pub fn start(handle: &AppHandle, schedule: Schedule, cause: Option<Fired>) {
     let handle = handle.clone();
     tauri::async_runtime::spawn(async move {
-        drop(runner::run(&handle, &schedule, cause.as_ref()).await);
+        drop(crate::jobs::run(&handle, &schedule, cause.as_ref()).await);
     });
 }
 

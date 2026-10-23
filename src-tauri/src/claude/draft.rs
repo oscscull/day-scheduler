@@ -63,6 +63,7 @@ pub fn parse(reply: &str, request: &str) -> AppResult<Schedule> {
         triggers,
         name: draft.name,
         prompt: draft.prompt,
+        script: None,
         area: draft.area,
         enabled: true,
         request: request.to_owned(),

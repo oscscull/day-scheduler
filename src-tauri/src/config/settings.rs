@@ -104,6 +104,17 @@ impl Settings {
         Ok(&self.claude_command)
     }
 
+    /// Whether script schedules may run. A dev build runs them only when `[dev] run_scripts` is on.
+    pub fn scripts(&self) -> AppResult<()> {
+        if profile::DEV && !self.dev.run_scripts {
+            return Err(AppError::BadInput(
+                "this dev build doesn't run scripts; set [dev] run_scripts = true in its quarterdeck.toml"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     /// `area` if it is configured (or none are), otherwise the first area.
     pub fn known_area(&self, area: &str) -> String {
         match self.areas.first() {

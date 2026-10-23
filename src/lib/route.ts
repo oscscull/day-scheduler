@@ -45,16 +45,22 @@ export const route = {
     node
       ? peer(node, "add_meeting", { title: c.title, area: c.area, starts_at: c.startsAt, ends_at: c.endsAt, location: c.location })
       : api.addCommitment(c),
-  saveSchedule: (node: string | undefined, s: Schedule): Promise<unknown> => {
+  approveScript: (node: string | undefined, id: string) =>
+    node ? peer(node, "approve_script", { id }) : api.approveScript(id),
+  saveSchedule: async (node: string | undefined, s: Schedule): Promise<unknown> => {
     if (!node || !s.id) return api.saveSchedule(s);
-    return peer(node, "update_schedule", {
+    await peer(node, "update_schedule", {
       id: s.id,
       name: s.name,
       area: s.area,
       instructions: s.prompt,
       allowed_tools: s.allowedTools,
       triggers: s.triggers,
+      script: s.script,
+      remove_script: !s.script,
     });
+    // The user wrote it here, as when saving on this machine.
+    return s.script ? peer(node, "approve_script", { id: s.id }) : undefined;
   },
   moveItem: (node: string, id: string, position: number) => peer(node, "move_item", { id, position }),
   saveItem: (node: string | undefined, item: ItemInput): Promise<string> => {

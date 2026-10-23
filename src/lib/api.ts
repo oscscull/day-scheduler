@@ -66,6 +66,7 @@ export const api = {
   deleteSchedule: (id: string) => invoke<undefined>("delete_schedule", { id }),
   explainCron: (expr: string) => invoke<Explanation>("explain_cron", { expr }),
   eventKinds: () => invoke<EventKindInfo[]>("event_kinds"),
+  approveScript: (id: string) => invoke<undefined>("approve_script", { id }),
   runScheduleNow: (id: string) => invoke<undefined>("run_schedule_now", { id }),
   pauseAll: (until: string | null) => invoke<undefined>("pause_all", { until }),
   resumeAll: () => invoke<undefined>("resume_all"),

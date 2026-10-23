@@ -42,7 +42,7 @@ pub fn run(listen: Listen) -> AppResult<()> {
 }
 
 fn serve(server: &Server, ctx: &Ctx) {
-    let tools = mcp::registry();
+    let tools = mcp::peer_registry();
     for mut request in server.incoming_requests() {
         // Read fresh each time, so a new token (`new_sync_token`) works without a restart.
         let token = ctx.settings().map(|s| s.sync.token).unwrap_or_default();

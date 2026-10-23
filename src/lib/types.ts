@@ -198,6 +198,15 @@ export interface OnEvent {
 }
 export type Trigger = { type: "cron"; expr: string } | ({ type: "event" } & OnEvent);
 
+export type Report = "always" | "failures" | "never";
+
+/** How a script schedule runs. */
+export interface Script {
+  cwd?: string | null;
+  timeout_minutes: number;
+  report: Report;
+}
+
 /** An event Quarterdeck fires, with the fields a trigger can filter on. */
 export interface EventKindInfo {
   name: string;
@@ -226,6 +235,8 @@ export interface Schedule {
   id: string;
   name: string;
   prompt: string;
+  /** Set for a script schedule: `prompt` is the script, run in the user's shell. */
+  script: Script | null;
   /** Any of these starts it; none means it only runs when run by hand. */
   triggers: Trigger[];
   area: string;
@@ -251,9 +262,11 @@ export interface Explanation {
 export interface ScheduleView extends Schedule {
   explanation: Explanation | null;
   runs: Run[];
+  /** A script waiting for the user to approve it as it stands. Older peers don't say. */
+  needsApproval?: boolean;
 }
 
-export type StepKind = "doing" | "tool" | "said" | "failed";
+export type StepKind = "doing" | "tool" | "said" | "failed" | "output";
 
 /** One step of a live run. `tool` is set for tool calls. */
 export interface Step {

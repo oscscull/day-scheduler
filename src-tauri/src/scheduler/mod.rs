@@ -15,6 +15,7 @@ mod outage;
 mod peers;
 mod queue;
 mod run_turn;
+mod sources;
 mod thread;
 mod tick;
 mod undelivered;

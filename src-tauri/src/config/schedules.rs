@@ -10,6 +10,7 @@ use super::{Config, frontmatter};
 use crate::cron::explain::explain;
 use crate::domain::fired;
 use crate::domain::schedule::Schedule;
+use crate::domain::script::Script;
 use crate::domain::trigger::Trigger;
 use crate::error::{AppError, AppResult};
 
@@ -24,6 +25,8 @@ struct Settings {
     request: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     allowed_tools: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    script: Option<Script>,
     #[serde(default, skip_serializing)]
     trigger: Option<Trigger>,
     #[serde(default)]
@@ -102,6 +105,7 @@ fn read(file: &Path) -> AppResult<Schedule> {
     Ok(Schedule {
         id,
         triggers: s.all_triggers(),
+        script: s.script.take(),
         name: s.name,
         prompt: body.to_owned(),
         area: s.area,
@@ -109,6 +113,10 @@ fn read(file: &Path) -> AppResult<Schedule> {
         request: s.request,
         allowed_tools: s.allowed_tools,
     })
+}
+
+fn watchable(path: Option<&String>) -> bool {
+    path.is_some_and(|p| !p.is_empty() && !p.contains('*'))
 }
 
 /// Refuses triggers that could never fire: a bad cron expression or an unknown event.
@@ -121,6 +129,12 @@ pub fn check(schedule: &Schedule) -> AppResult<()> {
                     "no event is called {}: see list_event_kinds, or start custom ones with {}",
                     e.on,
                     fired::CUSTOM
+                )));
+            }
+            Trigger::Event(e) if e.on == fired::FILE_CHANGED && !watchable(e.when.get("path")) => {
+                return Err(AppError::BadInput(format!(
+                    "a {} trigger needs `when.path`: the file or folder to watch, with no `*`",
+                    fired::FILE_CHANGED
                 )));
             }
             Trigger::Event(_) => {}
@@ -136,6 +150,7 @@ pub fn save(config: &Config, schedule: &Schedule) -> AppResult<()> {
         enabled: schedule.enabled,
         request: schedule.request.clone(),
         allowed_tools: schedule.allowed_tools.clone(),
+        script: schedule.script.clone(),
         trigger: None,
         triggers: schedule.triggers.clone(),
     };
@@ -190,6 +205,44 @@ mod tests {
         let all = s.all_triggers();
         assert_eq!(all.len(), 1);
         assert!(matches!(&all[0], Trigger::Event(e) if e.on == "github.ci_failed"));
+    }
+
+    #[test]
+    fn script_schedules_round_trip() {
+        use crate::domain::script::{Report, Script};
+        use crate::domain::trigger::OnEvent;
+        let dir = std::env::temp_dir().join("quarterdeck-test-script-schedule");
+        let config = Config::open(dir.clone()).unwrap();
+        std::fs::create_dir_all(dir.join("schedules")).unwrap();
+        let schedule = Schedule {
+            id: "backup".to_owned(),
+            name: "Backup".to_owned(),
+            prompt: "restic backup ~/Documents\n".to_owned(),
+            script: Some(Script {
+                cwd: Some("~/code".to_owned()),
+                timeout_minutes: 5,
+                report: Report::Always,
+            }),
+            triggers: vec![
+                Trigger::Cron {
+                    expr: "0 2 * * *".to_owned(),
+                },
+                Trigger::Event(OnEvent {
+                    on: "custom.deployed".to_owned(),
+                    when: [("env".to_owned(), "prod".to_owned())].into(),
+                    cooldown: 30,
+                }),
+            ],
+            area: "work".to_owned(),
+            enabled: true,
+            request: String::new(),
+            allowed_tools: Vec::new(),
+        };
+        save(&config, &schedule).unwrap();
+        let back = find(&config, "backup").unwrap();
+        assert_eq!(back.script, schedule.script);
+        assert_eq!(back.triggers, schedule.triggers);
+        assert_eq!(back.prompt, schedule.prompt.trim_end());
     }
 
     #[test]

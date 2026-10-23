@@ -10,6 +10,7 @@ use crate::domain::fired::Fired;
 use crate::domain::run::Run;
 use crate::domain::schedule::Schedule;
 use crate::error::AppResult;
+use crate::jobs::approval;
 use crate::store::{Db, fired, runs};
 use crate::views::agent_turns::{self, AgentTurn};
 use crate::views::live::{self, LiveRun};
@@ -27,6 +28,8 @@ pub struct ScheduleView {
     /// Its first cron trigger explained; missing when it has none.
     pub explanation: Option<Explanation>,
     pub runs: Vec<Run>,
+    /// A script waiting for the user to approve it as it stands.
+    pub needs_approval: bool,
 }
 
 /// Everything the Agent screen shows.
@@ -61,10 +64,12 @@ pub async fn build(
         let explanation = explained.next().flatten();
         explained.for_each(drop);
         let recent = runs::recent_for(db, &schedule.id, RECENT_RUNS).await?;
+        let needs_approval = !approval::approved(db, &schedule).await?;
         schedules.push(ScheduleView {
             schedule,
             explanation,
             runs: recent,
+            needs_approval,
         });
     }
     Ok(AgentView {

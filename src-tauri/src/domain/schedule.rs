@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use super::script::Script;
 use super::trigger::{OnEvent, Trigger};
 
 /// Things the GitHub connector detects on a PR by itself, with no tokens spent.
@@ -23,13 +24,17 @@ impl EventKind {
     }
 }
 
-/// A recurring job for Claude.
+/// A recurring job: instructions for Claude, or a shell script.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Schedule {
     pub id: String,
     pub name: String,
+    /// Instructions for Claude, or the script when `script` is set.
     pub prompt: String,
+    /// Set for a script schedule: it runs `prompt` in the user's shell, with no Claude involved.
+    #[serde(default)]
+    pub script: Option<Script>,
     /// Any of these starts it.
     pub triggers: Vec<Trigger>,
     /// Which area this belongs to; the area decides the machine it runs on.

@@ -8,15 +8,19 @@ use super::time;
 use crate::config::{pause, schedules};
 use crate::cron::explain::{Explanation, explain};
 use crate::domain::schedule::Schedule;
+use crate::domain::script::Script;
 use crate::domain::trigger::Trigger;
 use crate::error::AppResult;
+use crate::jobs::approval;
 use crate::peers;
 use crate::store::run_requests;
 use crate::views::agent::{self, AgentView};
 
 const LIST_SCHEDULES: &str = "Every recurring job, with when it runs next, its recent runs, what Claude is running now, \
              and whether everything is paused.";
-const CREATE_SCHEDULE: &str = "Creates a recurring job Quarterdeck runs through Claude. `triggers` says when: any of \
+const CREATE_SCHEDULE: &str = "Creates a recurring job: instructions Quarterdeck runs through Claude, or, with \
+             `script`, a shell script it runs itself (no tokens; for anything that needs no judgement). \
+             `triggers` says when: any of \
              {\"type\": \"cron\", \"expr\": \"30 8 * * 1-5\"} (minute hour day month weekday) or \
              {\"type\": \"event\", \"on\": \"item.turn\", \"when\": {\"to\": \"agent\"}, \"cooldown\": 30} \
              (see list_event_kinds; `when` filters on the event's fields, `*` is a wildcard; \
@@ -35,7 +39,7 @@ pub fn tools() -> Vec<Tool> {
         async_tool("list_schedules", LIST_SCHEDULES, list),
         tool("create_schedule", CREATE_SCHEDULE, create),
         tool("update_schedule", UPDATE_SCHEDULE, update),
-        tool("delete_schedule", "Deletes a schedule.", delete),
+        async_tool("delete_schedule", "Deletes a schedule.", delete),
         tool("set_schedule_enabled", SET_SCHEDULE_ENABLED, set_enabled),
         async_tool("run_schedule", RUN_SCHEDULE, run),
         tool("pause_all", PAUSE_ALL, pause_all),
@@ -56,8 +60,11 @@ struct CreateArgs {
     name: String,
     /// Area id; the area decides which machine runs it.
     area: String,
-    /// What Claude should do each time, written to Claude.
+    /// What Claude should do each time, written to Claude; or, with `script`, the shell script.
     instructions: String,
+    /// Makes it a script schedule: `instructions` runs in the user's login shell, with no Claude.
+    /// A script made or changed through a tool doesn't run until the user approves it in the app.
+    script: Option<Script>,
     /// When it runs; any one of them starts it. Empty means only when run by hand.
     #[serde(default)]
     triggers: Vec<Trigger>,
@@ -82,6 +89,7 @@ fn create(ctx: &Ctx, args: CreateArgs) -> AppResult<String> {
         id: schedules::free_id(&ctx.config, &schedules::slug(&args.name)),
         name: args.name,
         prompt: args.instructions,
+        script: args.script,
         triggers: args.triggers.into_iter().map(Trigger::normalised).collect(),
         area: ctx.area(&args.area)?,
         enabled: true,
@@ -101,6 +109,11 @@ struct UpdateArgs {
     instructions: Option<String>,
     /// Replaces every trigger.
     triggers: Option<Vec<Trigger>>,
+    /// Makes it a script schedule with these settings.
+    script: Option<Script>,
+    /// Makes a script schedule a Claude one again.
+    #[serde(default)]
+    remove_script: bool,
     allowed_tools: Option<Vec<String>>,
 }
 
@@ -119,6 +132,11 @@ fn update(ctx: &Ctx, args: UpdateArgs) -> AppResult<()> {
             .unwrap_or(old.area),
         name: args.name.unwrap_or(old.name),
         prompt: args.instructions.unwrap_or(old.prompt),
+        script: if args.remove_script {
+            None
+        } else {
+            args.script.or(old.script)
+        },
         allowed_tools: args.allowed_tools.unwrap_or(old.allowed_tools),
         ..old
     };
@@ -131,8 +149,9 @@ struct IdArgs {
     id: String,
 }
 
-fn delete(ctx: &Ctx, args: IdArgs) -> AppResult<()> {
-    schedules::delete(&ctx.config, &args.id)
+async fn delete(ctx: Ctx, args: IdArgs) -> AppResult<()> {
+    schedules::delete(&ctx.config, &args.id)?;
+    approval::forget(&ctx.db, &args.id).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

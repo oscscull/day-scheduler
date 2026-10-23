@@ -8,6 +8,7 @@ export function blankSchedule(): Schedule {
     id: "",
     name: t("schedule.blankName"),
     prompt: "",
+    script: null,
     triggers: [{ type: "cron", expr: "0 9 * * 1-5" }],
     area: areas.current !== ALL ? areas.current : (areas.list[0]?.id ?? ""),
     enabled: true,

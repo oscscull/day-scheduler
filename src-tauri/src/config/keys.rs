@@ -82,6 +82,9 @@ pub enum SettingKey {
     /// Let a dev build run Claude (true/false).
     #[serde(rename = "dev.run_claude")]
     DevRunClaude,
+    /// Let a dev build run script schedules (true/false).
+    #[serde(rename = "dev.run_scripts")]
+    DevRunScripts,
 }
 
 impl SettingKey {
@@ -112,6 +115,7 @@ impl SettingKey {
             Self::UpdatesEnabled => "updates.enabled",
             Self::UpdatesCheckMinutes => "updates.check_minutes",
             Self::DevRunClaude => "dev.run_claude",
+            Self::DevRunScripts => "dev.run_scripts",
         };
         name.split('.').collect()
     }

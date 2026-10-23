@@ -8,17 +8,22 @@
   import { t } from "../../lib/copy";
   import { dayClock } from "../../lib/time";
   import type { Run, Schedule } from "../../lib/types";
+  import ScriptSettings from "./ScriptSettings.svelte";
   import TriggersEditor from "./TriggersEditor.svelte";
 
   interface Props {
     schedule: Schedule;
     runs: Run[];
+    /** Its script was made or changed outside this window and can't run until approved. */
+    needsApproval: boolean;
     now: Date;
     onClose: () => void;
     onSaved: () => void;
   }
 
-  let { schedule, runs, now, onClose, onSaved }: Props = $props();
+  let { schedule, runs, needsApproval, now, onClose, onSaved }: Props = $props();
+
+  const NEW_SCRIPT = { timeout_minutes: 10, report: "failures" } as const;
 
   // Edit a copy; nothing changes on disk until Save.
   let form = $state<Schedule>(structuredClone(untrack(() => $state.snapshot(schedule))));
@@ -31,6 +36,19 @@
   async function runNow(): Promise<void> {
     try {
       await route.runSchedule(form.node, form.id);
+      onSaved();
+    } catch (e) {
+      error = errorText(e);
+    }
+  }
+
+  function setKind(script: boolean): void {
+    form.script = script ? (form.script ?? { ...NEW_SCRIPT }) : null;
+  }
+
+  async function approve(): Promise<void> {
+    try {
+      await route.approveScript(form.node, form.id);
       onSaved();
     } catch (e) {
       error = errorText(e);
@@ -57,10 +75,26 @@
     <input class="input" bind:value={form.name} />
   </label>
 
+  {#if needsApproval && !isNew}
+    <div class="approval" role="alert">
+      <p>{t("script.approvalNeeded")}</p>
+      <button type="button" class="button-primary" onclick={approve}>{t("script.approve")}</button>
+    </div>
+  {/if}
+
+  <div class="modes">
+    <label><input type="radio" checked={!form.script} onchange={() => setKind(false)} /> {t("script.claude")}</label>
+    <label><input type="radio" checked={Boolean(form.script)} onchange={() => setKind(true)} /> {t("script.shell")}</label>
+  </div>
+
   <label class="field">
-    {t("schedule.instructions")}
-    <textarea class="input" rows="4" bind:value={form.prompt}></textarea>
+    {form.script ? t("script.body") : t("schedule.instructions")}
+    <textarea class="input" class:mono={Boolean(form.script)} rows={form.script ? 6 : 4} bind:value={form.prompt} spellcheck={!form.script}></textarea>
   </label>
+
+  {#if form.script}
+    <ScriptSettings script={form.script} onChange={(next) => (form.script = next)} />
+  {/if}
 
   <TriggersEditor triggers={form.triggers} {now} onChange={(next) => (form.triggers = next)} />
 
@@ -111,6 +145,24 @@
 
   .small {
     font-size: 12px;
+  }
+
+  .modes {
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+  }
+
+  .approval {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--urgent-bg);
+    color: var(--urgent-fg);
+    font-size: 14px;
   }
 
   .run {

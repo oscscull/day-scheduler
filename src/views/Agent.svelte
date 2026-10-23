@@ -126,6 +126,7 @@
   <ScheduleDetailModal
     schedule={editing}
     runs={editingView?.runs ?? []}
+    needsApproval={editingView?.needsApproval ?? false}
     {now}
     onClose={() => (editing = null)}
     onSaved={() => { editing = null; void load(); }}

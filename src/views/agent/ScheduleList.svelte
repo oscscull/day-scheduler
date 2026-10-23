@@ -47,6 +47,7 @@
             {whenText(s.triggers, s.explanation)} · {findArea(s.area)?.name ?? t("area.unknown")}
           </span>
           <span class="hint meta">{lastText(s)}</span>
+          {#if s.needsApproval}<span class="problem">{t("script.needsApproval")}</span>{/if}
           {#if problemText(s)}<span class="problem">{problemText(s)}</span>{/if}
         </span>
         <span class="mono next">{nextText(s)}</span>

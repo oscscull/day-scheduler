@@ -177,3 +177,5 @@ check_minutes = 30
 # Let this dev build run Claude. Off, every run fails at once, so a copy of real data can't resume
 # real sessions or push to real PRs.
 run_claude = false
+# Let this dev build run script schedules. Off for the same reason.
+run_scripts = false

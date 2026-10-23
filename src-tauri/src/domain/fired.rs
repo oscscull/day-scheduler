@@ -8,6 +8,9 @@ use serde::Serialize;
 
 use super::trigger::OnEvent;
 
+/// The event a trigger watches a path for, given as `when.path`.
+pub const FILE_CHANGED: &str = "file.changed";
+
 /// Events agents and scripts make up start with this.
 pub const CUSTOM: &str = "custom.";
 
@@ -152,6 +155,22 @@ pub const KINDS: &[Kind] = &[
         "item.turn",
         "A work item's turn passed (to: you, agent, others, later).",
         &["item", "to"],
+    ),
+    kind(
+        "meeting.starting",
+        "A meeting starts in [alerts] lead_minutes (when its countdown appears). Subject: the meeting.",
+        &["meeting", "title"],
+    ),
+    kind(
+        "meeting.ended",
+        "A meeting ended. Subject: the meeting.",
+        &["meeting", "title"],
+    ),
+    kind(
+        "file.changed",
+        "A file or folder changed (checked every 30s; a folder's direct contents only). The \
+         trigger's `when.path` says which, e.g. \"~/Downloads\"; no wildcards.",
+        &["path"],
     ),
     kind(
         "run.finished",

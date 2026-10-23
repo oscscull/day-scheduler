@@ -224,13 +224,15 @@ pub fn set_sync_token(config: &Config, token: &str) -> AppResult<()> {
 }
 
 /// Makes a copied config safe for a dev build: it serves nobody, reaches no peers (whose records
-/// are real) and runs no Claude.
+/// are real) and runs no Claude or scripts.
 pub fn make_dev_safe(config: &Config) -> AppResult<()> {
     edit(config, |doc| {
         let sync = table(doc.as_table_mut(), "sync")?;
         sync.insert("enabled", value(false));
         sync.remove("peers");
-        table(doc.as_table_mut(), "dev")?.insert("run_claude", value(false));
+        let dev = table(doc.as_table_mut(), "dev")?;
+        dev.insert("run_claude", value(false));
+        dev.insert("run_scripts", value(false));
         Ok(())
     })
 }
