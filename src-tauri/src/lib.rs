@@ -22,6 +22,7 @@ mod priorities;
 mod profile;
 mod queue;
 mod rename;
+mod retry;
 mod runlog;
 mod scheduler;
 mod store;
@@ -65,6 +66,7 @@ fn report_import(handle: &tauri::AppHandle, imported: error::AppResult<bool>) {
             area: String::new(),
             raised_at: chrono::Utc::now(),
             schedule_id: None,
+            run_id: None,
         };
         let db = &handle.state::<app::App>().db;
         // Telling the user is best effort; the app opens either way.

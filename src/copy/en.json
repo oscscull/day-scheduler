@@ -138,6 +138,7 @@
   "urgent.title": "Urgent",
   "urgent.hint": "Things that went wrong or can’t wait. Dismiss them, or tell Claude what to do.",
   "urgent.runNow": "Run now",
+  "urgent.retry": "Retry",
   "urgent.tell": "Tell Claude",
   "urgent.dismiss": "Dismiss",
   "urgent.dismissAll": "Dismiss all",
