@@ -24,8 +24,10 @@ pub async fn report(db: &Db, answered: &Answered, clock: Clock<'_>) -> AppResult
         area: item.area.clone(),
         raised_at: now,
         schedule_id: None,
+        run_id: None,
     };
-    urgent::raise(db, &raised).await
+    urgent::raise(db, &raised).await?;
+    Ok(())
 }
 
 #[cfg(test)]

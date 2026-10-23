@@ -102,5 +102,6 @@ fn too_deep(schedule: &Schedule, event: &Fired) -> Urgent {
         area: schedule.area.clone(),
         raised_at: Utc::now(),
         schedule_id: Some(schedule.id.clone()),
+        run_id: None,
     }
 }

@@ -43,20 +43,6 @@ table commitment sort=(starts_at asc, id asc)
   index idx_commitment_hidden_starts_at (hidden, starts_at)
   index uq_commitment_source_external_id (source, external_id) unique
 
-table fired_event sort=(id asc)
-  column about text not_null
-  column area text not_null
-  column at timestamp not_null
-  column data json not_null
-  column depth int not_null
-  column handled bool not_null default=false
-  column id serial not_null
-  column kind text not_null
-  column started json null
-  column subject text not_null
-  index idx_fired_event_at (at)
-  index idx_fired_event_handled_id (handled, id)
-
 table item sort=(rank asc)
   column area text not_null
   column external_id text null
@@ -97,6 +83,7 @@ table run
   column id serial not_null
   column node text not_null
   column outcome enum(ok,failed,missed) null
+  column prompt text null
   column schedule_id text null
   column started_at timestamp not_null
   column summary text null
@@ -128,6 +115,7 @@ table urgent sort=(raised_at desc, id desc)
   column detail text not_null
   column id serial not_null
   column raised_at timestamp not_null
+  column run_id int null
   column schedule_id text null
   column title text not_null
 

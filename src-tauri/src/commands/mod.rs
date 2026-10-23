@@ -72,6 +72,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         urgent::dismiss_urgent,
         urgent::dismiss_all_urgent,
         urgent::resolve_urgent,
+        urgent::retry_urgent,
         chat::ask_claude,
         chat::draft_schedule,
     ]

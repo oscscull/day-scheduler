@@ -70,8 +70,10 @@ async fn record(
                 area: items::get(db, item_id).await?.area,
                 raised_at: now,
                 schedule_id: None,
+                run_id: None,
             };
-            urgent::raise(db, &raised).await
+            urgent::raise(db, &raised).await?;
+            Ok(())
         }
     }
 }

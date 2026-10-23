@@ -71,6 +71,7 @@ export const api = {
   resumeAll: () => invoke<undefined>("resume_all"),
   dismissUrgent: (id: number) => invoke<undefined>("dismiss_urgent", { id }),
   dismissAllUrgent: () => invoke<undefined>("dismiss_all_urgent"),
+  retryUrgent: (id: number) => invoke<undefined>("retry_urgent", { id }),
   resolveUrgent: (id: number, message: string) => invoke<string>("resolve_urgent", { id, message }),
   askClaude: (page: string, context: string, message: string) =>
     invoke<string>("ask_claude", { page, context, message }),

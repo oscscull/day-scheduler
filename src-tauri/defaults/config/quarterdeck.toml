@@ -155,6 +155,16 @@ later_hours = 72
 others_then = "you"
 quiet_minutes = 45
 
+# When the agent can't run at all (offline, `claude` missing), its work waits instead of failing:
+# one card says so, and its items keep the agent's turn. Quarterdeck checks again after
+# first_retry_seconds, doubling the wait each time up to max_retry_seconds; coming back to the
+# window checks at once. `probe` is a host:port the agent needs ("" checks only for `claude`).
+[outage]
+first_retry_seconds = 60
+max_retry_seconds = 900
+probe = "api.anthropic.com:443"
+probe_timeout_seconds = 5
+
 # Every merge to main publishes a release; Quarterdeck installs it by itself, so every machine runs
 # the same build. It waits until no Claude run is live and you're not in the window, then restarts.
 [updates]

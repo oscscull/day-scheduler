@@ -18,11 +18,14 @@ pub struct Failure<'a> {
     /// What the run was for, e.g. "Answer".
     pub what: &'a str,
     pub detail: &'a str,
+    /// The run that failed, which the alert offers to retry. None when it never started.
+    pub run: Option<i64>,
 }
 
 /// What to show when a run died without saying why.
 const NO_DETAIL: &str = "it stopped without saying why";
 const NEXT_STEP: &str = "Open its run on the Agent tab, or tell Claude to look into it.";
+const NEXT_STEP_RETRY: &str = "Retry it if it may have been a blip, open its run on the Agent tab, or tell Claude to look into it.";
 /// The longest reason an alert shows; the item's history keeps all of it.
 const BRIEF_CHARS: usize = 200;
 
@@ -45,7 +48,12 @@ impl Failure<'_> {
             .chars()
             .take(BRIEF_CHARS)
             .collect();
-        format!("{first}. {NEXT_STEP}")
+        let next = if self.run.is_some() {
+            NEXT_STEP_RETRY
+        } else {
+            NEXT_STEP
+        };
+        format!("{first}. {next}")
     }
 }
 
@@ -58,6 +66,7 @@ async fn raise_urgent(db: &Db, item: &WorkItem, f: &Failure<'_>) -> AppResult<St
         area: item.area.clone(),
         raised_at: Utc::now(),
         schedule_id: None,
+        run_id: f.run,
     };
     urgent::raise(db, &raised).await?;
     Ok(title)

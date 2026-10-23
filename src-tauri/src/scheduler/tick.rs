@@ -47,8 +47,7 @@ pub async fn tick(handle: &AppHandle) -> AppResult<()> {
     crate::desktop::tray::show_urgent(handle, urgent_count)?;
     super::connectors::sync_if_due(handle, &settings).await?;
     super::updates::check_if_due(handle, &settings).await?;
-    // Answers go out even while paused: the user just gave them.
-    super::answers::deliver(handle, &settings).await?;
+    let up = deliver_if_up(handle, &settings).await?;
     // Cleanup only; a failed removal is retried next tick.
     drop(crate::workspace::sweep(
         &crate::store::items::list(&app.db).await?,
@@ -62,15 +61,35 @@ pub async fn tick(handle: &AppHandle) -> AppResult<()> {
         return Ok(());
     }
     // One item's failure mustn't stop the queue and schedules; it's reported after them.
-    let kept = super::keeper::check(handle, &settings).await;
-    super::queue::advance(handle, &settings).await?;
-    super::events::dispatch(handle, &settings).await?;
+    let kept = super::keeper::check(handle, &settings, up).await;
+    // Events wait while the agent is down, so their runs start once it's back.
+    if up {
+        super::queue::advance(handle, &settings).await?;
+        super::events::dispatch(handle, &settings).await?;
+    }
+    start_due(handle, &settings, Window { last, now }).await?;
+    kept
+}
+
+/// Starts the schedules run here whose crons came due in `w`.
+async fn start_due(handle: &AppHandle, settings: &Settings, w: Window) -> AppResult<()> {
+    let app = handle.state::<App>();
     for schedule in schedules::list(&app.config)?.schedules {
         if schedule.enabled && settings.node_for(&schedule.area) == settings.node {
-            consider(handle, &settings, &schedule, Window { last, now }).await?;
+            consider(handle, settings, &schedule, w).await?;
         }
     }
-    kept
+    Ok(())
+}
+
+/// Whether the agent can run, delivering answers if so. Answers go out even while paused: the user
+/// just gave them. While the agent can't run, its work waits: nothing is prompted or delivered.
+async fn deliver_if_up(handle: &AppHandle, settings: &Settings) -> AppResult<bool> {
+    let up = super::outage::agent_up(handle, settings, false).await?;
+    if up {
+        super::answers::deliver(handle, settings).await?;
+    }
+    Ok(up)
 }
 
 async fn consider(
@@ -156,6 +175,7 @@ async fn record_missed(
         area: schedule.area.clone(),
         raised_at: Utc::now(),
         schedule_id: Some(schedule.id.clone()),
+        run_id: None,
     };
     let db = &handle.state::<App>().db;
     runs::insert(db, &run).await?;

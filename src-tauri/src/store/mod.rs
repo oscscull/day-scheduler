@@ -18,6 +18,7 @@ pub mod fired;
 pub mod items;
 pub mod legacy;
 pub mod meta;
+pub mod run_prompts;
 pub mod run_requests;
 pub mod runs;
 pub mod sync_state;

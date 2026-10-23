@@ -11,6 +11,7 @@ mod failed;
 mod focus;
 mod handoff;
 mod keeper;
+mod outage;
 mod peers;
 mod queue;
 mod run_turn;

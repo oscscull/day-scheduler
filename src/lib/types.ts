@@ -150,6 +150,8 @@ export interface Urgent {
   area: string;
   raisedAt: string;
   scheduleId: string | null;
+  /** Set when it's about a failed agent run, which can be retried. Missing from older machines. */
+  runId?: number | null;
 }
 
 /** A GitHub issue nobody has picked up yet. */

@@ -7,6 +7,7 @@ use super::alerts::AlertSettings;
 use super::calendar::CalendarSettings;
 use super::dev::DevSettings;
 use super::github::GithubSettings;
+use super::outage::OutageSettings;
 use super::sync::SyncSettings;
 use super::turns::TurnSettings;
 use super::updates::UpdateSettings;
@@ -45,6 +46,7 @@ pub struct Settings {
     pub launch_at_login: bool,
     pub sync: SyncSettings,
     pub turns: TurnSettings,
+    pub outage: OutageSettings,
     pub projects: Vec<Project>,
     /// Claude Code's `--permission-mode` for work in a project, e.g. `auto` (Claude decides what's
     /// safe, as in the user's own sessions) or `acceptEdits` (only the project's allow rules).
@@ -72,6 +74,7 @@ impl Default for Settings {
             launch_at_login: true,
             sync: SyncSettings::default(),
             turns: TurnSettings::default(),
+            outage: OutageSettings::default(),
             projects: Vec::new(),
             project_permission_mode: "auto".to_owned(),
             queue: QueueSettings::default(),
@@ -142,6 +145,7 @@ mod tests {
             launch_at_login: true,
             sync: SyncSettings::default(),
             turns: TurnSettings::default(),
+            outage: OutageSettings::default(),
             projects: Vec::new(),
             project_permission_mode: "auto".to_owned(),
             queue: QueueSettings::default(),

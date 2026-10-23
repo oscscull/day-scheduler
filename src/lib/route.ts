@@ -27,6 +27,8 @@ export const route = {
     node ? peer(node, "update_meeting", { id, hidden: true }) : api.hideCommitment(id),
   dismissUrgent: (node: string | undefined, id: number) =>
     node ? peer(node, "dismiss_urgent", { id }) : api.dismissUrgent(id),
+  retryUrgent: (node: string | undefined, id: number) =>
+    node ? peer(node, "retry_urgent", { id }) : api.retryUrgent(id),
   runSchedule: (node: string | undefined, id: string) =>
     node ? peer(node, "run_schedule", { id }) : api.runScheduleNow(id),
   setScheduleEnabled: (node: string | undefined, id: string, enabled: boolean) =>
