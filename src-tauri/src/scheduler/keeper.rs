@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager as _};
 use super::agent_prompt;
 use super::failed::{self, Failure};
 use crate::app::App;
+use crate::claude::reach;
 use crate::config::settings::Settings;
 use crate::domain::item::WorkItem;
 use crate::domain::turn::Turn;
@@ -40,16 +41,21 @@ async fn act(handle: &AppHandle, settings: &Settings, item: &WorkItem, due: Due)
     }
 }
 
-/// A prompt that can't start is a failed run: the turn comes back with why, and loudly.
+/// A prompt that can't start is a failed run: the turn comes back with why, and loudly. One that
+/// couldn't reach the agent waits for it instead.
 async fn prompt(handle: &AppHandle, settings: &Settings, item: &WorkItem) -> AppResult<()> {
     let Err(e) = agent_prompt::carry_on(handle, settings, item).await else {
         return Ok(());
     };
     let detail = e.to_string();
+    if reach::unreached(&detail) {
+        return super::outage::report(handle, settings, &detail).await;
+    }
     let failure = Failure {
         item_id: &item.id,
         what: "Carry on",
         detail: &detail,
+        run: None,
     };
     failed::report(handle, &failure, &settings.turns).await
 }
@@ -72,8 +78,9 @@ async fn keep(
     act(handle, settings, item, due).await
 }
 
-/// Every item gets its turn kept, even when one fails; the first failure is reported.
-pub async fn check(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
+/// Every item gets its turn kept, even when one fails; the first failure is reported. While the
+/// agent can't run (`up` false), items on its turn wait: their clocks restart when it's back.
+pub async fn check(handle: &AppHandle, settings: &Settings, up: bool) -> AppResult<()> {
     let app = handle.state::<App>();
     let known = work::known(&app.db).await?;
     let mine = items::list(&app.db).await?;
@@ -81,6 +88,7 @@ pub async fn check(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     for item in mine
         .iter()
         .filter(|i| settings.node_for(&i.area) == settings.node)
+        .filter(|i| up || i.turn != Turn::Agent)
     {
         let kept = keep(handle, settings, item, &known).await;
         if first.is_ok() {

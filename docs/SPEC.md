@@ -123,8 +123,16 @@ records why on the item's history; the UI and peers read the stored turn and nev
   run on an item starts on the agent's turn and ends with it handed on: the agent records what it
   did with `pass_turn` (to itself, the user, or others), as `prompts/hand-over.md` tells every run.
   A run that ends without passing hands the turn to the user with its last message; a run that
-  fails raises an urgent item and hands it to the user. Passing to itself keeps the clock, so after
-  `agent_hours` the turn comes back to the user regardless.
+  fails raises an urgent item with Retry (`retry_urgent`: back to the agent, whose next prompt is
+  the failed run's own, kept on its run record) and hands it to the user. Passing to itself keeps
+  the clock, so after `agent_hours` the turn comes back to the user regardless.
+- **When the agent can't run at all** (offline, `claude` missing, API overloaded), its work waits
+  instead of failing. Each tick checks first that `claude` exists and `[outage] probe` answers; a
+  failed check, or a run whose error says it never reached the agent, raises one urgent item and
+  stops prompting, delivering answers and starting the queue. Agent's-turn items keep the turn
+  and an undelivered answer stays to go again. Checks repeat after `first_retry_seconds`, doubling
+  to `max_retry_seconds`, and at once when the window regains focus; the first good one clears the
+  item and gives waiting items a fresh `agent_hours`.
 - **The user's turn**: reminded every `you_remind_hours`. Any reply (an answer, Tell Claude)
   passes the turn to the agent, unless another question on the item is open; one that no session
   or worktree can take is raised as urgent and the turn comes back.

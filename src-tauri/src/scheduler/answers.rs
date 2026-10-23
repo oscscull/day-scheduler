@@ -1,7 +1,9 @@
 //! Takes the user's answers back to Claude. Work on a PR or issue in a known project happens in that
 //! project's worktree: the asking session is resumed if it ran there, otherwise a new session
 //! starts there with the question and answer. Elsewhere the session that asked, or the one holding
-//! the item, is resumed. With nobody to tell, the user is told instead (see `undelivered`).
+//! the item, is resumed. With nobody to tell, the user is told instead (see `undelivered`). An
+//! answer stays until a run reaches the agent with it, so one sent while the agent is down goes
+//! again when it's back.
 
 use std::collections::HashSet;
 
@@ -12,6 +14,7 @@ use super::failed::{self, Failure};
 use super::thread::{self, Thread};
 use super::undelivered;
 use crate::app::App;
+use crate::claude::reach;
 use crate::config::prompts::{Prompt, render};
 use crate::config::settings::Settings;
 use crate::domain::ask::Answered;
@@ -40,34 +43,55 @@ pub async fn deliver(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
         if settings.node_for(&item.area) != settings.node {
             continue;
         }
-        if let Err(e) = deliver_one(handle, settings, &answered, &item).await {
-            let detail = e.to_string();
-            let failure = Failure {
-                item_id: &item.id,
-                what: "Answer",
-                detail: &detail,
-            };
-            failed::report(handle, &failure, &settings.turns).await?;
+        match deliver_one(handle, settings, &answered, &item).await {
+            // The run removes the answer once it reaches the agent.
+            Ok(true) => {}
+            Ok(false) => asks::remove(&app.db, answered.ask.id).await?,
+            Err(e) => not_started(handle, settings, (&answered, &item), &e.to_string()).await?,
         }
         busy.insert(item.id.clone());
-        asks::remove(&app.db, answered.ask.id).await?;
     }
     Ok(())
 }
 
-/// Starts the run that takes one answer to the agent, or reports that nobody can take it.
+/// A run that couldn't reach the agent keeps the answer for when it's back; any other failure is
+/// reported and the answer dropped.
+async fn not_started(
+    handle: &AppHandle,
+    settings: &Settings,
+    (answered, item): (&Answered, &WorkItem),
+    detail: &str,
+) -> AppResult<()> {
+    if reach::unreached(detail) {
+        return super::outage::report(handle, settings, detail).await;
+    }
+    let failure = Failure {
+        item_id: &item.id,
+        what: "Answer",
+        detail,
+        run: None,
+    };
+    failed::report(handle, &failure, &settings.turns).await?;
+    asks::remove(&handle.state::<App>().db, answered.ask.id).await
+}
+
+/// Starts the run that takes one answer to the agent (true), or tells the user nobody can take it.
 async fn deliver_one(
     handle: &AppHandle,
     settings: &Settings,
     answered: &Answered,
     item: &WorkItem,
-) -> AppResult<()> {
+) -> AppResult<bool> {
     let app = handle.state::<App>();
     let known = known_session(&app, answered, item).await?;
     let ws = workspace::for_item(settings, item)?;
     match thread::thread_for(known, ws.as_ref()) {
-        Some(thread) => start(handle, settings, (answered, item), (thread, ws)).await,
-        None => undelivered::report(&app.db, answered, Clock::now(&settings.turns)).await,
+        Some(thread) => start(handle, settings, (answered, item), (thread, ws))
+            .await
+            .map(|()| true),
+        None => undelivered::report(&app.db, answered, Clock::now(&settings.turns))
+            .await
+            .map(|()| false),
     }
 }
 
@@ -80,7 +104,9 @@ async fn start(
 ) -> AppResult<()> {
     let app = handle.state::<App>();
     let prompt = prompt_for(&app, answered, item, ws.as_ref())?;
-    let job = Job::new("Answer", item.id.clone(), prompt, thread).in_workspace(ws);
+    let job = Job::new("Answer", item.id.clone(), prompt, thread)
+        .in_workspace(ws)
+        .delivering(answered.ask.id);
     dispatch::run(handle, settings, job).await
 }
 

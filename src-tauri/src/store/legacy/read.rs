@@ -199,6 +199,7 @@ fn urgent(r: &Row<'_>) -> Sql<Urgent> {
         area: r.get(2)?,
         raised_at: at(r, 3)?,
         schedule_id: r.get(4)?,
+        run_id: None,
     })
 }
 
