@@ -4,29 +4,35 @@ use serde::Deserialize;
 
 use super::super::ctx::Ctx;
 use super::super::tool::{Tool, async_tool};
-use super::in_area;
+use super::{in_area, time};
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, Stage, Status, WorkItem};
+use crate::domain::trigger::OnEvent;
 use crate::error::AppResult;
 use crate::store::{asks, events, items};
+use crate::turns::Clock;
 use crate::work;
 
 const LIST_ITEMS: &str = "Work items (tickets, PRs, issues, personal projects) in priority order, highest \
-             first. Parked items are left out unless `parked` is set.";
+             first. `parked` lists only parked work (on a later turn).";
 const GET_ITEM: &str = "One item with its open asks and its history.";
 const CREATE_ITEM: &str = "Adds a work item to the bottom of the priorities. Use the ticket key as `key` when there \
-             is one (e.g. JD-104). It starts as the user's turn; hand it on with pass_turn. Returns \
-             the item's id.";
+             is one (e.g. JD-104). Up next (the default) is unstarted backlog: nobody's turn, off \
+             Today. Work made in progress or in review starts as the user's turn; take it on with \
+             claim_item or hand it on with pass_turn. Returns the item's id.";
 const UPDATE_ITEM: &str = "Changes an item. Only the fields you pass change. Keep `state_label` short and current, \
              e.g. \"waiting on review from Sam\". Set `status` to what it's waiting on, or \
              `clear_status` when it's moving again. Whose turn it is changes only through \
-             pass_turn.";
+             pass_turn. Started work can't go back to up next: park it or mark it done.";
 const DELETE_ITEM: &str = "Deletes an item with its asks and history.";
 const MOVE_ITEM: &str = "Moves an item to a position in the priorities, 1 being the top.";
-const PARK_ITEM: &str = "Parks an item the user has set aside (\"don't worry about that one\", \"it's \
-             parked\"), taking it off Today, the board and Claude's queue until unparked (`parked: false`). \
-             Syncs keep it parked. Prefer this to deleting a GitHub issue's or PR's item. Put the user's reason \
-             in `why` when they give one.";
+const PARK_ITEM: &str = "Parks started work until something happens: a time (`until`, RFC 3339), \
+             events (`wake`, triggers as in schedules, e.g. {\"on\": \"item.stage\", \"when\": \
+             {\"item\": \"app#9\", \"stage\": \"done\"}}), or both, whichever comes first. With only \
+             events, the configured later length is the backstop. It leaves Today until then, then \
+             comes back as the user's turn. Nothing parks for good: close work nobody will pick up \
+             (update_item stage done). Unstarted work can't be parked; it's already off Today. \
+             `parked: false` brings it back now. Put the user's reason in `why`.";
 const ADD_NOTE: &str = "Adds a line to an item's history, e.g. \"opened PR #821\". Use for progress worth \
              remembering; the user sees it in the item's history.";
 
@@ -59,14 +65,14 @@ struct ListArgs {
 
 async fn list(ctx: Ctx, args: ListArgs) -> AppResult<Vec<WorkItem>> {
     let mut all = if args.parked {
-        items::parked(&ctx.db).await?
+        crate::park::list(&ctx.db).await?
     } else {
         items::list(&ctx.db).await?
     };
     all.retain(|i| {
         in_area(args.area.as_ref(), &i.area)
-            && args.stage.is_none_or(|s| s == i.stage)
-            && (args.include_done || i.stage != Stage::Done)
+            && args.stage.is_none_or(|s| s == i.stage())
+            && (args.include_done || i.stage() != Stage::Done)
     });
     Ok(all)
 }
@@ -79,7 +85,6 @@ struct IdArgs {
 async fn get(ctx: Ctx, args: IdArgs) -> AppResult<serde_json::Value> {
     Ok(serde_json::json!({
         "item": items::get(&ctx.db, &args.id).await?,
-        "parked": items::is_parked(&ctx.db, &args.id).await?,
         "asks": asks::for_item(&ctx.db, &args.id).await?,
         "history": events::for_item(&ctx.db, &args.id).await?,
     }))
@@ -131,7 +136,9 @@ struct UpdateArgs {
 async fn update(ctx: Ctx, args: UpdateArgs) -> AppResult<String> {
     let area = args.area.as_deref().map(|a| ctx.area(a)).transpose()?;
     let old = items::get(&ctx.db, &args.id).await?;
+    let stage = args.stage.unwrap_or_else(|| old.stage());
     let input = ItemInput {
+        stage,
         status: if args.clear_status {
             None
         } else {
@@ -140,7 +147,6 @@ async fn update(ctx: Ctx, args: UpdateArgs) -> AppResult<String> {
         id: old.id,
         title: args.title.unwrap_or(old.title),
         state_label: args.state_label.unwrap_or(old.state_label),
-        stage: args.stage.unwrap_or(old.stage),
         area: area.unwrap_or(old.area),
         link: args.link.or(old.link),
     };
@@ -176,9 +182,14 @@ async fn move_to(ctx: Ctx, args: MoveArgs) -> AppResult<()> {
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ParkArgs {
     id: String,
-    /// False brings it back. Defaults to true.
+    /// False brings it back now. Defaults to true.
     #[serde(default = "yes")]
     parked: bool,
+    /// When it comes back, as RFC 3339.
+    until: Option<String>,
+    /// Events that bring it back sooner.
+    #[serde(default)]
+    wake: Vec<OnEvent>,
     /// The user's reason, noted in its history.
     why: Option<String>,
 }
@@ -188,11 +199,17 @@ const fn yes() -> bool {
 }
 
 async fn park(ctx: Ctx, args: ParkArgs) -> AppResult<()> {
-    let choice = crate::park::Parking {
-        parked: args.parked,
-        why: args.why.as_deref(),
+    let limits = ctx.settings()?.turns;
+    let clock = Clock::now(&limits);
+    if !args.parked {
+        return crate::park::unpark(&ctx.db, &args.id, clock).await;
+    }
+    let parking = crate::park::Parking {
+        until: args.until.as_deref().map(time).transpose()?,
+        wake: args.wake,
+        why: args.why,
     };
-    crate::park::set(&ctx.db, &args.id, choice, Utc::now()).await
+    crate::park::park(&ctx.db, &args.id, parking, clock).await
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

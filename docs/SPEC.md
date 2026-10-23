@@ -37,21 +37,42 @@ The window title shows the running version, so it's clear when an update has lan
 
 ## Views
 
-- **Today**: next meeting, Priorities (in rank order: questions on an item, else the item itself
-  when it's in flight and the user's turn), one line for GitHub issues nobody has picked up yet
+- **Today**: next meeting, Priorities (in rank order: questions on an item, else what the user's
+  turn on it needs; the first `priority_limit` show), one line for GitHub issues nobody has picked up yet
   (opens to the list), To do (things only the user can do), and "From Claude".
 - **Priorities**: everything in play, drag to rank (per machine). The ranking drives Today.
 - **Board**: items by stage, with parked items in a list of their own below. **In flight**: open
   items by whose turn it is.
+- **An item** opens with what's needed from the user when it's their turn (the need, or the
+  questions asked), the reply box, then its state, links and (collapsed) history.
 - **Agent**: every item that is the agent's turn, and what's running (each run's latest step, live; click for its steps so far), every schedule (toggle, edit, delete, run now, create by describing
   it), missed or failed runs, Pause all, recent events and what they started, connector and peer
   status, and the MCP connect command.
 - **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools, settings
   ones included, so any setting can be changed by asking.
 
-An item can be **parked**: the user set it aside ("don't worry about that one"). It leaves every
-list (Today, the board, the queue, turn reminders) until unparked, and syncs never unpark it; GitHub
-closing its issue or PR still marks it done.
+## Item life
+
+Every item is in exactly one place, decided in one function (`attention`) that Today and the turn
+clock both read, and finishing or deleting it is the only way off Today for good:
+
+- **Up next** (unstarted): the backlog. Nobody's turn, no clock, off Today; GitHub issues nobody has
+  picked up are counted on Today's triage line. Giving it a turn (a session claims it, Tell
+  Claude, the queue, a question) starts it.
+- **In progress / in review** (started): always someone's turn with a clock (see Turns). The
+  user's turn is on Today, saying what it needs; anyone else's comes back when its time runs out.
+  Started work never goes back to up next: it's parked or closed.
+- **Done**: no turn.
+
+The type (`Life` in `domain/life.rs`) makes other states unrepresentable: started work without a
+turn reads as the user's, and the user's turn always carries a need. A test walks every state
+forward through its clock and checks each ends on Today.
+
+**Parking** puts started work off until something happens: a time, events (triggers in the
+schedules' format, e.g. another item's `item.stage` to done), or both, whichever comes first. It's
+a `later` turn, so it leaves Today and the board's columns and comes back as the user's turn. With
+only events, `later_hours` is the backstop. Nothing parks for good: work nobody will pick up is
+closed or deleted.
 
 ## Where things live
 
@@ -127,6 +148,9 @@ and not again within the trigger's `cooldown` minutes. Events fire from:
   reach claimed sessions and fix-ci runs as described under Turns.
 - Item history: `item.created`, `item.stage`, `item.turn`. History copied from an old database
   fires nothing.
+
+Events also wake parked items whose `wake` they match (an item's own turn changes never wake it),
+even while paused.
 - Runs: `run.finished` (with `outcome`) when a schedule's run ends, so schedules can chain.
 - The scheduler itself: `meeting.starting` (when its countdown appears) and `meeting.ended`, and
   `file.changed` for a path a trigger names in `when.path` (checked each tick: a file's
@@ -161,9 +185,11 @@ stays approved there if it was here.
 
 ## Turns
 
-Every item has a turn, `you`, `agent`, `others` (with who: reviewers, CI) or `later`, and every
-item in flight has a clock on it, so nothing idles. Turns change only through `turns::pass`, which
-records why on the item's history; the UI and peers read the stored turn and never derive it.
+Every started item has a turn, `you` (with what's needed), `agent`, `others` (with who: reviewers,
+CI) or `later` (with what wakes it), and a clock, so nothing idles. Turns change only through
+`turns::pass`, which records why on the item's history and starts unstarted work; the UI and peers
+read the stored turn and never derive it. A wait that runs out goes only to the user or the agent,
+and the agent's runs out to the user, so every turn ends with the user.
 
 - **The agent's turn**: Quarterdeck prompts it. Each tick, an agent's-turn item with nothing
   running gets a run (`prompts/continue.md`), resuming the session holding it or starting one; a
@@ -181,13 +207,14 @@ records why on the item's history; the UI and peers read the stored turn and nev
   and an undelivered answer stays to go again. Checks repeat after `first_retry_seconds`, doubling
   to `max_retry_seconds`, and at once when the window regains focus; the first good one clears the
   item and gives waiting items a fresh `agent_hours`.
-- **The user's turn**: reminded every `you_remind_hours`. Any reply (an answer, Tell Claude)
+- **The user's turn**: says what's needed (`pass_turn` requires `need`; system passes use their
+  reason) and is reminded every `you_remind_hours`. Any reply (an answer, Tell Claude)
   passes the turn to the agent, unless another question on the item is open; one that no session
   or worktree can take is raised as urgent and the turn comes back.
 - **Others' turn**: after `others_hours` it goes to the item's `then`, else `others_then` (`you`
-  by default). GitHub sets it from the PR: waiting on CI or reviewers is others', approved, draft or
+  by default; only `you` or `agent`). GitHub sets it from the PR: waiting on CI or reviewers is others', approved, draft or
   changes requested is the user's. GitHub never takes the turn from the agent.
-- **Later**: comes back when its time does.
+- **Later**: comes back when its time does, or sooner when an event in its `wake` fires.
 
 Limits live in `[turns]` (`set_turn_limits`).
 
@@ -218,8 +245,8 @@ removed once their item is done. Repos with no project get a run that can read C
 code.
 
 `[queue]` lists items Claude works on one at a time (`set_queue`, `get_queue`). The first not yet
-in review or done is current: when it's up next, Quarterdeck marks it in progress, gives the agent
-the turn and delivers `prompts/queue.md` to it like a message; the next waits until it reaches
+in review or done is current: when it's up next, Quarterdeck gives the agent the turn (which starts
+it) and delivers `prompts/queue.md` to it like a message; the next waits until it reaches
 review or done.
 
 Default prompt files Quarterdeck wrote and nobody has edited follow newer defaults

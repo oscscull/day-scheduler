@@ -20,6 +20,7 @@ mod thread;
 mod tick;
 mod undelivered;
 mod updates;
+mod wake;
 
 use crate::domain::schedule::Schedule;
 

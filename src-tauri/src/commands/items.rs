@@ -8,7 +8,9 @@ use crate::domain::ask::Ask;
 use crate::domain::event::ItemEvent;
 use crate::domain::item::{ItemInput, WorkItem};
 use crate::error::AppResult;
+use crate::park::{self, Parking};
 use crate::store::{asks, events, items};
+use crate::turns::Clock;
 use crate::work;
 
 /// Saves a new priority order; `ids` is every item, most important first.
@@ -29,16 +31,37 @@ pub async fn delete_item(app: State<'_, App>, id: String) -> AppResult<()> {
     items::delete(&app.db, &id).await
 }
 
+/// Parks started work until `until` (RFC 3339), with the user's reason if they gave one.
 #[tauri::command]
-pub async fn set_parked(app: State<'_, App>, id: String, parked: bool) -> AppResult<()> {
-    let choice = crate::park::Parking { parked, why: None };
-    crate::park::set(&app.db, &id, choice, Utc::now()).await
+pub async fn park_item(
+    app: State<'_, App>,
+    id: String,
+    until: String,
+    why: Option<String>,
+) -> AppResult<()> {
+    let until = chrono::DateTime::parse_from_rfc3339(&until)
+        .map_err(|e| crate::error::AppError::BadInput(format!("'{until}' is not a time: {e}")))?
+        .with_timezone(&Utc);
+    let parking = Parking {
+        until: Some(until),
+        wake: Vec::new(),
+        why,
+    };
+    let limits = app.settings()?.turns;
+    park::park(&app.db, &id, parking, Clock::now(&limits)).await
 }
 
-/// Items the user parked, for the board's parked list.
+/// Brings parked work back to the user now.
+#[tauri::command]
+pub async fn unpark_item(app: State<'_, App>, id: String) -> AppResult<()> {
+    let limits = app.settings()?.turns;
+    park::unpark(&app.db, &id, Clock::now(&limits)).await
+}
+
+/// Parked items, for the board's parked list.
 #[tauri::command]
 pub async fn parked_items(app: State<'_, App>) -> AppResult<Vec<WorkItem>> {
-    items::parked(&app.db).await
+    park::list(&app.db).await
 }
 
 /// What the user does about something that needs them.
@@ -83,7 +106,6 @@ pub async fn respond(app: State<'_, App>, response: Response) -> AppResult<Outco
 #[derive(Debug, Serialize)]
 pub struct ItemDetail {
     item: WorkItem,
-    parked: bool,
     asks: Vec<Ask>,
     history: Vec<ItemEvent>,
 }
@@ -92,7 +114,6 @@ pub struct ItemDetail {
 pub async fn item_detail(app: State<'_, App>, id: String) -> AppResult<ItemDetail> {
     Ok(ItemDetail {
         item: items::get(&app.db, &id).await?,
-        parked: items::is_parked(&app.db, &id).await?,
         asks: asks::for_item(&app.db, &id).await?,
         history: events::for_item(&app.db, &id).await?,
     })

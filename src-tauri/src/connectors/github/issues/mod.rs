@@ -70,7 +70,7 @@ async fn close_ended(db: &Db, all: &Settings, open: &HashSet<String>) -> AppResu
     let unseen = items::from_source(db, SOURCE)
         .await?
         .into_iter()
-        .filter(|i| i.stage != Stage::Done && all.node_for(&i.area) == all.node)
+        .filter(|i| i.stage() != Stage::Done && all.node_for(&i.area) == all.node)
         .filter_map(|i| i.external_id)
         .filter(|ext| !open.contains(ext));
     for ext in unseen {

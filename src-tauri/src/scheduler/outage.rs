@@ -109,7 +109,7 @@ async fn recover(db: &Db, settings: &Settings) -> AppResult<()> {
     }
     let clock = Clock::now(&settings.turns);
     for item in items::list(db).await? {
-        if item.turn == Turn::Agent {
+        if item.is_turn(Turn::Agent) {
             turns::reset_clock(db, &item.id, clock.deadline(Turn::Agent)?).await?;
         }
     }

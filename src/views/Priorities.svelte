@@ -64,7 +64,8 @@
     void move(key, from < index ? index - 1 : index);
   }
 
-  const showsTurn = (item: WorkItem): string => `${t(`stage.${item.stage}`)} · ${turnText(item)}`;
+  const showsTurn = (item: WorkItem): string =>
+    [t(`stage.${item.stage}`), turnText(item)].filter(Boolean).join(" · ");
 </script>
 
 <div class="column">

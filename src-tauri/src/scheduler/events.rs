@@ -1,4 +1,5 @@
-//! Starts the schedules each new event's triggers match, on the machine that runs their area.
+//! Starts the schedules each new event's triggers match, on the machine that runs their area, and
+//! wakes parked work waiting for it.
 
 use chrono::{Duration, Utc};
 use tauri::{AppHandle, Manager as _};
@@ -19,12 +20,15 @@ const BATCH: u32 = 100;
 /// Runs looked through for the last one on a subject, for cooldowns.
 const COOLDOWN_LOOKBACK: u32 = 20;
 
-/// Handles every new event. While paused, events are marked handled and start nothing.
+/// Handles every new event. While paused, events are marked handled and start nothing, though
+/// they still wake parked work: that only hands the user back their turn.
 pub async fn dispatch(handle: &AppHandle, settings: &Settings) -> AppResult<()> {
     let app = handle.state::<App>();
     let paused = pause::current(&app.config, Utc::now())?.is_some();
     let all = schedules::list(&app.config)?.schedules;
     for event in fired::new_events(&app.db, BATCH).await? {
+        // One item failing to wake mustn't hold up every later event; its time still brings it back.
+        drop(super::wake::on_event(&app.db, settings, &event).await);
         let matching = if paused {
             Vec::new()
         } else {

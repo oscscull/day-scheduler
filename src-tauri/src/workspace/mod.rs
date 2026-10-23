@@ -113,7 +113,6 @@ mod tests {
     use super::*;
 
     use crate::config::projects::Project;
-    use crate::domain::item::Stage;
 
     #[test]
     fn folders_are_safe_names() {
@@ -125,12 +124,8 @@ mod tests {
             id: "baseddsl#178".to_owned(),
             title: "t".to_owned(),
             state_label: String::new(),
-            stage: Stage::UpNext,
+            life: crate::domain::life::Life::Unstarted,
             status: None,
-            turn: crate::domain::turn::Turn::You,
-            turn_until: None,
-            waiting_on: None,
-            then_turn: None,
             area: "projects".to_owned(),
             link: Some(link.to_owned()),
             source: "manual".to_owned(),

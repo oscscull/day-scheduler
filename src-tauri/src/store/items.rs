@@ -5,22 +5,36 @@ use super::convert::{same, same_opt, text_key};
 use super::db::{Db, gone_ok};
 use super::time;
 use crate::domain::item::WorkItem;
+use crate::domain::life::{Life, LifeFields};
 use crate::error::{AppError, AppResult};
 
 /// Items made by hand or by an agent, as opposed to a connector.
 pub const MANUAL: &str = "manual";
 
+fn life(row: &ItemRow) -> AppResult<Life> {
+    Ok(Life::from(LifeFields {
+        stage: same(&row.stage)?,
+        turn: same_opt(row.turn.as_ref())?,
+        turn_until: time::get_opt(row.turn_until.as_deref())?,
+        need: row.need.clone(),
+        waiting_on: row.waiting_on.clone(),
+        then_turn: same_opt(row.then_turn.as_ref())?,
+        // A wake that no longer reads is dropped: the turn's deadline still brings it back.
+        wake: row
+            .wake
+            .clone()
+            .and_then(|w| serde_json::from_value(w).ok())
+            .unwrap_or_default(),
+    }))
+}
+
 fn from_row(row: ItemRow) -> AppResult<WorkItem> {
     Ok(WorkItem {
+        life: life(&row)?,
         id: row.id.into_raw(),
         title: row.title,
         state_label: row.state_label,
-        stage: same(&row.stage)?,
         status: same_opt(row.status.as_ref())?,
-        turn: same(&row.turn)?,
-        turn_until: time::get_opt(row.turn_until.as_deref())?,
-        waiting_on: row.waiting_on,
-        then_turn: same_opt(row.then_turn.as_ref())?,
         area: row.area,
         link: row.link,
         source: row.source,
@@ -66,16 +80,21 @@ pub async fn next_rank(db: &Db) -> AppResult<i64> {
 
 /// Inserts or replaces an item by id.
 pub async fn save(db: &Db, item: &WorkItem) -> AppResult<()> {
+    let life = LifeFields::from(item.life.clone());
     let input = client::SaveItemInput {
         id: text_key(&item.id),
         title: item.title.clone(),
         state_label: item.state_label.clone(),
-        stage: same(&item.stage)?,
+        stage: same(&life.stage)?,
         status: same_opt(item.status.as_ref())?,
-        turn: same(&item.turn)?,
-        turn_until: time::put_opt(item.turn_until),
-        waiting_on: item.waiting_on.clone(),
-        then_turn: same_opt(item.then_turn.as_ref())?,
+        turn: same_opt(life.turn.as_ref())?,
+        turn_until: time::put_opt(life.turn_until),
+        need: life.need,
+        wake: (!life.wake.is_empty())
+            .then(|| serde_json::to_value(&life.wake))
+            .transpose()?,
+        waiting_on: life.waiting_on,
+        then_turn: same_opt(life.then_turn.as_ref())?,
         area: item.area.clone(),
         link: item.link.clone(),
         source: item.source.clone(),
@@ -150,30 +169,6 @@ pub async fn from_source(db: &Db, source: &str) -> AppResult<Vec<WorkItem>> {
         source: source.to_owned(),
     };
     from_rows(db.api().items_from_source(input, ()).await?)
-}
-
-/// Parked items, highest priority first.
-pub async fn parked(db: &Db) -> AppResult<Vec<WorkItem>> {
-    from_rows(
-        db.api()
-            .parked_items(client::ParkedItemsInput {}, ())
-            .await?,
-    )
-}
-
-pub async fn is_parked(db: &Db, id: &str) -> AppResult<bool> {
-    let input = client::ItemParkedInput { id: text_key(id) };
-    let row = db.api().item_parked(input, ()).await?;
-    Ok(row.is_some_and(|r| r.parked))
-}
-
-/// Parks an item, taking it off every list, or brings it back.
-pub async fn set_parked(db: &Db, id: &str, parked: bool) -> AppResult<()> {
-    let input = client::SetParkedInput {
-        id: text_key(id),
-        parked,
-    };
-    Ok(db.api().set_parked(input, ()).await?)
 }
 
 /// Hides a synced item so the connector doesn't bring it back.

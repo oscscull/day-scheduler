@@ -3,6 +3,7 @@
 mod alerts;
 mod answer;
 mod app;
+mod attention;
 mod claude;
 mod cli;
 mod commands;
@@ -14,6 +15,7 @@ mod devseed;
 mod domain;
 mod error;
 mod jobs;
+mod lifecycle;
 mod mcp;
 mod notify;
 mod park;

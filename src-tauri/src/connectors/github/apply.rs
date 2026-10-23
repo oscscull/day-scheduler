@@ -114,7 +114,7 @@ pub async fn unseen(db: &Db, open: &HashSet<String>) -> AppResult<Vec<String>> {
     Ok(items::from_source(db, SOURCE)
         .await?
         .into_iter()
-        .filter(|i| i.stage != Stage::Done)
+        .filter(|i| i.stage() != Stage::Done)
         .filter_map(|i| i.external_id)
         .filter(|ext| !open.contains(ext))
         .collect())
@@ -173,10 +173,11 @@ mod tests {
             .await
             .unwrap();
         let waiting = items::get(&db, "app#7").await.unwrap();
-        assert_eq!(
-            (waiting.turn, waiting.waiting_on.as_deref()),
-            (crate::domain::turn::Turn::Others, Some("reviewers"))
-        );
+        let reviewers = crate::domain::life::Whose::Others {
+            waiting_on: "reviewers".to_owned(),
+            then: None,
+        };
+        assert_eq!(waiting.life.whose(), Some(&reviewers));
         let mut edited = items::get(&db, "app#7").await.unwrap();
         edited.state_label = "Sam is on holiday".to_owned();
         items::save(&db, &edited).await.unwrap();
@@ -194,7 +195,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            items::get(&db, "app#7").await.unwrap().stage,
+            items::get(&db, "app#7").await.unwrap().stage(),
             Stage::InReview
         );
         close(&db, "me/app#7", Fate::Merged, Utc::now())
@@ -202,7 +203,7 @@ mod tests {
             .unwrap();
         let merged = items::get(&db, "app#7").await.unwrap();
         assert_eq!(
-            (merged.stage, merged.state_label.as_str()),
+            (merged.stage(), merged.state_label.as_str()),
             (Stage::Done, "merged")
         );
     }

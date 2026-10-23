@@ -24,7 +24,14 @@ async fn act(handle: &AppHandle, settings: &Settings, item: &WorkItem, due: Due)
     let clock = Clock::now(&settings.turns);
     match due {
         Due::Wait => Ok(()),
-        Due::StartClock => turns::reset_clock(db, &item.id, clock.deadline(item.turn)?).await,
+        Due::StartClock => {
+            turns::reset_clock(
+                db,
+                &item.id,
+                clock.deadline(item.turn().unwrap_or(Turn::You))?,
+            )
+            .await
+        }
         Due::Prompt => prompt(handle, settings, item).await,
         Due::Remind => {
             turns::reset_clock(db, &item.id, clock.deadline(Turn::You)?).await?;
@@ -88,7 +95,7 @@ pub async fn check(handle: &AppHandle, settings: &Settings, up: bool) -> AppResu
     for item in mine
         .iter()
         .filter(|i| settings.node_for(&i.area) == settings.node)
-        .filter(|i| up || i.turn != Turn::Agent)
+        .filter(|i| up || !i.is_turn(Turn::Agent))
     {
         let kept = keep(handle, settings, item, &known).await;
         if first.is_ok() {
