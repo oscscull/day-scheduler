@@ -3,50 +3,19 @@
 
 pub mod due;
 pub mod history;
+mod pass;
 pub mod work;
+
+pub use pass::Pass;
 
 use chrono::{DateTime, TimeDelta, Utc};
 
 use crate::config::turns::TurnSettings;
 use crate::domain::event::Change;
-use crate::domain::item::WorkItem;
+use crate::domain::life::{Active, Life, Phase, Whose};
 use crate::domain::turn::Turn;
 use crate::error::{AppError, AppResult};
 use crate::store::{Db, events, items};
-
-/// Who the turn goes to, and why.
-#[derive(Debug, Clone)]
-pub struct Pass {
-    pub to: Turn,
-    /// What was done, or what ran out. Kept in the item's history.
-    pub why: String,
-    /// For others' turn: who it waits on.
-    pub waiting_on: Option<String>,
-    /// When the turn runs out. Unset, it's the configured length from now, or, for an agent handing
-    /// the turn to itself, the deadline it already has.
-    pub until: Option<DateTime<Utc>>,
-    /// For others' or a later turn: who gets it after.
-    pub then: Option<Turn>,
-}
-
-impl Pass {
-    pub fn to(to: Turn, why: impl Into<String>) -> Self {
-        Self {
-            to,
-            why: why.into(),
-            waiting_on: None,
-            until: None,
-            then: None,
-        }
-    }
-
-    pub fn waiting_on(self, who: impl Into<String>) -> Self {
-        Self {
-            waiting_on: Some(who.into()),
-            ..self
-        }
-    }
-}
 
 /// The turn limits, and when a change happens.
 #[derive(Debug, Clone, Copy)]
@@ -79,24 +48,36 @@ impl<'a> Clock<'a> {
 
 /// The deadline after a pass. An agent handing the turn to itself keeps its clock, so it can't
 /// keep itself going forever.
-fn until_after(item: &WorkItem, pass: &Pass, clock: Clock<'_>) -> AppResult<DateTime<Utc>> {
-    let kept = (pass.to == Turn::Agent && item.turn == Turn::Agent)
-        .then_some(item.turn_until)
-        .flatten();
+fn until_after(old: Option<&Active>, pass: &Pass, clock: Clock<'_>) -> AppResult<DateTime<Utc>> {
+    let kept = old
+        .filter(|a| pass.to == Turn::Agent && a.whose == Whose::Agent)
+        .and_then(|a| a.until);
     pass.until
         .or(kept)
         .map_or_else(|| clock.deadline(pass.to), Ok)
 }
 
+/// Hands the turn on. Unstarted work starts; done work has no turn, so nothing changes.
 pub async fn pass(db: &Db, item_id: &str, pass: Pass, clock: Clock<'_>) -> AppResult<()> {
     let mut item = items::get(db, item_id).await?;
-    item.turn_until = Some(until_after(&item, &pass, clock)?);
-    item.turn = pass.to;
-    item.waiting_on = pass.waiting_on.filter(|_| pass.to == Turn::Others);
-    item.then_turn = pass
-        .then
-        .filter(|_| matches!(pass.to, Turn::Others | Turn::Later));
+    let (phase, old) = match &item.life {
+        Life::Done => return Ok(()),
+        Life::Unstarted => (Phase::InProgress, None),
+        Life::Active(a) => (a.phase, Some(a)),
+    };
+    let until = Some(until_after(old, &pass, clock)?);
+    let started = old.is_none();
+    item.life = Life::active_as(phase, pass.whose(), until);
+    if started {
+        item.state_since = clock.now;
+    }
     items::save(db, &item).await?;
+    if started {
+        let stage = Change::Stage {
+            stage: phase.stage(),
+        };
+        events::record(db, item_id, clock.now, &stage).await?;
+    }
     let change = Change::Turn {
         turn: pass.to,
         why: pass.why,
@@ -107,6 +88,9 @@ pub async fn pass(db: &Db, item_id: &str, pass: Pass, clock: Clock<'_>) -> AppRe
 /// Moves the clock without passing the turn: an item just in flight, or a reminder sent.
 pub async fn reset_clock(db: &Db, item_id: &str, until: DateTime<Utc>) -> AppResult<()> {
     let mut item = items::get(db, item_id).await?;
-    item.turn_until = Some(until);
-    items::save(db, &item).await
+    if let Life::Active(a) = &mut item.life {
+        a.until = Some(until);
+        items::save(db, &item).await?;
+    }
+    Ok(())
 }

@@ -50,7 +50,6 @@ pub fn of(item: &WorkItem) -> Option<Target> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::item::Stage;
     use chrono::Utc;
 
     fn item(source: &str, external_id: Option<&str>, link: Option<&str>) -> WorkItem {
@@ -58,12 +57,8 @@ mod tests {
             id: "x#1".to_owned(),
             title: "t".to_owned(),
             state_label: String::new(),
-            stage: Stage::UpNext,
+            life: crate::domain::life::Life::Unstarted,
             status: None,
-            turn: crate::domain::turn::Turn::You,
-            turn_until: None,
-            waiting_on: None,
-            then_turn: None,
             area: "work".to_owned(),
             link: link.map(str::to_owned),
             source: source.to_owned(),

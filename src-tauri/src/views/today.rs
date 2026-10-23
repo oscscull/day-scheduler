@@ -58,7 +58,7 @@ pub async fn build(db: &Db, priority_limit: usize, now: DateTime<Utc>) -> AppRes
     let ranked = items::list(db).await?;
     let in_flight = ranked
         .iter()
-        .filter(|i| !matches!(i.stage, Stage::UpNext | Stage::Done))
+        .filter(|i| !matches!(i.stage(), Stage::UpNext | Stage::Done))
         .count();
     Ok(TodayView {
         urgent: urgent::list(db).await?,

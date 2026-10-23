@@ -20,7 +20,7 @@
 
   let { item, onClose, onSaved }: Props = $props();
 
-  const STATUSES: Status[] = ["decision", "approved", "review", "ci", "ci_failed", "dependency", "queued"];
+  const STATUSES: Status[] = ["approved", "review", "ci", "ci_failed", "dependency", "queued"];
   const stageKey = (s: Stage): CopyKey => `stage.${s}`;
   const statusKey = (s: Status): CopyKey => `status.${s}`;
 
@@ -30,6 +30,9 @@
   let link = $state(untrack(() => item.link) ?? "");
   let error = $state("");
   const isNew = start.id === "";
+  // Started work never goes back to up next; it's parked or closed instead.
+  const started = start.stage === "in_progress" || start.stage === "in_review";
+  const stages = STAGES.filter((s) => !(started && s === "up_next"));
 
   async function save(): Promise<void> {
     try {
@@ -65,7 +68,7 @@
     <label class="field">
       {t("item.stage")}
       <select class="input" bind:value={form.stage}>
-        {#each STAGES as s (s)}<option value={s}>{t(stageKey(s))}</option>{/each}
+        {#each stages as s (s)}<option value={s}>{t(stageKey(s))}</option>{/each}
       </select>
     </label>
     <label class="field">

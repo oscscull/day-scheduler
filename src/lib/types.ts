@@ -1,9 +1,16 @@
 // Mirrors the Rust types the backend sends. Keep in step with src-tauri/src/domain and views.
 
 export type Stage = "up_next" | "in_progress" | "in_review" | "done";
+/** `decision` is retired; older peers may still send it. */
 export type Status = "decision" | "review" | "ci" | "ci_failed" | "dependency" | "approved" | "queued";
-/** Whose move an item is. Every item in flight has one, with a deadline. */
+/** Whose move an item is. Started work always has one, with a deadline; up next and done work has none. */
 export type Turn = "you" | "agent" | "others" | "later";
+
+/** An event that wakes parked work, in the schedules' trigger format. */
+export interface OnEvent {
+  on: string;
+  when?: Record<string, string>;
+}
 
 export interface WorkItem {
   /** Set when it lives on another machine; edits go back there. */
@@ -13,12 +20,17 @@ export interface WorkItem {
   stateLabel: string;
   stage: Stage;
   status: Status | null;
-  turn: Turn;
-  /** When the turn runs out; unset until the item is in flight. */
+  /** Null while up next or done. */
+  turn: Turn | null;
+  /** When the turn runs out. */
   turnUntil: string | null;
+  /** On the user's turn: what's needed from them. */
+  need?: string | null;
+  /** On a later (parked) turn: events that bring it back sooner. */
+  wake?: OnEvent[];
   /** Who it waits on while it's others' turn, e.g. reviewers or "CI". */
   waitingOn: string | null;
-  /** Who gets the turn when others' or a later turn runs out. */
+  /** Who gets the turn when others' or a later turn runs out: you or the agent. */
   thenTurn: Turn | null;
   area: string;
   link: string | null;
@@ -58,8 +70,6 @@ export interface ItemEvent {
 
 export interface ItemDetail {
   item: WorkItem;
-  /** Missing from machines running an older Quarterdeck. */
-  parked?: boolean;
   asks: Ask[];
   history: ItemEvent[];
 }
@@ -84,7 +94,8 @@ export interface Ask {
 /** Something that needs the user, derived from the work. `kind` says why. */
 export type Priority = (
   | { kind: "ask"; ask: Ask }
-  | { kind: "yours" }
+  /** `need` is missing from machines running an older Quarterdeck. */
+  | { kind: "yours"; need?: string }
 ) & {
   /** Set when it lives on another machine; edits go back there. */
   node?: string;

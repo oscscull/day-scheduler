@@ -101,7 +101,7 @@ mod tests {
         let id = urgent::raise(&db, &card(Some(run))).await.unwrap();
         request(&db, id, &TurnSettings::default()).await.unwrap();
 
-        assert_eq!(items::get(&db, "B-1").await.unwrap().turn, Turn::Agent);
+        assert!(items::get(&db, "B-1").await.unwrap().is_turn(Turn::Agent));
         assert!(urgent::list(&db).await.unwrap().is_empty());
         let asked = take(&db, "B-1").await.unwrap().unwrap();
         assert_eq!(

@@ -73,7 +73,7 @@ mod tests {
         };
         report(&db, &answered, Clock::now(&limits)).await.unwrap();
 
-        assert_eq!(items::get(&db, "B-1").await.unwrap().turn, Turn::You);
+        assert!(items::get(&db, "B-1").await.unwrap().is_turn(Turn::You));
         let raised = urgent::list(&db).await.unwrap();
         assert!(raised.first().unwrap().detail.contains("fix it"));
         let history = events::for_item(&db, "B-1").await.unwrap();

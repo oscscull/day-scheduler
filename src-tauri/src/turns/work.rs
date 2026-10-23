@@ -72,7 +72,7 @@ pub async fn work(
         return Ok(Work::Pending);
     }
     let quiet = limits.quiet()?;
-    if item.turn == Turn::Agent && !idle(db, item, known, quiet).await? {
+    if item.is_turn(Turn::Agent) && !idle(db, item, known, quiet).await? {
         return Ok(Work::Elsewhere);
     }
     Ok(Work::Idle)

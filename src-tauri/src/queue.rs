@@ -3,12 +3,11 @@
 //! progress. Starting one gives the agent the turn and `prompts/queue.md`.
 
 use crate::domain::ask::Ask;
-use crate::domain::item::{ItemInput, Stage, WorkItem};
+use crate::domain::item::{Stage, WorkItem};
 use crate::domain::turn::Turn;
 use crate::error::AppResult;
 use crate::store::{Db, asks};
 use crate::turns::{self, Clock, Pass};
-use crate::work;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Next<'a> {
@@ -25,7 +24,7 @@ pub fn next<'a>(queue: &[String], items: &'a [WorkItem]) -> Next<'a> {
         let Some(item) = items.iter().find(|i| &i.id == id) else {
             continue;
         };
-        match item.stage {
+        match item.stage() {
             Stage::InReview | Stage::Done => {}
             Stage::UpNext => return Next::Start(item),
             Stage::InProgress => return Next::Wait(item),
@@ -34,33 +33,21 @@ pub fn next<'a>(queue: &[String], items: &'a [WorkItem]) -> Next<'a> {
     Next::Finished
 }
 
-/// Leaves `message` for the scheduler to take to Claude, and marks the item in progress so the
-/// queue waits for it.
+/// Leaves `message` for the scheduler to take to Claude, and gives the agent the turn, which starts
+/// the item, so the queue waits for it.
 pub async fn start(db: &Db, item: &WorkItem, message: &str, clock: Clock<'_>) -> AppResult<()> {
-    let now = clock.now;
     let ask = Ask {
         item_id: item.id.clone(),
         ..Ask::default()
     };
     let id = asks::insert(db, &ask).await?;
     asks::answer(db, id, message).await?;
-    let input = ItemInput {
-        id: item.id.clone(),
-        title: item.title.clone(),
-        state_label: item.state_label.clone(),
-        stage: Stage::InProgress,
-        status: item.status,
-        area: item.area.clone(),
-        link: item.link.clone(),
-    };
-    work::save(db, input, now).await?;
     let pass = Pass::to(Turn::Agent, "next in the queue");
     turns::pass(db, &item.id, pass, clock).await
 }
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
 
     use super::*;
     use crate::config::turns::TurnSettings;
@@ -68,22 +55,9 @@ mod tests {
 
     fn item(id: &str, stage: Stage) -> WorkItem {
         WorkItem {
-            id: id.to_owned(),
-            title: "t".to_owned(),
-            state_label: String::new(),
-            stage,
-            status: None,
-            turn: Turn::You,
-            turn_until: None,
-            waiting_on: None,
-            then_turn: None,
             area: "projects".to_owned(),
-            link: None,
             source: "manual".to_owned(),
-            external_id: None,
-            opened_at: Utc::now(),
-            state_since: Utc::now(),
-            rank: 0,
+            ..WorkItem::sample(id, crate::lifecycle::new(stage, ""))
         }
     }
 

@@ -55,7 +55,7 @@ async fn get(ctx: Ctx, _: NoArgs) -> AppResult<Queue> {
         .map(|id| {
             let item = all.iter().find(|i| i.id == id);
             Entry {
-                stage: item.map(|i| i.stage),
+                stage: item.map(crate::domain::item::WorkItem::stage),
                 state_label: item.map(|i| i.state_label.clone()).unwrap_or_default(),
                 id,
             }

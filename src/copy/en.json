@@ -231,7 +231,7 @@
   "item.open": "Open link",
   "item.park": "Park",
   "item.unpark": "Unpark",
-  "item.parked": "Parked: off Today, the board and Claude’s queue until you unpark it.",
+  "item.parked": "Parked: off Today until the day you chose, or until what it waits for happens. Then it’s your turn again.",
   "item.since": "{state} for {age} · open {open}",
   "tell.label": "Tell Claude what to do",
   "tell.placeholder": "e.g. merge develop in and fix the conflicts",
@@ -347,5 +347,13 @@
   "turn.until": "{turn} until {at}",
   "agent.session": "in a session outside Quarterdeck",
   "agent.starting": "starting on the next tick",
-  "agent.until": "until {at}"
+  "agent.until": "until {at}",
+  "item.neededFromYou": "Needed from you",
+  "item.reply": "Reply, or tell Claude what to do",
+  "item.showHistory": "History ({n})",
+  "item.hideHistory": "Hide history",
+  "park.hint": "It leaves Today until then, and comes back as your turn. If nobody will pick it up, delete it or mark it done instead.",
+  "park.until": "Back on",
+  "park.why": "Why (optional)",
+  "park.whyPlaceholder": "e.g. waiting for the v2 API"
 }

@@ -12,10 +12,10 @@
   import type { ItemDetail } from "../../lib/types";
   import Chip from "../Chip.svelte";
   import Modal from "../Modal.svelte";
-  import AskList from "./AskList.svelte";
-  import TellClaude from "../TellClaude.svelte";
   import History from "./History.svelte";
   import Links from "./Links.svelte";
+  import NeedsYou from "./NeedsYou.svelte";
+  import ParkForm from "./ParkForm.svelte";
 
   interface Props {
     id: string;
@@ -29,6 +29,7 @@
   let detail = $state<ItemDetail | null>(null);
   let error = $state("");
   let confirming = $state(false);
+  let parking = $state(false);
   const now = new Date();
 
   // Reload whenever anything is edited, including asks added here.
@@ -37,11 +38,10 @@
     route.itemDetail(node, id).then((d) => (detail = { ...d, item: { ...d.item, ...(node ? { node } : {}) } })).catch((e: unknown) => (error = errorText(e)));
   });
 
-  async function park(parked: boolean): Promise<void> {
+  async function unpark(): Promise<void> {
     try {
-      await route.setParked(node, id, parked);
+      await route.unpark(node, id);
       changed();
-      if (parked) onClose();
     } catch (e) {
       error = errorText(e);
     }
@@ -68,24 +68,23 @@
   );
 </script>
 
-<Modal title={detail ? `${detail.item.id} · ${detail.item.title}` : id} {subtitle} {onClose}>
+<Modal title={detail ? `${detail.item.id} · ${detail.item.title}` : id} {subtitle} wide {onClose}>
   {#if detail}
     {@const item = detail.item}
+    {@const active = item.stage === "in_progress" || item.stage === "in_review"}
+    {@const parked = active && item.turn === "later"}
+    <NeedsYou {item} {node} asks={detail.asks} />
     <div class="state">
       {#if findArea(item.area)}<span class="area"><span class="dot" style:background={findArea(item.area)?.color}></span>{findArea(item.area)?.name}</span>{/if}
       {#if item.status}<Chip status={item.status} />{/if}
       {#if item.stateLabel}<span class="label">{item.stateLabel}</span>{/if}
-      {#if item.stage !== "done" && item.stage !== "up_next"}<span class="hint">· {turnWithClock(item, now)}</span>{/if}
+      {#if active}<span class="hint">· {turnWithClock(item, now)}</span>{/if}
     </div>
     {#if item.link}<Links link={item.link} />{/if}
     {#if item.source !== "manual"}<p class="hint small">{t("item.synced", { source: item.source })}</p>{/if}
-    {#if detail.parked}<p class="hint small">{t("item.parked")}</p>{/if}
-    <AskList {node} asks={detail.asks} />
-    {#if item.stage !== "done"}
-      <section class="tell" aria-label={t("tell.label")}>
-        <h3 class="section-label">{t("tell.label")}</h3>
-        <TellClaude itemId={item.id} {node} />
-      </section>
+    {#if parked}<p class="hint small">{t("item.parked")}</p>{/if}
+    {#if parking}
+      <ParkForm {id} {node} onParked={() => { parking = false; onClose(); }} onCancel={() => (parking = false)} />
     {/if}
     <History events={detail.history} {now} />
     {#if confirming}
@@ -94,9 +93,10 @@
     <div class="foot">
       <button type="button" class="quiet" onclick={() => (confirming ? remove() : (confirming = true))}>{t("item.delete")}</button>
       <div class="buttons">
-        {#if detail.parked !== undefined && item.stage !== "done"}
-          {@const parked = detail.parked}
-          <button type="button" class="button-secondary" onclick={() => park(!parked)}>{parked ? t("item.unpark") : t("item.park")}</button>
+        {#if parked}
+          <button type="button" class="button-secondary" onclick={unpark}>{t("item.unpark")}</button>
+        {:else if active && !parking}
+          <button type="button" class="button-secondary" onclick={() => (parking = true)}>{t("item.park")}</button>
         {/if}
         {#if item.link}
           {@const link = item.link}
@@ -153,10 +153,5 @@
     background: transparent;
     color: var(--muted);
     font-size: 13px;
-  }
-  .tell {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
   }
 </style>

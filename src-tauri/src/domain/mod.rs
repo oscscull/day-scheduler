@@ -6,6 +6,7 @@ pub mod commitment;
 pub mod event;
 pub mod fired;
 pub mod item;
+pub mod life;
 pub mod run;
 pub mod schedule;
 pub mod script;

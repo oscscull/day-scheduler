@@ -16,7 +16,7 @@ use crate::turns::{self, Clock, Pass};
 
 /// Gives the agent the turn, unless it has it already.
 pub async fn take(db: &Db, (item_id, what): (&str, &str), limits: &TurnSettings) -> AppResult<()> {
-    if items::get(db, item_id).await?.turn == Turn::Agent {
+    if items::get(db, item_id).await?.is_turn(Turn::Agent) {
         return Ok(());
     }
     turns::pass(db, item_id, Pass::to(Turn::Agent, what), Clock::now(limits)).await
@@ -33,7 +33,7 @@ pub struct Finished<'a> {
 /// After a run that finished: if the agent didn't hand the turn on, it goes to the user.
 pub async fn end(db: &Db, run: Finished<'_>, limits: &TurnSettings) -> AppResult<()> {
     let item_id = run.item_id;
-    let still_agents = items::get(db, item_id).await?.turn == Turn::Agent;
+    let still_agents = items::get(db, item_id).await?.is_turn(Turn::Agent);
     if !still_agents || turns::history::passed_since(db, item_id, run.started).await? {
         return Ok(());
     }

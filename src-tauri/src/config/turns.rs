@@ -17,7 +17,8 @@ pub struct TurnSettings {
     pub others_hours: i64,
     /// Put off with no time given.
     pub later_hours: i64,
-    /// Who gets the turn when others' wait runs out, unless the item says otherwise.
+    /// Who gets the turn when others' wait runs out, unless the item says otherwise: `you` or
+    /// `agent`, so a wait never hands on to another wait.
     pub others_then: Turn,
     /// How long an agent session working outside Quarterdeck can go quiet before it's prompted.
     pub quiet_minutes: i64,
@@ -74,6 +75,11 @@ impl TurnChange {
             return Err(AppError::BadInput(format!(
                 "turn lengths must be between 1 and {MAX_TURN_HOURS} hours"
             )));
+        }
+        if matches!(self.others_then, Some(Turn::Others | Turn::Later)) {
+            return Err(AppError::BadInput(
+                "others_then must be \"you\" or \"agent\"".to_owned(),
+            ));
         }
         let max_minutes = MAX_TURN_HOURS * 60;
         if self

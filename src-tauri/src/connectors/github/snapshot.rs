@@ -69,10 +69,8 @@ fn holder_name(pr: &Pr, holder: &str) -> String {
 
 pub fn of(pr: &Pr) -> Snapshot {
     let (status, label, holder) = match (waiting_on_review(pr), pr.reviewers) {
-        (true, Reviewers::Yourself) => (Some(Status::Decision), "ready for your review", "you"),
-        (true, Reviewers::NoneRequested) => {
-            (Some(Status::Decision), "no reviewer requested yet", "you")
-        }
+        (true, Reviewers::Yourself) => (None, "ready for your review", "you"),
+        (true, Reviewers::NoneRequested) => (None, "no reviewer requested yet", "you"),
         (true | false, _) => state(pr),
     };
     let holder = holder_name(pr, holder);
@@ -164,7 +162,7 @@ mod tests {
             ..pr(Some("SUCCESS"), None, 0)
         };
         assert_eq!(of(&unrequested).owned.label, "no reviewer requested yet");
-        assert_eq!(of(&unrequested).owned.status, Some(Status::Decision));
+        assert_eq!(of(&unrequested).owned.holder, "you");
         let failing = Pr {
             reviewers: Reviewers::Yourself,
             ..pr(Some("FAILURE"), None, 0)

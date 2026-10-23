@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::fetch::Issue;
 use crate::domain::event::Change;
 use crate::domain::item::{ItemInput, Stage, WorkItem};
+use crate::domain::life::Life;
 use crate::error::AppResult;
 use crate::store::{Db, events, items, sync_state};
 use crate::work;
@@ -26,10 +27,7 @@ struct Snapshot {
 
 /// An issue's item that nobody has picked up: as synced, its turn never passed.
 pub fn untriaged(item: &WorkItem) -> bool {
-    item.source == SOURCE
-        && item.stage == Stage::UpNext
-        && item.turn_until.is_none()
-        && item.status.is_none()
+    item.source == SOURCE && item.life == Life::Unstarted && item.status.is_none()
 }
 
 async fn snapshot(db: &Db, ext: &str) -> AppResult<Option<Snapshot>> {
@@ -62,7 +60,7 @@ pub async fn apply(db: &Db, issue: &Issue, area: &str, now: DateTime<Utc>) -> Ap
         None => create(db, issue, area, now).await?,
         // GitHub closed it (which forgets the snapshot) and it is open again. One the user marked
         // done here stays done.
-        Some(item) if item.stage == Stage::Done && old.is_none() => {
+        Some(item) if item.stage() == Stage::Done && old.is_none() => {
             let reopened = input(
                 &item,
                 issue.title.clone(),
@@ -72,12 +70,13 @@ pub async fn apply(db: &Db, issue: &Issue, area: &str, now: DateTime<Utc>) -> Ap
             work::save(db, reopened, now).await?;
         }
         Some(item)
-            if item.stage != Stage::Done && old.as_ref().is_none_or(|o| o.title != issue.title) =>
+            if item.stage() != Stage::Done
+                && old.as_ref().is_none_or(|o| o.title != issue.title) =>
         {
             let retitled = input(
                 &item,
                 issue.title.clone(),
-                item.stage,
+                item.stage(),
                 item.state_label.clone(),
             );
             work::save(db, retitled, now).await?;
@@ -143,7 +142,6 @@ pub async fn cover(db: &Db, issue: &Issue, pr: (&str, &str), now: DateTime<Utc>)
     }
     if let Some(item) = items::by_external(db, SOURCE, &ext).await?
         && untriaged(&item)
-        && !items::is_parked(db, &item.id).await?
     {
         items::purge(db, &item.id).await?;
     }
@@ -173,6 +171,7 @@ pub async fn close(db: &Db, ext: &str, now: DateTime<Utc>) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::life::{Phase, Whose};
     use crate::domain::turn::Turn;
 
     fn issue(title: &str) -> Issue {
@@ -198,27 +197,26 @@ mod tests {
         let mut item = the_item(&db).await.unwrap();
         assert_eq!(item.id, "app#7");
         assert!(untriaged(&item));
-        item.turn = Turn::Agent;
-        item.turn_until = Some(Utc::now());
+        item.life = Life::active_as(Phase::InProgress, Whose::Agent, Some(Utc::now()));
         items::save(&db, &item).await.unwrap();
         apply(&db, &issue("Breaks"), "projects", Utc::now())
             .await
             .unwrap();
-        assert_eq!(the_item(&db).await.unwrap().turn, Turn::Agent);
+        assert!(the_item(&db).await.unwrap().is_turn(Turn::Agent));
         apply(&db, &issue("Breaks badly"), "projects", Utc::now())
             .await
             .unwrap();
         let retitled = the_item(&db).await.unwrap();
         assert_eq!(
-            (retitled.title.as_str(), retitled.turn),
-            ("Breaks badly", Turn::Agent)
+            (retitled.title.as_str(), retitled.turn()),
+            ("Breaks badly", Some(Turn::Agent))
         );
         close(&db, "me/app#7", Utc::now()).await.unwrap();
-        assert_eq!(the_item(&db).await.unwrap().stage, Stage::Done);
+        assert_eq!(the_item(&db).await.unwrap().stage(), Stage::Done);
         apply(&db, &issue("Breaks badly"), "projects", Utc::now())
             .await
             .unwrap();
-        assert_eq!(the_item(&db).await.unwrap().stage, Stage::UpNext);
+        assert_eq!(the_item(&db).await.unwrap().stage(), Stage::UpNext);
     }
 
     #[tokio::test]
@@ -238,7 +236,10 @@ mod tests {
             .await
             .unwrap();
         let item = the_item(&db).await.unwrap();
-        assert_eq!((item.id.as_str(), item.stage), ("app#7", Stage::InProgress));
+        assert_eq!(
+            (item.id.as_str(), item.stage()),
+            ("app#7", Stage::InProgress)
+        );
     }
 
     #[tokio::test]
@@ -256,11 +257,13 @@ mod tests {
             .await
             .unwrap();
         assert!(untriaged(&the_item(&db).await.unwrap()));
-        // A parked one stays, and stays parked.
-        items::set_parked(&db, "app#7", true).await.unwrap();
+        // One someone started stays.
+        let mut started = the_item(&db).await.unwrap();
+        started.life = Life::active_as(Phase::InProgress, Whose::Agent, None);
+        items::save(&db, &started).await.unwrap();
         cover(&db, &issue("Breaks"), ("me/app#10", "github"), Utc::now())
             .await
             .unwrap();
-        assert!(items::is_parked(&db, "app#7").await.unwrap());
+        assert!(the_item(&db).await.is_some());
     }
 }

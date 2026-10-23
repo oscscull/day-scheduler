@@ -11,7 +11,7 @@ use crate::store::{Db, items};
 /// Binds each open hand-made item in an area this machine syncs to the PR its link names.
 pub async fn bind(db: &Db, all: &Settings) -> AppResult<()> {
     for item in items::from_source(db, items::MANUAL).await? {
-        if item.stage == Stage::Done || all.node_for(&item.area) != all.node {
+        if item.stage() == Stage::Done || all.node_for(&item.area) != all.node {
             continue;
         }
         if let Some(ext) = item.link.as_deref().and_then(pr_id) {
