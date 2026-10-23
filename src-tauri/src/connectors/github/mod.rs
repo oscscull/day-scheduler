@@ -6,6 +6,8 @@ mod checks;
 mod fate;
 mod fetch;
 pub mod issues;
+pub mod link;
+mod linked;
 mod snapshot;
 mod turn;
 
@@ -74,6 +76,8 @@ pub async fn sync(handle: &AppHandle) -> AppResult<Vec<Fired>> {
     let app = handle.state::<App>();
     let all = app.settings()?;
     let prs = fetch::open_prs().await?;
+    // Before the PRs, so one an item already links to doesn't get a second item.
+    linked::bind(&app.db, &all).await?;
     let now = Utc::now();
     let mut fired = Vec::new();
     let mut open = HashSet::new();

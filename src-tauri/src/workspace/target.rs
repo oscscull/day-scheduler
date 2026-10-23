@@ -32,24 +32,12 @@ fn pr_of(item: &WorkItem) -> Option<Target> {
     })
 }
 
-/// The issue an item links to: `https://github.com/<owner>/<repo>/issues/<n>`, with any trailing
-/// `/`, `#…` or `?…` ignored.
+/// The issue an item links to: `https://github.com/<owner>/<repo>/issues/<n>`.
 fn issue_of(item: &WorkItem) -> Option<Target> {
-    let link = item.link.as_deref()?.trim();
-    let path = link.strip_prefix("https://github.com/")?;
-    let mut parts = path.split('/');
-    let (owner, repo) = (parts.next()?, parts.next()?);
-    if parts.next()? != "issues" || owner.is_empty() || repo.is_empty() {
-        return None;
-    }
-    let digits: String = parts
-        .next()?
-        .chars()
-        .take_while(char::is_ascii_digit)
-        .collect();
+    let (repo, number) = github::link::parse(item.link.as_deref()?, "issues")?;
     Some(Target {
-        repo: format!("{owner}/{repo}"),
-        number: digits.parse().ok()?,
+        repo,
+        number,
         kind: Kind::Issue,
     })
 }
