@@ -42,7 +42,7 @@ async fn write_items(db: &Db, old: &Old) -> AppResult<()> {
         }
     }
     for (item_id, at, change) in &old.events {
-        events::record(db, item_id, *at, change).await?;
+        events::restore(db, item_id, *at, change).await?;
     }
     for (ask, answer) in &old.asks {
         let id = asks::insert(db, ask).await?;

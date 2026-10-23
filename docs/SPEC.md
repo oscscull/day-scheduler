@@ -44,7 +44,8 @@ The window title shows the running version, so it's clear when an update has lan
 - **Board**: items by stage, with parked items in a list of their own below. **In flight**: open
   items by whose turn it is.
 - **Agent**: every item that is the agent's turn, and what's running (each run's latest step, live; click for its steps so far), every schedule (toggle, edit, delete, run now, create by describing
-  it), missed or failed runs, Pause all, connector and peer status, and the MCP connect command.
+  it), missed or failed runs, Pause all, recent events and what they started, connector and peer
+  status, and the MCP connect command.
 - **Ask Claude** bubble on every view, given that view's data and the Quarterdeck tools, settings
   ones included, so any setting can be changed by asking.
 
@@ -109,7 +110,28 @@ capped and deleted when the run ends, which the Agent tab and peers read (`list_
 `get_run_log`). Schedules can use other tools only when their file lists them in `allowed_tools`.
 The scheduler ticks every 30s:
 cron runs fire on time, runs missed while asleep are recorded and raised as urgent, and Pause all
-stops everything. Event triggers cost nothing until they fire.
+stops everything.
+
+## Events and triggers
+
+A schedule has a list of triggers, any of which starts it: cron expressions, and events. Events
+cost nothing until they fire. Each is stored (kind, area, subject, string fields, a line for the
+run) and the next tick starts the enabled schedules in that area, on the machine that runs it,
+with a trigger for that kind whose `when` filters all match (`*` is a wildcard). The run is told
+the event and runs against its subject (an item or schedule), never twice at once on one subject,
+and not again within the trigger's `cooldown` minutes. Events fire from:
+
+- GitHub syncs: `github.ci_failed`, `github.ci_passed`, `github.pr_new_comments`. CI results also
+  reach claimed sessions and fix-ci runs as described under Turns.
+- Item history: `item.created`, `item.stage`, `item.turn`. History copied from an old database
+  fires nothing.
+- Runs: `run.finished` (with `outcome`) when a schedule's run ends, so schedules can chain.
+- Agents and peers: `custom.<name>` through `emit_event`, sent to the machine that runs its area.
+
+Each event counts how many led to it: a run started by an event passes its depth + 1 to the MCP
+server it runs with, so anything its agent changes is one step deeper. From depth 3 on, schedules
+stop starting each other and it's raised as urgent. Events while paused start nothing. Events
+expire after `event_ttl_days`. `list_event_kinds` describes them all.
 
 ## Turns
 

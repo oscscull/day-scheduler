@@ -21,6 +21,8 @@ claude_command = "claude"
 # How long stored agent output lives before it is deleted.
 activity_ttl_days = 7
 run_ttl_days = 14
+# Events (what happened, and which schedules it started).
+event_ttl_days = 3
 done_todo_ttl_days = 1
 # Done work items, with their history, are deleted this long after they finish.
 done_item_ttl_days = 30

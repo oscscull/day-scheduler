@@ -7,18 +7,22 @@ use super::super::tool::{NoArgs, Tool, async_tool, tool};
 use super::time;
 use crate::config::{pause, schedules};
 use crate::cron::explain::{Explanation, explain};
-use crate::domain::schedule::{Autonomy, EventKind, Schedule, Scope, Trigger};
-use crate::error::{AppError, AppResult};
+use crate::domain::schedule::Schedule;
+use crate::domain::trigger::Trigger;
+use crate::error::AppResult;
 use crate::peers;
 use crate::store::run_requests;
 use crate::views::agent::{self, AgentView};
 
 const LIST_SCHEDULES: &str = "Every recurring job, with when it runs next, its recent runs, what Claude is running now, \
              and whether everything is paused.";
-const CREATE_SCHEDULE: &str = "Creates a recurring job Quarterdeck runs through Claude. Give either `cron` (five fields: \
-             minute hour day month weekday) or `event`. Prefer an event when one fits: events cost \
-             nothing until they happen. Runs can only read unless `allowed_tools` lists Claude Code \
-             tools they may use, e.g. [\"Bash(gh pr comment:*)\"]. Returns the schedule's id.";
+const CREATE_SCHEDULE: &str = "Creates a recurring job Quarterdeck runs through Claude. `triggers` says when: any of \
+             {\"type\": \"cron\", \"expr\": \"30 8 * * 1-5\"} (minute hour day month weekday) or \
+             {\"type\": \"event\", \"on\": \"item.turn\", \"when\": {\"to\": \"agent\"}, \"cooldown\": 30} \
+             (see list_event_kinds; `when` filters on the event's fields, `*` is a wildcard; \
+             `cooldown` is minutes between runs on the same subject). Prefer an event when one fits: \
+             events cost nothing until they happen. Runs can only read unless `allowed_tools` lists \
+             Claude Code tools they may use, e.g. [\"Bash(gh pr comment:*)\"]. Returns the schedule's id.";
 const UPDATE_SCHEDULE: &str = "Changes a schedule. Only the fields you pass change.";
 const SET_SCHEDULE_ENABLED: &str = "Turns one schedule on or off.";
 const RUN_SCHEDULE: &str = "Runs a schedule now (within 30 seconds), even if it's paused.";
@@ -47,20 +51,6 @@ async fn list(ctx: Ctx, _: NoArgs) -> AppResult<AgentView> {
     agent::build(&ctx.db, loaded, paused, &limits).await
 }
 
-fn trigger(cron: Option<String>, event: Option<EventKind>) -> AppResult<Option<Trigger>> {
-    match (cron, event) {
-        (Some(_), Some(_)) => Err(AppError::BadInput(
-            "give cron or event, not both".to_owned(),
-        )),
-        (Some(expr), None) => {
-            explain(&expr, Local::now(), 1)?;
-            Ok(Some(Trigger::Cron { expr }))
-        }
-        (None, Some(kind)) => Ok(Some(Trigger::Event { kind })),
-        (None, None) => Ok(None),
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 struct CreateArgs {
     name: String,
@@ -68,13 +58,9 @@ struct CreateArgs {
     area: String,
     /// What Claude should do each time, written to Claude.
     instructions: String,
-    /// e.g. "30 8 * * 1-5" for weekdays at 08:30.
-    cron: Option<String>,
-    event: Option<EventKind>,
-    /// What it runs against. Defaults to nothing.
-    scope: Option<Scope>,
-    /// "ask" (check with the user before changing anything) or "act". Defaults to ask.
-    autonomy: Option<Autonomy>,
+    /// When it runs; any one of them starts it. Empty means only when run by hand.
+    #[serde(default)]
+    triggers: Vec<Trigger>,
     #[serde(default)]
     allowed_tools: Vec<String>,
     /// The user's own words, if they asked for it.
@@ -92,20 +78,17 @@ fn create(ctx: &Ctx, args: CreateArgs) -> AppResult<String> {
         let id = peers::client::call(peer, "create_schedule", &serde_json::to_value(&args)?)?;
         return Ok(id.as_str().unwrap_or_default().to_owned());
     }
-    let trigger = trigger(args.cron, args.event)?
-        .ok_or_else(|| AppError::BadInput("give cron or event".to_owned()))?;
     let schedule = Schedule {
         id: schedules::free_id(&ctx.config, &schedules::slug(&args.name)),
         name: args.name,
         prompt: args.instructions,
-        trigger,
+        triggers: args.triggers.into_iter().map(Trigger::normalised).collect(),
         area: ctx.area(&args.area)?,
-        scope: args.scope.unwrap_or(Scope::Nothing),
-        autonomy: args.autonomy.unwrap_or(Autonomy::Ask),
         enabled: true,
         request: args.request,
         allowed_tools: args.allowed_tools,
     };
+    schedules::check(&schedule)?;
     schedules::save(&ctx.config, &schedule)?;
     Ok(schedule.id)
 }
@@ -116,17 +99,18 @@ struct UpdateArgs {
     name: Option<String>,
     area: Option<String>,
     instructions: Option<String>,
-    cron: Option<String>,
-    event: Option<EventKind>,
-    scope: Option<Scope>,
-    autonomy: Option<Autonomy>,
+    /// Replaces every trigger.
+    triggers: Option<Vec<Trigger>>,
     allowed_tools: Option<Vec<String>>,
 }
 
 fn update(ctx: &Ctx, args: UpdateArgs) -> AppResult<()> {
     let old = schedules::find(&ctx.config, &args.id)?;
     let schedule = Schedule {
-        trigger: trigger(args.cron, args.event)?.unwrap_or(old.trigger),
+        triggers: args
+            .triggers
+            .map(|t| t.into_iter().map(Trigger::normalised).collect())
+            .unwrap_or(old.triggers),
         area: args
             .area
             .as_deref()
@@ -135,11 +119,10 @@ fn update(ctx: &Ctx, args: UpdateArgs) -> AppResult<()> {
             .unwrap_or(old.area),
         name: args.name.unwrap_or(old.name),
         prompt: args.instructions.unwrap_or(old.prompt),
-        scope: args.scope.unwrap_or(old.scope),
-        autonomy: args.autonomy.unwrap_or(old.autonomy),
         allowed_tools: args.allowed_tools.unwrap_or(old.allowed_tools),
         ..old
     };
+    schedules::check(&schedule)?;
     schedules::save(&ctx.config, &schedule)
 }
 

@@ -65,6 +65,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         schedules::save_schedule,
         schedules::delete_schedule,
         schedules::explain_cron,
+        schedules::event_kinds,
         schedules::run_schedule_now,
         schedules::pause_all,
         schedules::resume_all,

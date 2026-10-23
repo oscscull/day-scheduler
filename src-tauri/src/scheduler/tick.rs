@@ -1,4 +1,5 @@
-//! One pass of the scheduler: take inbox files, then start or mark missed any due schedules.
+//! One pass of the scheduler: take inbox files, then start or mark missed any due schedules, and
+//! start the schedules new events trigger.
 
 use chrono::{DateTime, Duration, Utc};
 use tauri::{AppHandle, Manager as _};
@@ -8,8 +9,9 @@ use crate::app::App;
 use crate::claude::runner;
 use crate::config::settings::Settings;
 use crate::config::{pause, schedules};
+use crate::domain::fired::Fired;
 use crate::domain::run::{Outcome, Run};
-use crate::domain::schedule::{Schedule, Trigger};
+use crate::domain::schedule::Schedule;
 use crate::domain::urgent::Urgent;
 use crate::error::AppResult;
 use crate::notify;
@@ -62,6 +64,7 @@ pub async fn tick(handle: &AppHandle) -> AppResult<()> {
     // One item's failure mustn't stop the queue and schedules; it's reported after them.
     let kept = super::keeper::check(handle, &settings).await;
     super::queue::advance(handle, &settings).await?;
+    super::events::dispatch(handle, &settings).await?;
     for schedule in schedules::list(&app.config)?.schedules {
         if schedule.enabled && settings.node_for(&schedule.area) == settings.node {
             consider(handle, &settings, &schedule, Window { last, now }).await?;
@@ -76,17 +79,18 @@ async fn consider(
     schedule: &Schedule,
     w: Window,
 ) -> AppResult<()> {
-    let Trigger::Cron { expr } = &schedule.trigger else {
-        return Ok(());
-    };
-    // A schedule with a bad expression is reported on the Agent tab instead.
-    let Ok(p) = plan(expr, w.last, w.now, GRACE) else {
-        return Ok(());
-    };
-    if p.missed.is_some() {
-        record_missed(handle, schedule, settings.node_for(&schedule.area), &p).await?;
+    let mut due = false;
+    for expr in schedule.crons() {
+        // A schedule with a bad expression is reported on the Agent tab instead.
+        let Ok(p) = plan(expr, w.last, w.now, GRACE) else {
+            continue;
+        };
+        if p.missed.is_some() {
+            record_missed(handle, schedule, settings.node_for(&schedule.area), &p).await?;
+        }
+        due |= p.run;
     }
-    if p.run && !is_running(handle, &schedule.id).await? {
+    if due && !is_running(handle, &schedule.id).await? {
         start(handle, schedule.clone(), None);
     }
     Ok(())
@@ -110,11 +114,12 @@ async fn is_running(handle: &AppHandle, id: &str) -> AppResult<bool> {
     Ok(live.iter().any(|r| r.schedule_id.as_deref() == Some(id)))
 }
 
-/// Runs a schedule in the background; the runner records its own outcome.
-pub fn start(handle: &AppHandle, schedule: Schedule, trigger: Option<String>) {
+/// Runs a schedule in the background; the runner records its own outcome. `cause` is the event
+/// that started it, if one did.
+pub fn start(handle: &AppHandle, schedule: Schedule, cause: Option<Fired>) {
     let handle = handle.clone();
     tauri::async_runtime::spawn(async move {
-        drop(runner::run(&handle, &schedule, trigger.as_deref()).await);
+        drop(runner::run(&handle, &schedule, cause.as_ref()).await);
     });
 }
 

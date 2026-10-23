@@ -187,10 +187,36 @@ export interface Run {
   summary: string | null;
 }
 
-export type EventKind = "ci_failed" | "ci_passed" | "pr_new_comments";
-export type Trigger = { type: "cron"; expr: string } | { type: "event"; kind: EventKind };
-export type Autonomy = "ask" | "act";
-export type Scope = "each_pr" | "each_item" | "one" | "nothing";
+/** Starts a schedule when an event happens. `when` filters on its fields; `*` is a wildcard. */
+export interface OnEvent {
+  on: string;
+  when?: Record<string, string>;
+  /** Minutes between runs on the same subject. */
+  cooldown?: number;
+}
+export type Trigger = { type: "cron"; expr: string } | ({ type: "event" } & OnEvent);
+
+/** An event Quarterdeck fires, with the fields a trigger can filter on. */
+export interface EventKindInfo {
+  name: string;
+  about: string;
+  fields: string[];
+}
+
+/** Something that happened, and the schedules it started. */
+export interface FiredEvent {
+  /** Set when it happened on another machine. */
+  node?: string;
+  id: number;
+  kind: string;
+  area: string;
+  subject: string;
+  data: Record<string, string>;
+  about: string;
+  depth: number;
+  at: string;
+  started: string[];
+}
 
 export interface Schedule {
   /** Set when it lives on another machine; edits go back there. */
@@ -198,10 +224,9 @@ export interface Schedule {
   id: string;
   name: string;
   prompt: string;
-  trigger: Trigger;
+  /** Any of these starts it; none means it only runs when run by hand. */
+  triggers: Trigger[];
   area: string;
-  scope: Scope;
-  autonomy: Autonomy;
   enabled: boolean;
   request: string;
   allowedTools: string[];
@@ -256,6 +281,8 @@ export interface AgentView {
   live: LiveRun[];
   turns: AgentTurn[];
   schedules: ScheduleView[];
+  /** Newest first. Older peers send none. */
+  events?: FiredEvent[];
   problems: string[];
   /** Set while every schedule is paused. `until: null` means until resumed. */
   pause: { until: string | null } | null;

@@ -44,7 +44,7 @@
         <span class="body">
           <span class="name-row"><AreaDot area={s.area} /><span class="name">{s.name}</span></span>
           <span class="hint meta">
-            {whenText(s.trigger, s.explanation)} · {findArea(s.area)?.name ?? t("area.unknown")} · {t(s.autonomy === "act" ? "agent.acts" : "agent.asks")}
+            {whenText(s.triggers, s.explanation)} · {findArea(s.area)?.name ?? t("area.unknown")}
           </span>
           <span class="hint meta">{lastText(s)}</span>
           {#if problemText(s)}<span class="problem">{problemText(s)}</span>{/if}

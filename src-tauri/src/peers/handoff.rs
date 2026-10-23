@@ -9,19 +9,15 @@ use super::{areas, client};
 use crate::config::settings::Settings;
 use crate::config::sync::Peer;
 use crate::config::{Config, schedules};
-use crate::domain::schedule::{Schedule, Trigger};
+use crate::domain::schedule::Schedule;
 use crate::error::{AppError, AppResult};
 use crate::store::Db;
 
 /// The `create_schedule` arguments for a schedule.
 fn args(s: &Schedule) -> Value {
-    let (cron, event) = match &s.trigger {
-        Trigger::Cron { expr } => (Some(expr.clone()), None),
-        Trigger::Event { kind } => (None, Some(*kind)),
-    };
     json!({
-        "name": s.name, "area": s.area, "instructions": s.prompt, "cron": cron, "event": event,
-        "scope": s.scope, "autonomy": s.autonomy, "allowed_tools": s.allowed_tools, "request": s.request,
+        "name": s.name, "area": s.area, "instructions": s.prompt, "triggers": s.triggers,
+        "allowed_tools": s.allowed_tools, "request": s.request,
     })
 }
 

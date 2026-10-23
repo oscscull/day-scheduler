@@ -5,11 +5,10 @@
   import { areas, findArea } from "../../lib/areas.svelte";
   import { errorText } from "../../lib/api";
   import { route } from "../../lib/route";
-  import { t, type CopyKey } from "../../lib/copy";
+  import { t } from "../../lib/copy";
   import { dayClock } from "../../lib/time";
-  import type { Run, Schedule, Scope } from "../../lib/types";
-  import AutonomyChoice from "./AutonomyChoice.svelte";
-  import TriggerEditor from "./TriggerEditor.svelte";
+  import type { Run, Schedule } from "../../lib/types";
+  import TriggersEditor from "./TriggersEditor.svelte";
 
   interface Props {
     schedule: Schedule;
@@ -21,8 +20,6 @@
 
   let { schedule, runs, now, onClose, onSaved }: Props = $props();
 
-  const SCOPES: Scope[] = ["each_pr", "each_item", "one", "nothing"];
-
   // Edit a copy; nothing changes on disk until Save.
   let form = $state<Schedule>(structuredClone(untrack(() => $state.snapshot(schedule))));
   let saving = $state(false);
@@ -30,7 +27,6 @@
 
   const isNew = $derived(form.id === "");
   const subtitle = $derived(form.request ? t("schedule.from", { request: form.request }) : t("schedule.byHand"));
-  const scopeKey = (s: Scope): CopyKey => `scope.${s}`;
 
   async function runNow(): Promise<void> {
     try {
@@ -66,25 +62,15 @@
     <textarea class="input" rows="4" bind:value={form.prompt}></textarea>
   </label>
 
-  <TriggerEditor trigger={form.trigger} {now} onChange={(next) => (form.trigger = next)} />
+  <TriggersEditor triggers={form.triggers} {now} onChange={(next) => (form.triggers = next)} />
 
-  <div class="pair">
-    <label class="field">
-      {t("schedule.area")}
-      <select class="input" bind:value={form.area}>
-        {#each areas.list as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
-      </select>
-      {#if findArea(form.area)}<span class="hint small">{t("schedule.runsOn", { node: findArea(form.area)?.node ?? "" })}</span>{/if}
-    </label>
-    <label class="field">
-      {t("schedule.scope")}
-      <select class="input" bind:value={form.scope}>
-        {#each SCOPES as s (s)}<option value={s}>{t(scopeKey(s))}</option>{/each}
-      </select>
-    </label>
-  </div>
-
-  <AutonomyChoice value={form.autonomy} onChange={(v) => (form.autonomy = v)} />
+  <label class="field">
+    {t("schedule.area")}
+    <select class="input" bind:value={form.area}>
+      {#each areas.list as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
+    </select>
+    {#if findArea(form.area)}<span class="hint small">{t("schedule.runsOn", { node: findArea(form.area)?.node ?? "" })}</span>{/if}
+  </label>
 
   {#if runs.length > 0}
     <div>
@@ -125,12 +111,6 @@
 
   .small {
     font-size: 12px;
-  }
-
-  .pair {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
   }
 
   .run {

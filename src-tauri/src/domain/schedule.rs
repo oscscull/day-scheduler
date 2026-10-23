@@ -1,7 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Things app code can detect by itself, with no tokens spent.
+use super::trigger::{OnEvent, Trigger};
+
+/// Things the GitHub connector detects on a PR by itself, with no tokens spent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EventKind {
@@ -10,30 +12,15 @@ pub enum EventKind {
     PrNewComments,
 }
 
-/// When a schedule fires.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum Trigger {
-    Cron { expr: String },
-    Event { kind: EventKind },
-}
-
-/// What a schedule may do when it wants to change something.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Autonomy {
-    Ask,
-    Act,
-}
-
-/// What a schedule runs against.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Scope {
-    EachPr,
-    EachItem,
-    One,
-    Nothing,
+impl EventKind {
+    /// The event's name in the catalogue, e.g. `github.ci_failed`.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::CiFailed => "github.ci_failed",
+            Self::CiPassed => "github.ci_passed",
+            Self::PrNewComments => "github.pr_new_comments",
+        }
+    }
 }
 
 /// A recurring job for Claude.
@@ -43,11 +30,10 @@ pub struct Schedule {
     pub id: String,
     pub name: String,
     pub prompt: String,
-    pub trigger: Trigger,
+    /// Any of these starts it.
+    pub triggers: Vec<Trigger>,
     /// Which area this belongs to; the area decides the machine it runs on.
     pub area: String,
-    pub scope: Scope,
-    pub autonomy: Autonomy,
     pub enabled: bool,
     /// The plain-English request this schedule was made from, if any.
     pub request: String,
@@ -55,4 +41,22 @@ pub struct Schedule {
     /// Empty means it can only read and report back.
     #[serde(default)]
     pub allowed_tools: Vec<String>,
+}
+
+impl Schedule {
+    /// The cron expressions among its triggers.
+    pub fn crons(&self) -> impl Iterator<Item = &str> {
+        self.triggers.iter().filter_map(|t| match t {
+            Trigger::Cron { expr } => Some(expr.as_str()),
+            Trigger::Event(_) => None,
+        })
+    }
+
+    /// The event triggers among its triggers.
+    pub fn on_events(&self) -> impl Iterator<Item = &OnEvent> {
+        self.triggers.iter().filter_map(|t| match t {
+            Trigger::Event(e) => Some(e),
+            Trigger::Cron { .. } => None,
+        })
+    }
 }

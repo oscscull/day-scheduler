@@ -6,6 +6,7 @@
 
 mod asks;
 mod commitments;
+mod events;
 mod items;
 mod overview;
 mod projects;
@@ -36,6 +37,7 @@ pub fn all() -> Vec<Tool> {
         urgent::tools(),
         updates::tools(),
         schedules::tools(),
+        events::tools(),
         runs::tools(),
         settings::tools(),
         setting::tools(),

@@ -32,16 +32,12 @@ async fn record(handle: &AppHandle, name: &str, error: Option<&str>) {
     drop(status::record(&state.db, name, error).await);
 }
 
-/// Syncs GitHub in the background, starts any event schedules it fired, and tells the screen.
+/// Syncs GitHub in the background and tells the screen. Its events start schedules next tick.
 pub(super) fn spawn_github(handle: &AppHandle) {
     let handle = handle.clone();
     tauri::async_runtime::spawn(async move {
-        let result = github::sync(&handle).await;
-        let error = result.as_ref().err().map(ToString::to_string);
+        let error = github::sync(&handle).await.err().map(|e| e.to_string());
         record(&handle, github::SOURCE, error.as_deref()).await;
-        if let Ok(fired) = result {
-            drop(super::events::start_for(&handle, &fired).await);
-        }
         // The screen also reloads on its own timer, so a missed event only delays it.
         drop(handle.emit(SYNCED, ()));
     });

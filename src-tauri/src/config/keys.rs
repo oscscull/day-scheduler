@@ -22,6 +22,9 @@ pub enum SettingKey {
     /// Days finished runs are kept (number).
     #[serde(rename = "run_ttl_days")]
     RunTtlDays,
+    /// Days events (what fired, what it started) are kept (number).
+    #[serde(rename = "event_ttl_days")]
+    EventTtlDays,
     /// Days done to-dos are kept (number).
     #[serde(rename = "done_todo_ttl_days")]
     DoneTodoTtlDays,
@@ -89,6 +92,7 @@ impl SettingKey {
             Self::NudgeAfterHours => "nudge_after_hours",
             Self::ActivityTtlDays => "activity_ttl_days",
             Self::RunTtlDays => "run_ttl_days",
+            Self::EventTtlDays => "event_ttl_days",
             Self::DoneTodoTtlDays => "done_todo_ttl_days",
             Self::DoneItemTtlDays => "done_item_ttl_days",
             Self::LaunchAtLogin => "launch_at_login",

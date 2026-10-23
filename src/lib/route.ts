@@ -45,16 +45,13 @@ export const route = {
       : api.addCommitment(c),
   saveSchedule: (node: string | undefined, s: Schedule): Promise<unknown> => {
     if (!node || !s.id) return api.saveSchedule(s);
-    const timing = s.trigger.type === "cron" ? { cron: s.trigger.expr } : { event: s.trigger.kind };
     return peer(node, "update_schedule", {
       id: s.id,
       name: s.name,
       area: s.area,
       instructions: s.prompt,
-      scope: s.scope,
-      autonomy: s.autonomy,
       allowed_tools: s.allowedTools,
-      ...timing,
+      triggers: s.triggers,
     });
   },
   moveItem: (node: string, id: string, position: number) => peer(node, "move_item", { id, position }),

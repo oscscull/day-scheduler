@@ -4,6 +4,7 @@ use tauri::{AppHandle, Manager as _, State};
 use crate::app::App;
 use crate::config::{pause, schedules};
 use crate::cron::explain::{Explanation, explain};
+use crate::domain::fired::{KINDS, Kind};
 use crate::domain::schedule::Schedule;
 use crate::error::{AppError, AppResult};
 use crate::peers;
@@ -29,6 +30,7 @@ pub async fn delete_schedule(app: State<'_, App>, id: String) -> AppResult<()> {
 /// Writes a schedule file. An empty id creates a new one.
 #[tauri::command]
 pub async fn save_schedule(app: State<'_, App>, mut schedule: Schedule) -> AppResult<String> {
+    schedules::check(&schedule)?;
     if schedule.id.is_empty() {
         if let Some(id) =
             peers::handoff::create_elsewhere_async(app.settings()?, schedule.clone()).await?
@@ -39,6 +41,12 @@ pub async fn save_schedule(app: State<'_, App>, mut schedule: Schedule) -> AppRe
     }
     schedules::save(&app.config, &schedule)?;
     Ok(schedule.id)
+}
+
+/// Events a trigger can wait for, for the trigger editor.
+#[tauri::command]
+pub fn event_kinds() -> Vec<Kind> {
+    KINDS.to_vec()
 }
 
 /// Live explanation while the user edits a cron expression.

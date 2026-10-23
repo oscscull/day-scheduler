@@ -14,6 +14,7 @@ pub mod asks;
 pub mod commitments;
 pub mod events;
 pub mod expire;
+pub mod fired;
 pub mod items;
 pub mod legacy;
 pub mod meta;

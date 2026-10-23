@@ -129,6 +129,7 @@ async fn ask(how: &How, job: &Job) -> String {
         cwd: s.cwd.as_deref(),
         permission_mode: job.workspace.as_ref().map(|_| how.mode.as_str()),
         run: Some(how.run),
+        depth: 0,
     };
     match claude::ask_with(command, &prompt, &opts).await {
         Ok(text) => first_line(&text),

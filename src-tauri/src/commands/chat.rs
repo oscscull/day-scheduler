@@ -35,7 +35,16 @@ pub async fn draft_schedule(app: State<'_, App>, request: String) -> AppResult<S
         .map(|a| format!("{} ({})", a.id, a.name))
         .collect::<Vec<_>>()
         .join(", ");
-    let vars = [("areas", areas.as_str()), ("description", request.as_str())];
+    let events = crate::domain::fired::KINDS
+        .iter()
+        .map(|k| format!("- {}: {} Fields: {}.", k.name, k.about, k.fields.join(", ")))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let vars = [
+        ("areas", areas.as_str()),
+        ("events", events.as_str()),
+        ("description", request.as_str()),
+    ];
     let prompt = render(&app.config, Prompt::DraftSchedule, &vars)?;
     let reply = claude::ask(settings.claude()?, &prompt).await?;
     let mut schedule = draft::parse(&reply, &request)?;
